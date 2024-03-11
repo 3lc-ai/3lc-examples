@@ -1,7 +1,0 @@
-path: datasets/simple
-train: images.txt
-val: images.txt
-names:
-  1: A
-  2: B
-  3: C

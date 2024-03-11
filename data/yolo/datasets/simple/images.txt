@@ -1,4 +1,0 @@
-./images/train/image_1.png
-./images/train/image_2.png
-./images/train/image_3.png
-./images/train/image_4.png

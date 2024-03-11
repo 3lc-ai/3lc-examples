@@ -1,7 +1,0 @@
-path: datasets/simple
-train: images/train
-val: images/train
-names:
-  1: A
-  2: B
-  3: C
