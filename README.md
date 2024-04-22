@@ -1,4 +1,4 @@
-# TLC Python Package Example Notebooks
+# `tlc` Python Package Example Notebooks
 
 Welcome to our collection of example notebooks for the `tlc` Python package! This repository contains various Jupyter
 notebooks that demonstrate how to use the `tlc` Python package across different scenarios and use cases.
@@ -12,7 +12,7 @@ purposes.
 
 You will need the following tools installed on your system:
 
-+ A suitable version of Python (See [documentation](https://docs.3lc.ai/3lc/2.2/quickstart/quickstart.html#requirements) for supported versions)
++ A suitable version of Python (See [documentation](https://docs.3lc.ai/3lc/latest/quickstart/quickstart.html#requirements) for supported versions)
 + Access to the `tlc` Python package
 
 ### Installation
@@ -42,6 +42,7 @@ Here's a brief overview of the example notebooks included in this repository:
 + [CIFAR-10](./pytorch-cifar10.ipynb): Train a model on the CIFAR10 dataset and collect classification metrics.
 + [Hugging Face IMDB Reviews](./huggingface-imdb.ipynb): Use our Hugging Face `Trainer` integration to train a language
   model on the IMDB Reviews dataset.
++ [Hugging Face Fine-tuning with BERT](./huggingface-finetuning.ipynb): Use our Hugging Face `Trainer` integration to train BERT model on the glue/mrpc dataset.
 + [Hugging Face CIFAR-100](./huggingface-cifar100.ipynb): Loads the CIFAR-100 dataset from Hugging Face dataset
   and computes dimensionality reduced 2D image embeddings.
 + [Detectron2 Balloons](./detectron2-balloons.ipynb): Trains an object detection model and gathers bounding box metrics
