@@ -95,6 +95,6 @@ We use two versions of the Balloons dataset:
 **Author**: Hongwei Cao
 **Publisher**: Kaggle
 **Year**: 2020
-**URL**: [Kaggle Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmal)
+**URL**: [Kaggle Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmall)
 
 We also use the first 128 images from the [COCO](https://cocodataset.org/#home) dataset.
