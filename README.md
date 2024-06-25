@@ -97,4 +97,11 @@ We use two versions of the Balloons dataset:
 **Year**: 2020
 **URL**: [Kaggle Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmall)
 
+**Title**: Recognizing realistic actions from videos "in the wild"
+**Author**: J. Liu, J. Luo and M. Shah
+**Publisher**: CVPR
+**Year**: 2009
+**URL**: [Website](https://www.crcv.ucf.edu/data/UCF_YouTube_Action.php)
+**Note**: Visited on 2024-06-25
+
 We also use the first 128 images from the [COCO](https://cocodataset.org/#home) dataset.
