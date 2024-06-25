@@ -91,4 +91,10 @@ We use two versions of the Balloons dataset:
 **URL**: [Releases](https://github.com/matterport/Mask_RCNN/releases)  
 **Repository**: [GitHub repository](https://github.com/matterport/Mask_RCNN)
 
+**Title**: cat-and-dog-small
+**Author**: Hongwei Cao
+**Publisher**: Kaggle
+**Year**: 2020
+**URL**: [Kaggle Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmal)
+
 We also use the first 128 images from the [COCO](https://cocodataset.org/#home) dataset.
