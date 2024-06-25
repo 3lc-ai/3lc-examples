@@ -4,10 +4,8 @@ This folder contains simple tutorials showcasing basic features of the `3lc` Pyt
 
 ## Overview
 
-+ [Tutorial 1](create_sam_dataset.ipynb)
-+ [Tutorial 2](fine-tune-sam.ipynb)
-+ [Tutorial 3](write-augmented-samples.ipynb)
-+ [Tutorial 4](write-bb-table.ipynb)
-+ [Tutorial 5](write-image-classification-table.ipynb)
-+ [Tutorial 6](write-mammoth-table.ipynb)
-+ [Tutorial 6](flatten-mammoth.ipynb)
++ [Tutorial 1](write-augmented-samples.ipynb)
++ [Tutorial 2](write-bb-table.ipynb) Write a table consisting of images and random bounding boxes.
++ [Tutorial 3](write-image-classification-table.ipynb) Write a table consisting of images and labels.
++ [Finetune Segment-Anything-Model (SAM)](sam)
++ [Mammoth Dataset](mammoth)
