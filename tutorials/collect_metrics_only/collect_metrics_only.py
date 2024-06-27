@@ -71,5 +71,7 @@ def main():
         dataloader_args=dataloader_args
     )
 
+    tlc.close()
+
 if __name__ == "__main__":
     main()
