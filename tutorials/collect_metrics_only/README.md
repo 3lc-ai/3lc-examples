@@ -16,4 +16,4 @@ Then invoke the script which performs metrics collection on the training and val
 python collect_metrics_only.py
 ```
 
-A 3LC `Table` is created for each split along with a `Run`, for which per-sample metrics are collected.
+A 3LC `tlc.Table` is created for each split along with a `tlc.Run`, for which per-sample metrics are collected.
