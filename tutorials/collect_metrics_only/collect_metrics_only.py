@@ -33,8 +33,20 @@ def main():
 
     structure = (tlc.PILImage("Image"), tlc.CategoricalLabel("Label", classes=train_dataset.classes))
 
-    train_table = tlc.Table.from_torch_dataset(train_dataset, structure=structure, project_name="Metrics Collection Only", dataset_name="CIFAR-10-train", table_name="original")
-    eval_table = tlc.Table.from_torch_dataset(eval_dataset, structure=structure, project_name="Metrics Collection Only", dataset_name="CIFAR-10-eval", table_name="original")
+    train_table = tlc.Table.from_torch_dataset(
+        train_dataset,
+        structure=structure,
+        project_name="Metrics Collection Only",
+        dataset_name="CIFAR-10-train",
+        table_name="original"
+    )
+    eval_table = tlc.Table.from_torch_dataset(
+        eval_dataset,
+        structure=structure,
+        project_name="Metrics Collection Only",
+        dataset_name="CIFAR-10-eval",
+        table_name="original"
+    )
 
     # Apply the transforms to the tables
     train_table = train_table.map(transform)
@@ -44,8 +56,20 @@ def main():
     tlc.init(project_name=train_table.project_name, description="Only collect metrics with trained model on CIFAR-10")
 
     dataloader_args = {"batch_size": 128, "num_workers": 4, "persistent_workers": True, "pin_memory": True}
-    tlc.collect_metrics(table=train_table, predictor=model, metrics_collectors=[tlc.ClassificationMetricsCollector(classes=train_dataset.classes)], dataloader_args=dataloader_args)
-    tlc.collect_metrics(table=eval_table, predictor=model, metrics_collectors=[tlc.ClassificationMetricsCollector(classes=train_dataset.classes)], dataloader_args=dataloader_args)
+
+    tlc.collect_metrics(
+        table=train_table,
+        predictor=model,
+        metrics_collectors=tlc.ClassificationMetricsCollector(classes=train_dataset.classes),
+        dataloader_args=dataloader_args
+    )
+
+    tlc.collect_metrics(
+        table=eval_table,
+        predictor=model,
+        metrics_collectors=tlc.ClassificationMetricsCollector(classes=train_dataset.classes),
+        dataloader_args=dataloader_args
+    )
 
 if __name__ == "__main__":
     main()
