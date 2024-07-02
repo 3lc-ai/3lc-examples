@@ -1,6 +1,6 @@
 # Segment-Anything-Model (SAM) Tutorial
 
-This tutorial demonstrates how to finetune the Segment-Anything-Model (SAM) on a custom dataset.
+This tutorial demonstrates how to fine-tune the Segment-Anything-Model (SAM) on a custom dataset.
 
-+ [Tutorial 1](create-sam-dataset.ipynb)
-+ [Tutorial 2](fine-tune-sam.ipynb)
++ [Register the Stamp Verification Dataset](create-sam-dataset.ipynb)
++ [Fine-tune SAM](fine-tune-sam.ipynb)
