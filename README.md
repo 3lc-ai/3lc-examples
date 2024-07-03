@@ -21,10 +21,10 @@ Clone this repository to your local machine:
 
 ```bash
 # Copy code
-git clone https://github.com/3lc-ai/notebook-examples.git
+git clone https://github.com/3lc-ai/3lc-examples.git
 
 # Navigate to the cloned directory:
-cd notebook-examples
+cd 3lc-examples
 
 # Activate your Python environment (if applicable)
 
