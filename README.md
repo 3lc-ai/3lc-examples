@@ -1,7 +1,9 @@
 # `tlc` Python Package Example Notebooks
 
-Welcome to our collection of example notebooks for the `tlc` Python package! This repository contains various Jupyter
-notebooks that demonstrate how to use the `tlc` Python package across different scenarios and use cases.
+Welcome to our collection of example notebooks and tutorials for the `tlc`
+Python package! This repository contains various Jupyter notebooks and Python
+scripts that demonstrate how to use the `tlc` Python package across different
+scenarios and use cases.
 
 ## Getting Started
 
@@ -34,17 +36,30 @@ jupyter notebook
 #From the Jupyter interface, open any notebook from the list to get started.
 ```
 
-### Data
-
-All required data for running the notebooks is either contained in the `./data` folder, or is downloaded from the internet during the notebook execution.
-
 ## Contributing
 
-We welcome contributions to this repository! If you have a suggestion for an additional example or improvement, please open an issue or create a pull request.
+We welcome contributions to this repository! If you have a suggestion for an
+additional example or improvement, please open an issue or create a pull
+request.
+
+Any contributions should be made in the `tutorials` and `data` folders only,
+other files and folders are maintained by the 3LC team.
+
+### Data
+
+All required data for running the notebooks is either contained in the `./data`
+folder, or is downloaded from the internet during the notebook execution.
+
+When contributing new notebooks/scripts, it is preferable to have the notebook
+download any required data from the internet, rather than including them in the
+repository. If however, this is not possible, small contributions of data files
+are accepted in the `./data` folder, but please do not include large files or
+datasets. Ensure also that the data files are not restricted by any licensing
+agreements.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
 
 ## Acknowledgments
 
