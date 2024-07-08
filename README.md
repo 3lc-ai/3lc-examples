@@ -7,14 +7,16 @@ scenarios and use cases.
 
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing
-purposes.
+These instructions will get you a copy of the project up and running on your
+local machine for development and testing purposes.
 
 ### Prerequisites
 
 You will need the following tools installed on your system:
 
-+ A suitable version of Python (See [documentation](https://docs.3lc.ai/3lc/latest/quickstart/quickstart.html#requirements) for supported versions)
++ A suitable version of Python (See
+  [documentation](https://docs.3lc.ai/3lc/latest/quickstart/quickstart.html#requirements)
+  for supported versions)
 + Access to the `tlc` Python package
 
 ### Installation
@@ -59,7 +61,8 @@ agreements.
 
 ## License
 
-This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
+This project is licensed under the Apache 2.0 License - see the LICENSE file for
+details.
 
 ## Acknowledgments
 
@@ -69,10 +72,12 @@ We use two versions of the Balloons dataset:
 **Author**: Paul Guerrie  
 **Publisher**: Roboflow  
 **Year**: 2024  
-**URL**: [Balloons Dataset on Roboflow Universe](https://universe.roboflow.com/paul-guerrie-tang1/balloons-geknh)  
+**URL**: [Balloons Dataset on Roboflow
+Universe](https://universe.roboflow.com/paul-guerrie-tang1/balloons-geknh)  
 **Note**: Visited on 2024-03-15
 
-**Title**: Mask R-CNN for object detection and instance segmentation on Keras and TensorFlow  
+**Title**: Mask R-CNN for object detection and instance segmentation on Keras
+and TensorFlow  
 **Author**: Waleed Abdulla  
 **Year**: 2017  
 **Publisher**: Github  
@@ -83,13 +88,13 @@ We use two versions of the Balloons dataset:
 **Author**: Hongwei Cao  
 **Publisher**: Kaggle  
 **Year**: 2020  
-**URL**: [Kaggle Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmall)  
+**URL**: [Kaggle
+Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmall)  
 
-**Title**: Recognizing realistic actions from videos "in the wild"
-**Author**: J. Liu, J. Luo and M. Shah
-**Publisher**: CVPR
-**Year**: 2009
-**URL**: [Website](https://www.crcv.ucf.edu/data/UCF_YouTube_Action.php)
-**Note**: Visited on 2024-06-25
+**Title**: Recognizing realistic actions from videos "in the wild" **Author**:
+J. Liu, J. Luo and M. Shah **Publisher**: CVPR **Year**: 2009 **URL**:
+[Website](https://www.crcv.ucf.edu/data/UCF_YouTube_Action.php) **Note**:
+Visited on 2024-06-25
 
-We also use the first 128 images from the [COCO](https://cocodataset.org/#home) dataset.
+We also use the first 128 images from the [COCO](https://cocodataset.org/#home)
+dataset.
