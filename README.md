@@ -88,8 +88,7 @@ and TensorFlow
 **Author**: Hongwei Cao  
 **Publisher**: Kaggle  
 **Year**: 2020  
-**URL**: [Kaggle
-Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmall)  
+**URL**: [Kaggle Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmall)
 
 **Title**: Recognizing realistic actions from videos "in the wild"
 **Author**: J. Liu, J. Luo and M. Shah
