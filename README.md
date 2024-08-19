@@ -88,13 +88,20 @@ and TensorFlow
 **Author**: Hongwei Cao  
 **Publisher**: Kaggle  
 **Year**: 2020  
-**URL**: [Kaggle
-Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmall)  
+**URL**: [Kaggle Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmall)
 
-**Title**: Recognizing realistic actions from videos "in the wild" **Author**:
-J. Liu, J. Luo and M. Shah **Publisher**: CVPR **Year**: 2009 **URL**:
-[Website](https://www.crcv.ucf.edu/data/UCF_YouTube_Action.php) **Note**:
-Visited on 2024-06-25
+**Title**: Recognizing realistic actions from videos "in the wild"
+**Author**: J. Liu, J. Luo and M. Shah
+**Publisher**: CVPR
+**Year**: 2009
+**URL**: [Website](https://www.crcv.ucf.edu/data/UCF_YouTube_Action.php)
+**Note**: Visited on 2024-06-25
+
+**Title**: ADE20K Dataset
+**Author**: Bolei Zhou, Hang Zhao, Xavier Puig, Sanja Fidler, Adela Barriuso and Antonio Torralba
+**Publisher**: MIT
+**Year**: 2017
+**URL**: [ADE20K Dataset](https://groups.csail.mit.edu/vision/datasets/ADE20K/index.html)
 
 We also use the first 128 images from the [COCO](https://cocodataset.org/#home)
 dataset.
