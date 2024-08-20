@@ -66,7 +66,8 @@ details.
 
 ## Acknowledgments
 
-We use two versions of the Balloons dataset:
+We would like to thank the authors and publishers of the datasets used in these
+notebooks. The datasets are listed below:
 
 **Title**: Balloons Dataset  
 **Author**: Paul Guerrie  
@@ -102,6 +103,12 @@ and TensorFlow
 **Publisher**: MIT
 **Year**: 2017
 **URL**: [ADE20K Dataset](https://groups.csail.mit.edu/vision/datasets/ADE20K/index.html)
+
+**Title**: LIACi semantic segmentation dataset for underwater ship inspections
+**Author**: Maryna Waszak, Alexandre Cardaillac, Brian Elvesæter, Frode Rødølen, and Martin Ludvigsen
+**Publisher**: SINTEF
+**Year**: 2023
+**URL**: [Website](https://data.sintef.no/product/details/dp-9e112cec-3a59-4b58-86b3-ecb1f2878c60)
 
 We also use the first 128 images from the [COCO](https://cocodataset.org/#home)
 dataset.
