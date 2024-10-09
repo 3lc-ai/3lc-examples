@@ -1,3 +1,3 @@
-*/.venv*/
+*.venv*/
 .env
 transient_data
