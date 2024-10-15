@@ -1,12 +1,11 @@
 from pathlib import Path
+from typing import Any
 import papermill as pm
 import pytest
 
 
-def get_ordered_notebook_paths() -> list[pytest.param]:
-    """
-    Get an ordered list of paths for notebook files,
-    """
+def get_ordered_notebook_paths() -> list[Any]:
+    """Get an ordered list of paths for notebook files"""
 
     notebooks_folder = Path("tutorials")
     ordered_notebooks: list[Path] = []
@@ -34,6 +33,7 @@ def get_ordered_notebook_paths() -> list[pytest.param]:
 def test_notebook_execution(notebook_path: Path, tmp_path: Path) -> None:
     output_path = tmp_path / f"executed_{notebook_path.name}"
     try:
+        print(f"Executing notebook {notebook_path}\nOutput will be saved to {output_path}")
         pm.execute_notebook(
             input_path=str(notebook_path),
             output_path=str(output_path),
