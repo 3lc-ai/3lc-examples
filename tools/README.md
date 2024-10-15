@@ -10,3 +10,11 @@ Export table to Coco/Yolo
 
 Create table from Coco/Yolo
 
+
+
+## Planning
+
++ Each py file in tools contains one "main" exportable function that is the entry point for the tool
++ A tool does exactly one thing (but is highly configurable)
++ Can be invoked as a script with arguments
++ Or can be imported and used as a function (same arguments if possible)
