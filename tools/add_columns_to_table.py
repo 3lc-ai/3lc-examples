@@ -54,6 +54,8 @@ def add_columns_to_table(
     for column_name, column_values in columns.items():
         data[column_name] = column_values
 
+    assert set(len(data[column_name]) for column_name in data) == 1, "All columns must have the same length"
+
     table_writer.add_batch(data)
     new_table = table_writer.finalize()
     return new_table
