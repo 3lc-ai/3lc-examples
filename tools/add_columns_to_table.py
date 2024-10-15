@@ -1,8 +1,12 @@
-from collections import defaultdict
-import tlc
+"""Add columns to a table in a project."""
+
+from __future__ import annotations
 
 import typing
+from collections import defaultdict
 from typing import Callable
+
+import tlc
 from common import check_package_version
 
 _SampleTypeStructure = typing.Union[
@@ -64,7 +68,7 @@ def add_columns_to_table(
 if __name__ == "__main__":
     table = tlc.Table.from_dict({"col": [1, 2, 3]}, project_name="add_columns", table_name="initial", if_exists="reuse")
     columns = {"new_col": [[4], [5], [6]]}
-    schemas = {}
+    schemas: dict[str, tlc.Schema] = {}
 
     new_table = add_columns_to_table(table, columns, schemas)
     assert True

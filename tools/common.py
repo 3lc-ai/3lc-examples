@@ -1,28 +1,28 @@
-# Common utilities for the tools
+"""Common utilities for the tools."""
 
 import subprocess
 import sys
+
 from packaging import version
 
 
-def check_tlc_package_version():
-    """
-    Check the installed version of the tlc package.
+def check_tlc_package_version() -> str:
+    """Check the installed version of the tlc package.
 
     Returns:
         str: Version of the tlc package if installed, otherwise a message indicating it's not installed.
+
     """
     try:
         import tlc
-
-        return f"tlc version: {tlc.__version__}"
     except ImportError:
         return "tlc package is not installed."
+    else:
+        return f"tlc version: {tlc.__version__}"
 
 
-def check_package_version(package_name, required_version):
-    """
-    Check if the installed version of a package meets the required version.
+def check_package_version(package_name: str, required_version: str) -> str:
+    """Check if the installed version of a package meets the required version.
 
     Args:
         package_name (str): The name of the package to check.
@@ -30,6 +30,7 @@ def check_package_version(package_name, required_version):
 
     Returns:
         str: A message indicating whether the installed version is sufficient or not.
+
     """
     try:
         package = __import__(package_name)
@@ -42,36 +43,35 @@ def check_package_version(package_name, required_version):
         return f"{package_name} package is not installed."
 
 
-def install_package(package_name):
-    """
-    Install a package using pip.
+def install_package(package_name: str):
+    """Install a package using pip.
 
     Args:
         package_name (str): The name of the package to install.
+
     """
     subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
 
 
-def run_command(command):
-    """
-    Run a command in the system shell and return the output.
+def run_command(command) -> str:
+    """Run a command in the system shell and return the output.
 
     Args:
         command (str): The command to run.
 
     Returns:
         str: The output from the command.
+
     """
     try:
-        result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(command, shell=True, check=True, capture_output=True)
         return result.stdout.decode().strip()
     except subprocess.CalledProcessError as e:
         return f"Error running command: {e.stderr.decode().strip()}"
 
 
 def check_python_version():
-    """
-    Check the version of Python currently running.
+    """Check the version of Python currently running.
 
     Returns:
         str: Python version.
@@ -79,21 +79,22 @@ def check_python_version():
     return sys.version
 
 
-def is_package_installed(package_name):
-    """
-    Check if a specific package is installed.
+def is_package_installed(package_name: str) -> bool:
+    """Check if a specific package is installed.
 
     Args:
         package_name (str): The name of the package to check.
 
     Returns:
         bool: True if the package is installed, False otherwise.
+
     """
     try:
         __import__(package_name)
-        return True
     except ImportError:
         return False
+    else:
+        return True
 
 
 if __name__ == "__main__":

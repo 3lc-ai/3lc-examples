@@ -144,7 +144,7 @@ def translate_edits(original_table: tlc.Table, edits: list[tuple[int, int, int]]
     runs_and_values = []
 
     # Group edits by row_idx
-    edits_by_row = {}
+    edits_by_row: dict[int, list[tuple[int, int]]] = {}
     for row_idx, bb_idx, new_label in edits:
         if row_idx not in edits_by_row:
             edits_by_row[row_idx] = []

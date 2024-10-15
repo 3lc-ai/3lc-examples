@@ -1,7 +1,37 @@
-[tool.black]
-
-line-length = 120
+[tool.poetry]
+name = "tools"
+version = "0.1.0"
+description = ""
+authors = ["3LC <hello@3lc.ai>"]
+readme = "README.md"
 
 [tool.ruff]
-
 line-length = 120
+indent-width = 4
+target-version = "py38"
+
+[tool.ruff.lint]
+extend-select = ["ALL"]
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.13"
+3lc = "^2.9.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.6.9"
+pytest = "^8.3.3"
+mypy = "^1.12.0"
+papermill = "^2.6.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
