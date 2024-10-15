@@ -2,41 +2,47 @@ from __future__ import annotations
 
 import argparse
 import numpy as np
+from tqdm import tqdm
 import yaml
 from pathlib import Path
 
-from tlc.core.objects import Table
-from tlc.core.url import Url
-from tqdm.auto import tqdm
+import tlc
 
 
-def export_labels(table: Table,
-                  output_url: Url | str,
-                  overwrite: bool = False) -> None:
+def export_yolo_labels(
+    table: tlc.Table | str | Path | tlc.Url,
+    output_url: tlc.Url | Path | str,
+    overwrite: bool = False,
+) -> None:
     """Export a the bounding boxes originating from TableFromYolo to YOLO formatted labels in output_url.
 
     :param table: The table to export bounding boxes from.
     :param output_url: The url to write the bounding box data to.
     :param overwrite: Whether to overwrite files at the output_url.
     """
-    output_url = Url(output_url)
+
+    if isinstance(table, (str, Path, tlc.Url)):
+        table = tlc.Table.from_url(table)
+
+    output_url = tlc.Url(output_url)
 
     output_path = Path(output_url.to_str())
+    assert output_path.suffix == "", f"output_url must be a directory, got {output_url}"
+    output_path.mkdir(parents=True, exist_ok=overwrite)
 
     # Check that the output_url is a directory
     if not output_path.is_dir():
         raise ValueError(f"output_url must be a directory, got {output_url}")
 
     if output_path.exists() and not overwrite:
-        raise ValueError(
-            "output_url already exists, use --overwrite to overwrite")
+        raise ValueError("output_url already exists, use --overwrite to overwrite")
 
     label_path = None
 
     # Iterate over the dataset and write labels to the output url, based on the filenames
     for row in tqdm(table.table_rows):
-        image_path = row['image']
-        bounding_boxes = row['bbs']['bb_list']
+        image_path = row["image"]
+        bounding_boxes = row["bbs"]["bb_list"]
 
         # Read out the bouinding boxes
         lines = []
@@ -54,7 +60,7 @@ def export_labels(table: Table,
                 f.write("\n".join(lines))
 
     # Write a draft dataset yaml file
-    categories = table.get_value_map_for_column("bbs")
+    categories = tlc.SchemaHelper.to_simple_value_map(table.get_value_map("bbs.bb_list.label"))
 
     yaml_content = {
         "path": str(output_path.absolute().as_posix()),
@@ -74,30 +80,30 @@ def _get_subpath_after_images(full_path):
     path = Path(full_path)
     parts = path.parts
     try:
-        index = parts[::-1].index('images')  # Find last occurrence of 'images'
+        index = parts[::-1].index("images")  # Find last occurrence of 'images'
     except ValueError:
         return None  # 'images' not found in path
     subpath = Path(*parts[-(index):])
     return subpath
 
+
 def main(args):
-    table = Table.from_url(args.table_url)
-    export_labels(table, args.output_url, overwrite=args.overwrite)
+    table = tlc.Table.from_url(args.table_url)
+    export_yolo_labels(table, args.output_url, overwrite=args.overwrite)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description='Export bounding boxes to YOLO labels.')
-    parser.add_argument('--table-url',
-                        type=Url,
-                        help='The url of the table to export labels from.')
-    parser.add_argument('--output-url',
-                        type=Url,
-                        help='The url to write the labels to.')
-    parser.add_argument('--overwrite',
-                        action='store_true',
-                        help='Whether to overwrite files at the output_url.')
+    # parser = argparse.ArgumentParser(description="Export bounding boxes to YOLO labels.")
+    # parser.add_argument("--table-url", type=tlc.Url, help="The url of the table to export labels from.")
+    # parser.add_argument("--output-url", type=tlc.Url, help="The url to write the labels to.")
+    # parser.add_argument("--overwrite", action="store_true", help="Whether to overwrite files at the output_url.")
 
-    args = parser.parse_args()
+    # args = parser.parse_args()
 
-    main(args)
+    # main(args)
+
+    table_url = "C:/Users/gudbrand/AppData/Local/3LC/3LC/projects/coco8-YOLOv8/datasets/coco8-train/tables/initial"
+    output_url = "./output"
+    overwrite = True
+
+    export_yolo_labels(table_url, output_url, overwrite)
