@@ -8,13 +8,15 @@ Populate a table with GOOD image statistics (like Encord)
 
 Export table to Coco/Yolo
 
-Create table from Coco/Yolo
-
-
+Yolo
 
 ## Planning
 
 + Each py file in tools contains one "main" exportable function that is the entry point for the tool
 + A tool does exactly one thing (but is highly configurable)
++ Thorougly commented
 + Can be invoked as a script with arguments
 + Or can be imported and used as a function (same arguments if possible)
++ a tool may use another tool as a function
++ testing: for now, indirectly through consuming notebooks (pytest, papermill)
++ more testing: unit tests for tools  (tests/unit,integration)

@@ -93,17 +93,23 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(description="Export bounding boxes to YOLO labels.")
-    # parser.add_argument("--table-url", type=tlc.Url, help="The url of the table to export labels from.")
-    # parser.add_argument("--output-url", type=tlc.Url, help="The url to write the labels to.")
-    # parser.add_argument("--overwrite", action="store_true", help="Whether to overwrite files at the output_url.")
+    parser = argparse.ArgumentParser(description="Export bounding boxes to YOLO labels.")
+    parser.add_argument("--table-url", type=tlc.Url, help="The url of the table to export labels from.")
+    parser.add_argument("--output-url", type=tlc.Url, help="The url to write the labels to.")
+    parser.add_argument("--overwrite", action="store_true", help="Whether to overwrite files at the output_url.")
 
-    # args = parser.parse_args()
+    args = parser.parse_args()
 
-    # main(args)
+    main(args)
 
     table_url = "C:/Users/gudbrand/AppData/Local/3LC/3LC/projects/coco8-YOLOv8/datasets/coco8-train/tables/initial"
     output_url = "./output"
     overwrite = True
 
     export_yolo_labels(table_url, output_url, overwrite)
+
+    # Move images?
+    # supply split?
+    # handle different input schemas?
+    # supply column names? bbs, bb_list, label, x0, y0, x1, y1
+    # supply categories? (subset e.g.)
