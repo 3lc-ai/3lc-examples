@@ -90,7 +90,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", pa
 
 
 # Function to train the model
-def train_model(model, criterion, optimizer, num_epochs=25):
+def train_model(model, num_epochs=25):
     best_acc = 0.0
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1}/{num_epochs}")
@@ -186,7 +186,7 @@ if __name__ == "__main__":
         PROJECT_NAME, "train-classifier", "Train a classifier for the DCVAI dataset (better labels, no weights)"
     )
 
-    trained_model = train_model(model, criterion, optimizer, num_epochs=num_epochs)
+    trained_model = train_model(model, num_epochs=num_epochs)
 
     # Save the trained model
     torch.save(trained_model.state_dict(), model_save_path)
