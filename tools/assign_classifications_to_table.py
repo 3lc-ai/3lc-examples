@@ -359,7 +359,7 @@ if __name__ == "__main__":
     # DEBUG read predicted_labels from a file:
     if False:  # _READ_FROM_FILE:
         predicted_labels = []
-        with open("predicted_labels_0000.txt", "r") as f:
+        with open("predicted_labels_0000.txt") as f:
             for line in f.readlines():
                 row_idx, bb_idx, label = line.strip().split(",")
                 predicted_labels.append((int(row_idx), int(bb_idx), int(label)))
