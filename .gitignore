@@ -2,3 +2,4 @@
 .env
 transient_data
 .vscode/
+__pycache__/
