@@ -4,9 +4,8 @@ import random
 from pathlib import Path
 from typing import Any, Callable, Generator
 
-from PIL import Image
-
 import tlc
+from PIL import Image
 from tlc.core.builtins.types.bb_crop_interface import BBCropInterface
 from tlc.core.objects.table import Table
 from tlc.core.schema import Schema
@@ -126,7 +125,7 @@ def write_bb_crops_to_image_folders(
     row_filter: Callable | None = None,
     bb_filter: Callable | None = None,
     train_split: float = 0.8,
-    max_imgs_per_folder: dict[str, int] = {"train": 1000, "val": 100},
+    max_imgs_per_folder: dict[str, int] | None = None,
     crop_strategy: str = "resize",
 ) -> None:
     """
@@ -140,6 +139,7 @@ def write_bb_crops_to_image_folders(
     :param max_imgs_per_folder: Max images to save in each label's folder.
     :returns: None
     """
+    max_imgs_per_folder = max_imgs_per_folder or {"train": 1000, "val": 100}
     # Initialize BBAccessor to iterate over bounding boxes
     accessor = BBAccessor(table, row_filter=row_filter)
     value_map = table.get_value_map("bbs.bb_list.label")

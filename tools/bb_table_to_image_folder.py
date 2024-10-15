@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 from __future__ import annotations
 
 import os
@@ -54,7 +51,7 @@ def write_bb_crop_tables_from_bb_table(table, save_images_dir, value_map, class_
 
         for idx, bb in enumerate(image_bbs):
             label = bb["label"]
-            if label not in value_map.keys():
+            if label not in value_map:
                 continue
             crop = tlc.BBCropInterface.crop(image, bb, bb_schema, image_height=h, image_width=w)
             crop = resize(crop)
@@ -86,10 +83,7 @@ if __name__ == "__main__":
 
     def has_girl_boy_man_woman(row):
         bb_list = row["bbs"]["bb_list"]
-        for bb in bb_list:
-            if bb["label"] in [MAN, WOMAN, GIRL, BOY]:
-                return True
-        return False
+        return any(bb["label"] in [MAN, WOMAN, GIRL, BOY] for bb in bb_list)
 
     def has_weight_one(row):
         return row["weight"] == 1.0

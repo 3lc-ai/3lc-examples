@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import argparse
-import numpy as np
-from tqdm import tqdm
-import yaml
 from pathlib import Path
 
 import tlc
+import yaml
+from tqdm import tqdm
 
 
 def export_yolo_labels(
@@ -47,7 +46,8 @@ def export_yolo_labels(
         # Read out the bouinding boxes
         lines = []
         for bounding_box in bounding_boxes:
-            line = f"{bounding_box['label']} {str(np.float32(bounding_box['x0']))} {str(np.float32(bounding_box['y0']))} {str(np.float32(bounding_box['x1']))} {str(np.float32(bounding_box['y1']))}"
+            values = (bounding_box["x0"], bounding_box["y0"], bounding_box["x1"], bounding_box["y1"])
+            line = f"{bounding_box['label']} {' '.join(map(str, values))}"
             lines.append(line)
 
         # Get the part of the image path after the last occurence of 'images'
