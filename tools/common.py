@@ -3,8 +3,23 @@
 import subprocess
 import sys
 
+import torch
 from packaging import version
 
+
+def infer_torch_device() -> torch.device:
+    """Infer the device to use for the computation.
+
+    Returns:
+        torch.device: The device to use for computation.
+
+    """
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        return torch.device("mps")
+    else:
+        return torch.device("cpu")
 
 def check_tlc_package_version() -> str:
     """Check the installed version of the tlc package.
