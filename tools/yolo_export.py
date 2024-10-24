@@ -24,7 +24,7 @@ def export_to_yolo(
     all the images to the output directory, to the following structure:
 
     |- <output url>
-    | |- <dataset_name>
+    | |- <dataset_name>.yaml
     | |- images
     | | |- image1.jpg
     | | |- image2.jpg
@@ -117,7 +117,7 @@ def export_to_yolo(
                 output_image_path.parent.mkdir(parents=True, exist_ok=True)
                 output_image_path = _handle_image(image_path, output_image_path, image_strategy)
 
-            # Write the label file
+            # Write the label file if there are any bounding boxes
             output_label_path = _image_path_to_label_path(output_image_path)
             if lines:
                 output_label_path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,8 +141,9 @@ def export_to_yolo(
         f.write("\n")
 
         if image_strategy == "ignore":
+            helper_str = 'image_strategy="ignore"'
             f.write(
-                "# NOTE! Images were not copied to the output directory, "
+                f"# NOTE! Images were not copied to the output directory because {helper_str},"
                 "the dataset can therefore not be used as-is. Copy or move the images manually.\n"
             )
         yaml.dump(yaml_content, f, default_flow_style=False, sort_keys=False, line_break="\n\n")
@@ -253,10 +254,9 @@ if __name__ == "__main__":
     output_url = yolo_dataset_path.parent / "yolo_exported"
 
     export_to_yolo(
-        {"train": table, "val": table},
-        output_url,
+        tables={"train": table, "val": table},
+        output_url=output_url,
         dataset_name="simple",
         overwrite=True,
         image_strategy="symlink",
     )
-
