@@ -1,5 +1,6 @@
 """Common utilities for the tools."""
 
+import platform
 import subprocess
 import sys
 
@@ -110,6 +111,9 @@ def is_package_installed(package_name: str) -> bool:
         return False
     else:
         return True
+    
+def is_windows() -> bool:
+    return platform.system() == "Windows"
 
 
 if __name__ == "__main__":
