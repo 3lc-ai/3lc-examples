@@ -16,7 +16,6 @@ def export_to_yolo(
     output_url: tlc.Url | Path | str,
     dataset_name: str = "dataset",
     image_strategy: Literal["ignore", "copy", "symlink", "move"] | None = None,
-    overwrite: bool = False,
 ) -> None:
     """Export the bounding boxes from a set of tables to a YOLO dataset.
 
@@ -46,11 +45,11 @@ def export_to_yolo(
         - "copy": Copy images to the output directory, keeping the original images. This is done by default.
         - "symlink": Create symlinks to the images in the output directory.
         - "move": Move images to the output directory, removing the original images.
-    :param overwrite: Whether to overwrite files at the output_url.
     """
 
     print(f"Exporting {len(tables)} tables to YOLO dataset at {output_url}...")
 
+    # TODO: support writing to s3 as well (use tlc.Url everywhere)
     # TODO: consider supply categories? (subset e.g.)
     # TODO: consider overriding names of various fields (image, bbs, etc.)
 
@@ -73,13 +72,15 @@ def export_to_yolo(
     output_url = tlc.Url(output_url)
 
     output_path = Path(output_url.to_str())
-    assert output_path.suffix == "", f"output_url must be a directory, got {output_url}"
+    if output_path.exists():
+        msg = f"output url {output_url} already exists, can only export to a new location."
+        raise ValueError(msg)
 
-    if output_path.exists() and not overwrite:
-        raise ValueError(f"output_url: {output_url} already exists, set 'overwrite=True' to overwrite it.")
+    if output_path.suffix != "":
+        msg = f"output url must be a directory, not a file, got: {output_url}."
+        raise ValueError(msg)
 
-    if not output_path.exists():
-        output_path.mkdir(parents=True)
+    output_path.mkdir(parents=True)
 
     images_path = output_path / "images"
 
@@ -228,14 +229,13 @@ def _verify_table_schema(table: tlc.Table) -> None:
 
 def main(args):
     table = tlc.Table.from_url(args.table_url)
-    export_to_yolo(table, args.output_url, overwrite=args.overwrite)
+    export_to_yolo(table, args.output_url)
 
 
 if __name__ == "__main__":
     # parser = argparse.ArgumentParser(description="Export bounding boxes to YOLO labels.")
     # parser.add_argument("--table-url", type=str, help="The url of the table to export labels from.")
     # parser.add_argument("--output-url", type=str, help="The url to write the labels to.")
-    # parser.add_argument("--overwrite", action="store_true", help="Whether to overwrite files at the output_url.")
 
     # args = parser.parse_args()
 
@@ -257,6 +257,5 @@ if __name__ == "__main__":
         tables={"train": table, "val": table},
         output_url=output_url,
         dataset_name="simple",
-        overwrite=True,
         image_strategy="symlink",
     )
