@@ -1,177 +1,114 @@
 from __future__ import annotations
-from os import PathLike
+
+from typing import Any, Literal
+
+import numpy as np
 import tlc
+from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.utils import shuffle as sk_shuffle
 
-import numpy as np
+from tools.common import keep_indices
+from tools.metrics import traversal_index
 
-from sklearn.cluster import KMeans
-import numpy as np
-from collections import defaultdict
-import pyarrow.parquet as pq
-import pyarrow as pa
+
+class SplitManager:
+    def __init__(self, random_seed: int = 0):
+        self.random_seed = random_seed
+
+    def random_split(self, indices, splits):
+        split_sizes = [int(len(indices) * proportion) for proportion in splits.values()]
+        if sum(split_sizes) < len(indices):
+            split_sizes[0] += len(indices) - sum(split_sizes)
+        return np.split(indices, np.cumsum(split_sizes[:-1]))
+
+    def stratified_split(self, labels, splits, indices):
+        split_indices = {}
+        train_size = splits["train"]
+        train_indices, val_indices = train_test_split(
+            indices, test_size=1 - train_size, stratify=labels, random_state=self.random_seed
+        )
+        split_indices["train"] = train_indices
+        split_indices["val"] = val_indices
+        return split_indices
+
+    def traversal_split(self, traversal_indices, splits):
+        split_sizes = [int(len(traversal_indices) * proportion) for proportion in splits.values()]
+        if sum(split_sizes) < len(traversal_indices):
+            split_sizes[0] += len(traversal_indices) - sum(split_sizes)
+        return np.split(traversal_indices, np.cumsum(split_sizes[:-1]))
+
+    def get_k_fold_split(self, n_folds, indices, labels=None):
+        kf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=self.random_seed)
+        return list(kf.split(indices, labels))
 
 
 def split_table(
     table: tlc.Table,
-    splits: dict[str, float] = {"train": 0.8, "val": 0.2},
+    splits: dict[str, float] | None = None,
     random_seed: int = 0,
-) -> dict[str, tlc.Table]:
-    # Split the table into two tables
-    # for-loop and TableWriter ???
-    # Just train/val or train/val/test or something more general? ??? Ref. k-fold
-    pass
-
-
-def join_parquet_columns(parquet_file_path: PathLike, new_columns: dict[str, np.ndarray], output_path: PathLike):
-    """Join columns from a parquet file with new in-memory columns to form a new parquet file."""
-    # Read the existing parquet file
-    table = pq.read_table(parquet_file_path)
-
-    # Convert new columns to PyArrow arrays and add to the table
-    for column_name, column_data in new_columns.items():
-        new_column = pa.array(column_data)
-        table = table.append_column(column_name, new_column)
-
-    # Write the updated table to a new parquet file
-    pq.write_table(table, output_path)
-
-
-def merge_new_data(table: tlc.Table, new_data: PathLike) -> tlc.Table:
-    # Merge the new data with the table
-    # for-loop and TableWriter ???
-    # Inspect schema of existing table to determine if new data is compatible and how to process ???
-    pass
-
-
-def img_features():
-    # https://github.com/encord-team/encord-active/blob/main/src/encord_active/lib/metrics/heuristic/img_features.py
-    # Red, Green, Blue, Brightness, Sharpness (variance of the Laplacian), Blur (1-sharpness), AspectRatio, Area
-    pass
-
-
-def img_singlularity():
-    r"""This metric gives each image a score that shows each image's uniqueness.
-    - A score of zero means that the image has duplicates in the dataset; on the other hand, a score close to one represents that image is quite unique. Among the duplicate images, we only give a non-zero score to a single image, and the rest will have a score of zero (for example, if there are five identical images, only four will have a score of zero). This way, these duplicate samples can be easily tagged and removed from the project.
-    - Images that are near duplicates of each other will be shown side by side.
-    ### Possible actions
-    - **To delete duplicate images:** You can set the quality filter to cover only zero values (that ends up with all the duplicate images), then use bulk tagging (e.g., with a tag like `Duplicate`) to tag all images.
-    - **To mark duplicate images:** Near duplicate images are shown side by side. Navigate through these images and mark whichever is of interest to you.
+    split_strategy: Literal["random", "stratified", "traversal_index"] = "random",
+    shuffle: bool = True,
+    embedding_column: str | None = None,
+    label_column: str | None = None,
+    n_folds: int | None = None,
+) -> dict[str, dict[str, Any]]:
     """
-    # https://github.com/encord-team/encord-active/blob/main/src/encord_active/lib/metrics/semantic/image_singularity.py
-    pass
+    Splits a table into train/validation sets or performs k-fold cross-validation splits.
 
+    :param table: The table to split.
+    :param splits: Proportions for train and validation splits, ignored if `n_folds` is provided. Default is 80/20.
+    :param random_seed: Seed for reproducibility.
+    :param split_strategy: "random", "stratified" (requires `label_column`), or "traversal_index" (requires `embedding_column`).
+    :param shuffle: Shuffle data for "random" split. Default is True.
+    :param embedding_column: Column name for embeddings used in "traversal_index" split.
+    :param label_column: Column name for labels used in "stratified" split.
+    :param n_folds: Enables k-fold cross-validation, each fold contains "train" and "val".
 
-def image_diversity_metric(labels, embeddings):
-    # Convert embeddings to a NumPy array
-    embeddings = embeddings.astype(np.float32)
-    unique_labels = np.unique(labels)
-    label_to_indices = defaultdict(list)
+    :returns: Split tables as per requested strategy, including k-fold results if `n_folds` is provided.
+    """
+    if splits is None:
+        splits = {"train": 0.8, "val": 0.2}
 
-    # Group indices by labels
-    for idx, label in enumerate(labels):
-        label_to_indices[label].append(idx)
+    manager = SplitManager(random_seed)
+    indices = np.arange(len(table))
 
-    # Calculate diversity scores
-    diversity_scores = np.zeros(len(embeddings), dtype=int)
+    if n_folds:
+        # If n_folds is specified, perform k-fold cross-validation with train/val splits
+        splits_indices = {}
+        if split_strategy == "stratified" and label_column:
+            labels = table[label_column].to_numpy()
+            fold_splits = manager.get_k_fold_split(n_folds, indices, labels=labels)
+        else:
+            fold_splits = manager.get_k_fold_split(n_folds, indices)
 
-    for label in unique_labels:
-        indices = label_to_indices[label]
-        label_embeddings = embeddings[indices]
+        for fold, (train_idx, val_idx) in enumerate(fold_splits):
+            splits_indices[f"fold_{fold}"] = {"train": table[train_idx], "val": table[val_idx]}
+        return splits_indices
 
-        # Cluster within each label (single cluster for this label group)
-        kmeans = KMeans(n_clusters=1, n_init="auto").fit(label_embeddings)
-        center = kmeans.cluster_centers_[0]
+    # Regular splitting (not k-fold)
+    if shuffle and split_strategy == "random":
+        indices = sk_shuffle(indices, random_state=random_seed)
 
-        # Calculate distances to the cluster center for this label
-        distances = np.linalg.norm(label_embeddings - center, axis=1)
+    if split_strategy == "random":
+        split_sizes = manager.random_split(indices, splits)
+        splits_indices = {split_name: split_indices for split_name, split_indices in zip(splits.keys(), split_sizes)}
 
-        # Sort indices by distance (closer to center = lower score)
-        sorted_indices = np.argsort(distances)
+    elif split_strategy == "stratified" and label_column:
+        labels = table[label_column].to_numpy()
+        splits_indices = manager.stratified_split(labels, splits, indices)
 
-        # Assign scores based on proximity to center
-        for rank, idx in enumerate(sorted_indices):
-            diversity_scores[indices[idx]] = rank + 1
+    elif split_strategy == "traversal_index" and embedding_column:
+        embeddings = np.stack(table[embedding_column].to_numpy())
+        traversal_indices = traversal_index(embeddings)
+        split_sizes = manager.traversal_split(traversal_indices, splits)
+        splits_indices = {"train": split_sizes[0], "val": split_sizes[1]}
 
-    return diversity_scores.tolist()
-
-
-from scipy.spatial.distance import pdist, squareform
-
-
-def image_uniqueness_metric(labels, embeddings):
-    # Convert embeddings to a NumPy array
-    unique_labels = np.unique(labels)
-    label_to_indices = defaultdict(list)
-
-    # Group indices by labels
-    for idx, label in enumerate(labels):
-        label_to_indices[label].append(idx)
-
-    # Calculate uniqueness scores
-    uniqueness_scores = np.zeros(len(embeddings), dtype=float)
-
-    for label in unique_labels:
-        indices = label_to_indices[label]
-        label_embeddings = embeddings[indices]
-
-        # Compute pairwise distances within each class
-        pairwise_distances = squareform(pdist(label_embeddings))
-
-        # Calculate uniqueness as the mean distance of each image to others in its class
-        mean_distances = pairwise_distances.mean(axis=1)
-
-        # Assign the uniqueness score based on mean distances
-        for idx, mean_distance in zip(indices, mean_distances):
-            uniqueness_scores[idx] = mean_distance
-
-    return uniqueness_scores.tolist()
-
-
-def traversal_index(embeddings):
-    embeddings = np.array(embeddings)
-
-    # Normalize embeddings
-    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-    normalized_embeddings = embeddings / (norms + 1e-12)
-
-    # Unique embeddings determination
-    unique_embeddings, unique_indices, inverse_indices = np.unique(
-        normalized_embeddings, axis=0, return_index=True, return_inverse=True
-    )
-
-    # Find the center of unique embeddings
-    center_embedding = unique_embeddings.mean(axis=0)
-    distances_from_center = np.linalg.norm(unique_embeddings - center_embedding, axis=1)
-    center_index_in_unique = np.argmin(distances_from_center)
-
-    # Initialize traversal order with the index of the central unique embedding
-    traversal_order = [center_index_in_unique]
-    selected_embeddings = set(traversal_order)
-
-    # Iteratively select the farthest unpicked unique embedding
-    remaining_count = len(unique_embeddings) - 1
-    while remaining_count > 0:
-        last_embedding = unique_embeddings[traversal_order[-1]]
-        distances = np.linalg.norm(unique_embeddings - last_embedding, axis=1)
-
-        for idx in np.argsort(distances)[::-1]:  # Start from farthest
-            if idx not in selected_embeddings:
-                traversal_order.append(idx)
-                selected_embeddings.add(idx)
-                remaining_count -= 1
-                break
-
-    # Add remaining unique indices in random order if not yet selected
-    remaining_unique = [i for i in range(len(unique_embeddings)) if i not in traversal_order]
-    np.random.shuffle(remaining_unique)
-    traversal_order.extend(remaining_unique)
-
-    # Map traversal_order back to original embeddings indices
-    final_traversal_order = [unique_indices[idx] for idx in traversal_order]
-
-    # Add duplicates in random order
-    duplicate_indices = [i for i in range(len(embeddings)) if i not in unique_indices]
-    np.random.shuffle(duplicate_indices)
-    final_traversal_order.extend(duplicate_indices)
-
-    return [int(idx) for idx in final_traversal_order]
+    # Return dictionary with tables based on final split indices
+    return {
+        split_name: keep_indices(
+            table,
+            split_indices.tolist(),
+            table_name=split_name,
+        )
+        for split_name, split_indices in splits_indices.items()
+    }
