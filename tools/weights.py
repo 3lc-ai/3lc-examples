@@ -4,7 +4,7 @@ from collections import defaultdict
 import tlc
 
 
-def compute_object_detection_sample_weights(table: tlc.Table, alpha=1.0, include_zero_weighted_images=False):
+def object_detection_sample_weights(table: tlc.Table, alpha=1.0, include_zero_weighted_images=False):
     # Step 1: Calculate class frequency across all bounding boxes
     class_counts = defaultdict(int)
     total_boxes = 0
@@ -37,9 +37,3 @@ def compute_object_detection_sample_weights(table: tlc.Table, alpha=1.0, include
     normalized_weights = np.array(smoothed_weights) / np.sum(smoothed_weights)
 
     return normalized_weights
-
-
-table = tlc.Table.from_names("initial", "train", "DataCleaningChallenge")
-alpha = 0.8  # Smoothing factor
-weights = compute_object_detection_sample_weights(table, alpha)
-print(weights)

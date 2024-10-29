@@ -2,26 +2,11 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+import cv2
 import numpy as np
+from PIL import Image, ImageStat
 from scipy.spatial.distance import pdist, squareform
 from sklearn.cluster import KMeans
-
-# def img_features():
-#     # https://github.com/encord-team/encord-active/blob/main/src/encord_active/lib/metrics/heuristic/img_features.py
-#     # Red, Green, Blue, Brightness, Sharpness (variance of the Laplacian), Blur (1-sharpness), AspectRatio, Area
-#     pass
-
-
-# def img_singlularity():
-#     r"""This metric gives each image a score that shows each image's uniqueness.
-#     - A score of zero means that the image has duplicates in the dataset; on the other hand, a score close to one represents that image is quite unique. Among the duplicate images, we only give a non-zero score to a single image, and the rest will have a score of zero (for example, if there are five identical images, only four will have a score of zero). This way, these duplicate samples can be easily tagged and removed from the project.
-#     - Images that are near duplicates of each other will be shown side by side.
-#     ### Possible actions
-#     - **To delete duplicate images:** You can set the quality filter to cover only zero values (that ends up with all the duplicate images), then use bulk tagging (e.g., with a tag like `Duplicate`) to tag all images.
-#     - **To mark duplicate images:** Near duplicate images are shown side by side. Navigate through these images and mark whichever is of interest to you.
-#     """
-#     # https://github.com/encord-team/encord-active/blob/main/src/encord_active/lib/metrics/semantic/image_singularity.py
-#     pass
 
 
 def diversity(labels, embeddings):
@@ -135,3 +120,42 @@ def traversal_index(embeddings):
     final_traversal_order.extend(duplicate_indices)
 
     return [int(idx) for idx in final_traversal_order]
+
+
+def compute_image_metrics(image_path: str):
+    """Return a dict of image metrics for the given image path."""
+    image = Image.open(image_path)
+    width, height = image.size
+    pixels = np.array(image)
+
+    # Convert to grayscale for some metrics
+    grayscale_image = image.convert("L")
+    stat = ImageStat.Stat(grayscale_image)
+
+    # Compute brightness (average grayscale value)
+    brightness = stat.mean[0]
+
+    # Compute contrast (standard deviation of grayscale values)
+    contrast = stat.stddev[0]
+
+    # Sharpness (variance of the Laplacian)
+    sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
+
+    # Compute average RGB values
+    try:
+        avg_r = np.mean(pixels[:, :, 0])
+        avg_g = np.mean(pixels[:, :, 1])
+        avg_b = np.mean(pixels[:, :, 2])
+    except IndexError:  # Image is grayscale
+        avg_r = avg_g = avg_b = 0
+
+    return {
+        "width": width,
+        "height": height,
+        "brightness": brightness,
+        "sharpness": sharpness,
+        "contrast": contrast,
+        "average_red": avg_r,
+        "average_green": avg_g,
+        "average_blue": avg_b,
+    }
