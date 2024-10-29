@@ -174,4 +174,4 @@ def traversal_index(embeddings):
     np.random.shuffle(duplicate_indices)
     final_traversal_order.extend(duplicate_indices)
 
-    return final_traversal_order
+    return [int(idx) for idx in final_traversal_order]
