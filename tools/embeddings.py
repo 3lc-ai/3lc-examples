@@ -18,7 +18,6 @@ def add_embeddings_to_table(
     table: tlc.Table,
     model: torch.nn.Module | None = None,
     embedding_extraction_fn: Callable | None = None,
-    image_column: str = "image",
     embedding_column: str = "embedding",
     batch_size: int = 4,
     device: str | torch.device | None = None,
@@ -27,22 +26,16 @@ def add_embeddings_to_table(
     """
     Adds embeddings to a table using a specified model and optional dimensionality reduction.
 
-    Parameters:
-        table (tlc.Table): The table containing images.
-        model (torch.nn.Module, optional): Model to use for embedding extraction.
-            If None, defaults to ViT from Hugging Face.
-        embedding_extraction_fn (Callable, optional): Function to extract embeddings from the model output.
-            If None, defaults to selecting the [CLS] token for ViT.
-        image_column (str): Column name of images in the table.
-        embedding_column (str): Column name to add embeddings to in the table.
-        label_column (str, optional): Label column name if needed for embedding stratification.
-        batch_size (int): Batch size for processing images.
-        device (str or torch.device, optional): Device to use for inference.
-        preprocess_fn (Callable, optional): Preprocessing function for images.
-            If None, defaults to a standard ViT preprocessing pipeline.
 
-    Returns:
-        tlc.Table: Table with an added column containing embeddings.
+    :param table: The table containing images.
+    :param model: Model to use for embedding extraction. If None, defaults to ViT from Hugging Face.
+    :param embedding_extraction_fn: Function to extract embeddings from the model output. If None, defaults to selecting the [CLS] token for ViT.
+    :param embedding_column: Column name to add embeddings to in the table.
+    :param batch_size: Batch size for processing images.
+    :param device: Device to use for inference.
+    :param preprocess_fn: Preprocessing function for images. If None, defaults to a standard ViT preprocessing pipeline.
+
+    :returns: Table with an added column containing embeddings.
     """
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -63,15 +56,14 @@ def add_embeddings_to_table(
             ]
         )
 
-    def map_fn(sample):
-        return preprocess_fn(sample[0])
+    # Map the table to ensure samples are compatible with the model
+    table.map(preprocess_fn)
 
-    all_embeddings = []
     # Set up DataLoader
-    table.map(map_fn)
     dataloader = torch.utils.data.DataLoader(table, batch_size=batch_size, shuffle=False)
 
     # Run inference and extract embeddings
+    all_embeddings = []
     for batch in tqdm.tqdm(dataloader, total=len(dataloader), desc="Extracting embeddings"):
         with torch.no_grad():
             outputs = model(batch.to(device))
@@ -79,5 +71,21 @@ def add_embeddings_to_table(
 
         all_embeddings.extend(embeddings.tolist())
 
-    extended_table = add_columns_to_table(table, {embedding_column: all_embeddings})
+    # We assign a special number role to the embedding column so that it will be
+    # automatically selected for dimensionality reduction, and will not be sent
+    # to the Dashboard for visualization.
+    embedding_size = len(all_embeddings[0])
+    embedding_schema = tlc.Schema(
+        value=tlc.Float32Value(number_role=tlc.NUMBER_ROLE_NN_EMBEDDING),
+        size0=tlc.DimensionNumericValue(embedding_size, embedding_size),
+        sample_type="hidden",  # We don't want the embedding to be displayed in the "sample-view" of the table
+        writable=False,  # We do not allow editing the embedding values after they have been computed
+    )
+
+    extended_table = add_columns_to_table(
+        table=table,
+        columns={embedding_column: all_embeddings},
+        schemas={embedding_column: embedding_schema},
+        output_table_name="with_embeddings",
+    )
     return extended_table

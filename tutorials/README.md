@@ -25,10 +25,10 @@ Cover the most common use cases.
 |-- create-table.ipynb
 |-- create-table-from-coco.ipynb
 |-- create-table-from-yolo.ipynb
-|-- import-semseg-dataset.ipynb
+|-- create-semantic-segmentation-table.ipynb
 |-- create-bounding-box-table.ipynb
 |-- create-image-classification-table.ipynb
-|-- write-video-thumbnails.ipynb
+|-- create-video-thumbnails-table.ipynb
 ```
 
 ## Level 1: Modifying and Extending Tables
@@ -46,7 +46,7 @@ Create splits, add new columns, (get the latest?) etc.
 |-- use-latest-table.ipynb
 ```
 
-## Level 3: Training and Metrics Collection
+## Level 2: Training and Metrics Collection
 
 Small, to-the-point examples of metrics collection.
 Introduces the concept of runs and metrics.
@@ -59,9 +59,9 @@ Introduces the concept of runs and metrics.
 |-- train-classifier.ipynb
 ```
 
-## Level 4: Complete Examples
+## Level 3: Complete Examples
 
-Complete examples of training and evaluation.
+Complete examples of training and evaluation. Includes examples of integrating with different frameworks (huggingface, sam, etc.)
 
 ```
 
@@ -73,7 +73,7 @@ Complete examples of training and evaluation.
 |-- huggingface-segmentation-example.ipynb
 ```
 
-## Level 5. Advanced Examples
+## Level 4. Advanced Examples
 
 ```
 |-- bb-embeddings
@@ -83,13 +83,54 @@ Complete examples of training and evaluation.
 |   |-- 3b-add-embeddings-to-run.ipynb
 ```
 
-## Level 6: Misc.
+## Level 5: Misc.
 
 ```
-
 |-- write-augmented-samples.ipynb
 |-- mammoth
 |   |-- 1-write-mammoth-table.ipynb
 |   |-- 2-flatten-mammoth.ipynb
 |   | README.md
 ```
+
+## Problems
+
++ `tools` is to a large degree a collection of functions either hiding functionality that is overly complex, or that is not yet implemented (but should be) in the main package.
++ It has been deemed a necessary evil to go with the TableWriter + for-loop pattern in order to get balls rolling. This is bad, it is not procedural, as our ethos demands.
+
+## Design decisions
+
+Yay or Nay?`
+
++ include general requirements in top-level?
++ install specific requirements in notebook cells?
++ include specific requirements.txt in folders with notebooks/python scripts?
++ have several "extra" dependency groups in pyproject.toml, just import early in notebooks?
++ have "open in github" and "open in colab" badges in the notebooks?
++ have inter-notebook / inter-level dependencies?
++ should it always be notebooks?
+
+## Potential work in core
+
+Table.get_column full implementation
+Table.add_column full implementation
+MapElement extensions
+JoinedTable add source_table column (off by default)
+
+## Default Deps
+
+3lc + basic deps
+torch / torchvision
+sklearn
+..
+
+## Non-default Deps
+
+sam2 !!??
+segment_anything
+huggingface (transformers, datasets)
+ultralytics
+umap-learn
+pacmap
+joblib
+cv2

@@ -131,7 +131,11 @@ def get_column_from_table(table: tlc.Table, column_name: str) -> np.ndarray:
         init_params["row_cache_url"] = tlc.Url(init_params["row_cache_url"]).to_absolute(table.url)
         table_with_columns = TableFromRowCache(init_params)
     else:
-        raise ValueError("Table must have columns to extract.")
+        # Worst case, aggregate column values, row by row
+        column_values = []
+        for row in table:
+            column_values.append(row[column_name])
+        return np.array(column_values, dtype=np.float32)
 
     pa_column = table_with_columns.get_column(column_name)
     return np.array(pa_column.to_numpy().tolist(), dtype=np.float32)
