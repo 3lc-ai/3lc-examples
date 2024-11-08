@@ -102,7 +102,9 @@ def split_table(
         split_sizes = manager.random_split(indices, splits)
         splits_indices = {split_name: split_indices for split_name, split_indices in zip(splits.keys(), split_sizes)}
 
-    elif split_strategy == "stratified" and stratify_column:
+    elif split_strategy == "stratified":
+        if stratify_column is None:
+            raise ValueError("Stratified split requires a stratify_column.")
         labels = _get_labels(table, stratify_column)
         splits_indices = manager.stratified_split(labels, splits, indices)
 
