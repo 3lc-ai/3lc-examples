@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import numpy as np
 import tlc
@@ -15,17 +15,23 @@ class SplitManager:
     def __init__(self, random_seed: int = 0):
         self.random_seed = random_seed
 
-    def random_split(self, indices, splits):
+    def _get_split_sizes(self, indices, splits):
         split_sizes = [int(len(indices) * proportion) for proportion in splits.values()]
         if sum(split_sizes) < len(indices):
             split_sizes[0] += len(indices) - sum(split_sizes)
+        return split_sizes
+
+    def random_split(self, indices, splits):
+        split_sizes = self._get_split_sizes(indices, splits)
         return np.split(indices, np.cumsum(split_sizes[:-1]))
 
     def stratified_split(self, labels, splits, indices):
+        split_sizes = self._get_split_sizes(indices, splits)
+        
         split_indices = {}
-        train_size = splits["train"]
+        # train_size = splits["train"]
         train_indices, val_indices = train_test_split(
-            indices, test_size=1 - train_size, stratify=labels, random_state=self.random_seed
+            indices, test_size=split_sizes[1], stratify=labels, random_state=self.random_seed
         )
         split_indices["train"] = train_indices
         split_indices["val"] = val_indices
@@ -49,7 +55,7 @@ def split_table(
     split_strategy: Literal["random", "stratified", "traversal_index"] = "random",
     shuffle: bool = True,
     embedding_column: str | None = None,
-    label_column: str | None = None,
+    stratify_column: str | int | Callable[[Any], int] | None = None,
     n_folds: int | None = None,
 ) -> dict[str, dict[str, Any]]:
     """
@@ -58,10 +64,13 @@ def split_table(
     :param table: The table to split.
     :param splits: Proportions for train and validation splits, ignored if `n_folds` is provided. Default is 80/20.
     :param random_seed: Seed for reproducibility.
-    :param split_strategy: "random", "stratified" (requires `label_column`), or "traversal_index" (requires `embedding_column`).
+    :param split_strategy: "random", "stratified" (requires `label_column`), or "traversal_index" (requires
+        `embedding_column`).
     :param shuffle: Shuffle data for "random" split. Default is True.
     :param embedding_column: Column name for embeddings used in "traversal_index" split.
-    :param label_column: Column name for labels used in "stratified" split.
+    :param stratify_column: Column name for property (usually a label) used in "stratified" split. Provide a string if
+        the rows are dictionaries, or an integer if the rows are tuples/lists. If a callable is provided it will be 
+        called with each row and should return the .
     :param n_folds: Enables k-fold cross-validation, each fold contains "train" and "val".
 
     :returns: Split tables as per requested strategy, including k-fold results if `n_folds` is provided.
@@ -75,8 +84,8 @@ def split_table(
     if n_folds:
         # If n_folds is specified, perform k-fold cross-validation with train/val splits
         splits_indices = {}
-        if split_strategy == "stratified" and label_column:
-            labels = table[label_column].to_numpy()
+        if split_strategy == "stratified" and stratify_column:
+            labels = table[stratify_column].to_numpy()
             fold_splits = manager.get_k_fold_split(n_folds, indices, labels=labels)
         else:
             fold_splits = manager.get_k_fold_split(n_folds, indices)
@@ -93,8 +102,8 @@ def split_table(
         split_sizes = manager.random_split(indices, splits)
         splits_indices = {split_name: split_indices for split_name, split_indices in zip(splits.keys(), split_sizes)}
 
-    elif split_strategy == "stratified" and label_column:
-        labels = table[label_column].to_numpy()
+    elif split_strategy == "stratified" and stratify_column:
+        labels = _get_labels(table, stratify_column)
         splits_indices = manager.stratified_split(labels, splits, indices)
 
     elif split_strategy == "traversal_index" and embedding_column:
@@ -112,3 +121,13 @@ def split_table(
         )
         for split_name, split_indices in splits_indices.items()
     }
+
+def _get_labels(table, label_column: int | str | Callable[[Any], int]) -> np.array:
+    if isinstance(label_column, (int, str)):
+        return np.array([row[label_column] for row in table])
+    
+    elif callable(label_column):
+        return np.array([label_column(row) for row in table])
+    
+    else:
+        raise ValueError(f"Invalid label_column: {label_column}")
