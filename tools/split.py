@@ -79,6 +79,7 @@ def split_table(
     indices = np.arange(len(table))
 
     if n_folds:
+        # NOTE: K-fold cross-validation should perhaps be in a separate tool - it could even take several tables as input
         raise NotImplementedError("K-fold cross-validation is not yet implemented.")
         # # If n_folds is specified, perform k-fold cross-validation with train/val splits
         # splits_indices = {}
@@ -109,6 +110,7 @@ def split_table(
         splits_indices = manager.stratified_split(labels, splits, indices)
 
     elif split_strategy == "traversal_index":
+        # TODO: Fix traversal index computation, currently incorrect
         if split_by is None:
             raise ValueError(
                 "Traversal index split requires 'split_by', to specify which column to base traversal index on."
