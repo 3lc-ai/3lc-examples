@@ -173,6 +173,12 @@ def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = 
 def examples_root() -> Path:
     return Path(__file__).parent.parent
 
+def data_root() -> Path:
+    return examples_root() / "data"
+
+def get_dataset_path(name: str) -> str:
+    return (data_root() / name).absolute().as_posix()
+
 
 if __name__ == "__main__":
     # Example usage
