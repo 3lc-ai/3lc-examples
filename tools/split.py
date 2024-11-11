@@ -1,3 +1,5 @@
+"""Tools for splitting data in one Table into two or more split Tables."""
+
 from __future__ import annotations
 
 from typing import Any, Callable, Literal
@@ -103,18 +105,19 @@ def split_table(
 
     elif split_strategy == "stratified":
         if split_by is None:
-            raise ValueError(
-                "Stratified split requires 'split_by', to specify which column to base stratified sampling on."
-            )
+            msg = "Stratified split requires 'split_by', to specify which column to base stratified sampling on."
+            raise ValueError(msg)
         labels = _get_column(table, split_by)
         splits_indices = manager.stratified_split(labels, splits, indices)
 
     elif split_strategy == "traversal_index":
         # TODO: Fix traversal index computation, currently incorrect
         if split_by is None:
-            raise ValueError(
-                "Traversal index split requires 'split_by', to specify which column to base traversal index on."
+            msg = (
+                "Traversal index split requires 'split_by', to specify which column (with embeddings) to base "
+                " traversal index on."
             )
+            raise ValueError(msg)
         embeddings = _get_column(table, split_by)
         traversal_indices = traversal_index(embeddings)
         split_sizes = manager.traversal_split(traversal_indices, splits)
