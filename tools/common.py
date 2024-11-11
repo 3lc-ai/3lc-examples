@@ -4,6 +4,7 @@ import json
 import platform
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import tlc
@@ -168,6 +169,9 @@ def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = 
     )
     edited_table.ensure_fully_defined()
     return edited_table
+
+def examples_root() -> Path:
+    return Path(__file__).parent.parent
 
 
 if __name__ == "__main__":
