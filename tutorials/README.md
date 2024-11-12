@@ -2,21 +2,17 @@
 
 This folder contains simple tutorials showcasing basic features of the `3lc` Python package.
 
-| Level 0: Creating Tables | Level 1: Modifying and Extending Tables |
-|--------------------------|-----------------------------------------|
-| ![Creating Tables](images/1.png) | ![Modifying and Extending Tables](images/2.png) |
-| Learn how to create tables from various sources, introducing table schemas and covering the most common use cases. | Explore examples for modifying and extending tables, including splitting tables, adding new columns, and using the latest data. |
+Here's the reformatted table with two rows and three columns:
 
-| Level 2: Training and Metrics Collection | Level 3: Complete Examples |
-|------------------------------------------|----------------------------|
-| ![Training and Metrics Collection](images/3.png) | ![Complete Examples](images/4.png) |
-| Examples focused on metrics collection and runs. Introduces small, precise examples to gather and analyze model metrics. | Full examples of training and evaluation, showcasing integrations with frameworks like Hugging Face and SAM. |
+| Level 0: Creating Tables | Level 1: Modifying and Extending Tables | Level 2: Training and Metrics Collection |
+|--------------------------|-----------------------------------------|------------------------------------------|
+| ![Creating Tables](images/1.png) | ![Modifying and Extending Tables](images/2.png) | ![Training and Metrics Collection](images/3.png) |
+| Learn how to create tables from various sources, introducing table schemas and covering the most common use cases. | Explore examples for modifying and extending tables, including splitting tables, adding new columns, and using the latest data. | Examples focused on metrics collection and runs. Introduces small, precise examples to gather and analyze model metrics. |
 
-| Level 4: Advanced Examples | Level 5: Misc. |
-|----------------------------|----------------|
-| ![Advanced Examples](images/5.png) | ![Miscellaneous](images/6.png) |
-| Advanced tutorials, including working with bounding box embeddings, training on image crops, and enhancing datasets with embeddings. | Additional examples and utilities, covering tasks like writing augmented samples and flattening complex data structures. |
-
+| Level 3: Complete Examples | Level 4: Advanced Examples | Level 5: Misc. |
+|----------------------------|----------------------------|----------------|
+| ![Complete Examples](images/4.png) | ![Advanced Examples](images/5.png) | ![Miscellaneous](images/6.png) |
+| Full examples of training and evaluation, showcasing integrations with frameworks like Hugging Face and SAM. | Advanced tutorials, including working with bounding box embeddings, training on image crops, and enhancing datasets with embeddings. | Additional examples and utilities, covering tasks like writing augmented samples and flattening complex data structures. |
 <!-- 
 ## Level 0: Creating Tables
 
