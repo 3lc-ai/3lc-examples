@@ -6,7 +6,7 @@ Here's the reformatted table with two rows and three columns:
 
 | Level 0: Creating Tables | Level 1: Modifying and Extending Tables | Level 2: Training and Metrics Collection |
 |--------------------------|-----------------------------------------|------------------------------------------|
-| ![Creating Tables](images/1.png) | ![Modifying and Extending Tables](images/2.png) | ![Training and Metrics Collection](images/3.png) |
+| [![Creating Tables](images/1.png)](1-create-tables) | ![Modifying and Extending Tables](images/2.png) | ![Training and Metrics Collection](images/3.png) |
 | Learn how to create tables from various sources, introducing table schemas and covering the most common use cases. | Explore examples for modifying and extending tables, including splitting tables, adding new columns, and using the latest data. | Examples focused on metrics collection and runs. Introduces small, precise examples to gather and analyze model metrics. |
 
 | Level 3: Complete Examples | Level 4: Advanced Examples | Level 5: Misc. |
