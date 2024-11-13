@@ -2,52 +2,65 @@
 
 from __future__ import annotations
 
+import abc
 from typing import Any, Callable, Literal
 
 import numpy as np
 import tlc
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle as sk_shuffle
 
 from tools.common import keep_indices
 from tools.metrics import traversal_index
 
 
-class SplitManager:
-    def __init__(self, random_seed: int = 0):
-        self.random_seed = random_seed
+class _SplitStrategy(abc.ABC):
+    def __init__(self, seed: int = 0):
+        self.seed = seed
 
-    def _get_split_sizes(self, indices, splits):
-        split_sizes = [int(len(indices) * proportion) for proportion in splits.values()]
-        if sum(split_sizes) < len(indices):
-            split_sizes[0] += len(indices) - sum(split_sizes)
+    @abc.abstractmethod
+    def split(self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None) -> dict[str, np.array]:
+        """Split the indices into the specified splits."""
+        ...
+    
+    def _get_split_sizes(self, total_count: int, splits: dict[str, float]) -> list[int]:
+        split_sizes = [int(total_count * proportion) for proportion in splits.values()]
+        if sum(split_sizes) < total_count:
+            split_sizes[0] += total_count - sum(split_sizes)
         return split_sizes
+    
 
-    def random_split(self, indices, splits):
-        split_sizes = self._get_split_sizes(indices, splits)
-        return np.split(indices, np.cumsum(split_sizes[:-1]))
+class _RandomSplitStrategy(_SplitStrategy):
+    def split(self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None) -> dict[str, np.array]:
+        split_sizes = self._get_split_sizes(len(indices), splits)
+        splits_indices = np.split(indices, np.cumsum(split_sizes[:-1]))
+        return {split_name: split_indices for split_name, split_indices in zip(splits, splits_indices)}
+    
+class _StratifiedSplitStrategy(_SplitStrategy):
+    def split(self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None) -> dict[str, np.array]:
+        if by_column is None:
+            raise ValueError("Stratified split requires a column to stratify by.")
 
-    def stratified_split(self, labels, splits, indices):
-        split_sizes = self._get_split_sizes(indices, splits)
-        
-        split_indices = {}
-        # train_size = splits["train"]
-        train_indices, val_indices = train_test_split(
-            indices, test_size=split_sizes[1], stratify=labels, random_state=self.random_seed
+        if len(splits) != 2:
+            raise ValueError("Stratified split requires exactly two splits.")
+        split_sizes = self._get_split_sizes(len(indices), splits)
+        splits_indices = train_test_split(
+            indices, test_size=split_sizes[1], stratify=by_column, random_state=self.seed
         )
-        split_indices["train"] = train_indices
-        split_indices["val"] = val_indices
-        return split_indices
-
-    def traversal_split(self, traversal_indices, splits):
-        split_sizes = [int(len(traversal_indices) * proportion) for proportion in splits.values()]
-        if sum(split_sizes) < len(traversal_indices):
-            split_sizes[0] += len(traversal_indices) - sum(split_sizes)
-        return np.split(traversal_indices, np.cumsum(split_sizes[:-1]))
-
-    def get_k_fold_split(self, n_folds, indices, labels=None):
-        kf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=self.random_seed)
-        return list(kf.split(indices, labels))
+        return {split_name: split_indices for split_name, split_indices in zip(splits, splits_indices)}
+    
+class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
+    def split(self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None) -> dict[str, np.array]:
+        if by_column is None:
+            raise ValueError("Traversal index split requires an embeddings column to compute traversal index.")
+        traversal_indices = traversal_index(by_column)
+        return super().split(traversal_indices, splits)
+    
+_STRATEGY_MAP = {
+    "random": _RandomSplitStrategy,
+    "stratified": _StratifiedSplitStrategy,
+    "traversal_index": _TraversalIndexSplitStrategy,
+}
 
 
 def split_table(
@@ -57,10 +70,9 @@ def split_table(
     split_strategy: Literal["random", "stratified", "traversal_index"] = "random",
     shuffle: bool = True,
     split_by: int | str | Callable[[Any], int] | None = None,
-    n_folds: int | None = None,
 ) -> dict[str, dict[str, Any]]:
     """
-    Splits a table into train/validation sets or performs k-fold cross-validation splits.
+    Splits a table into two or more tables based on the specified strategy.
 
     :param table: The table to split.
     :param splits: Proportions for train and validation splits, ignored if `n_folds` is provided. Default is 80/20.
@@ -70,58 +82,24 @@ def split_table(
     :param split_by: Column or property to use for splitting. Required for "stratified" and "traversal_index"
         strategies. Provide a string if the rows are dictionaries, or an integer if the rows are tuples/lists. If a
         callable is provided it will be called with each row and should return the value on which to split.
-    :param n_folds: Enables k-fold cross-validation, each fold contains "train" and "val".
 
     :returns: Split tables as per requested strategy, including k-fold results if `n_folds` is provided.
     """
     if splits is None:
         splits = {"train": 0.8, "val": 0.2}
 
-    manager = SplitManager(random_seed)
     indices = np.arange(len(table))
 
-    if n_folds:
-        # NOTE: K-fold cross-validation should perhaps be in a separate tool - it could even take several tables as input
-        raise NotImplementedError("K-fold cross-validation is not yet implemented.")
-        # # If n_folds is specified, perform k-fold cross-validation with train/val splits
-        # splits_indices = {}
-        # if split_strategy == "stratified" and split_by:
-        #     labels = table[stratify_column].to_numpy()
-        #     fold_splits = manager.get_k_fold_split(n_folds, indices, labels=labels)
-        # else:
-        #     fold_splits = manager.get_k_fold_split(n_folds, indices)
-
-        # for fold, (train_idx, val_idx) in enumerate(fold_splits):
-        #     splits_indices[f"fold_{fold}"] = {"train": table[train_idx], "val": table[val_idx]}
-        # return splits_indices
-
-    # Regular splitting (not k-fold)
+    # Regular splitting
     if shuffle and split_strategy == "random":
         indices = sk_shuffle(indices, random_state=random_seed)
 
-    if split_strategy == "random":
-        split_sizes = manager.random_split(indices, splits)
-        splits_indices = {split_name: split_indices for split_name, split_indices in zip(splits.keys(), split_sizes)}
-
-    elif split_strategy == "stratified":
-        if split_by is None:
-            msg = "Stratified split requires 'split_by', to specify which column to base stratified sampling on."
-            raise ValueError(msg)
-        labels = _get_column(table, split_by)
-        splits_indices = manager.stratified_split(labels, splits, indices)
-
-    elif split_strategy == "traversal_index":
-        # TODO: Fix traversal index computation, currently incorrect
-        if split_by is None:
-            msg = (
-                "Traversal index split requires 'split_by', to specify which column (with embeddings) to base "
-                " traversal index on."
-            )
-            raise ValueError(msg)
-        embeddings = _get_column(table, split_by)
-        traversal_indices = traversal_index(embeddings)
-        split_sizes = manager.traversal_split(traversal_indices, splits)
-        splits_indices = {"train": split_sizes[0], "val": split_sizes[1]}
+    strategy_class = _STRATEGY_MAP.get(split_strategy)
+    if strategy_class is None:
+        raise ValueError(f"Invalid split strategy: {split_strategy}. Must be one of {_STRATEGY_MAP.keys()}")
+    
+    strategy = strategy_class(random_seed)
+    splits_indices = strategy.split(indices, splits, by_column=_get_column(table, split_by))
 
     # Return dictionary with tables based on final split indices
     return {
