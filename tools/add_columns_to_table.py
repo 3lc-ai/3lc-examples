@@ -38,6 +38,12 @@ def _infer_schemas(
 
     return inferred_schemas
 
+def cast_bbs(bbs):
+    for bb in bbs["bb_list"]:
+        for key in ["x0", "y0", "x1", "y1"]:
+            bb[key] = float(bb[key])
+    bbs["segmentation"] = [[float(x) for x in sublist] for sublist in bbs["segmentation"]]
+    return bbs
 
 def add_columns_to_table(
     table: tlc.Table,
@@ -71,6 +77,9 @@ def add_columns_to_table(
     # Copy over all rows from the input table
     for row in table.table_rows:
         for column_name, column_value in row.items():
+            if column_name == "bbs":
+                data[column_name].append(cast_bbs(column_value))
+                continue
             if input_schemas[column_name].sample_type == tlc.PILImage.sample_type:
                 image_url = tlc.Url(column_value).to_absolute()
                 # if not isinstance(image_url, tlc.Url)
