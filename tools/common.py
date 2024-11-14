@@ -1,5 +1,7 @@
 """Common utilities for the tools."""
 
+from __future__ import annotations
+
 import json
 import platform
 import subprocess
