@@ -31,12 +31,14 @@ class _SplitStrategy(abc.ABC):
     
 
 class _RandomSplitStrategy(_SplitStrategy):
+    requires_split_by = False
     def split(self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None) -> dict[str, np.array]:
         split_sizes = self._get_split_sizes(len(indices), splits)
         splits_indices = np.split(indices, np.cumsum(split_sizes[:-1]))
         return {split_name: split_indices for split_name, split_indices in zip(splits, splits_indices)}
     
 class _StratifiedSplitStrategy(_SplitStrategy):
+    requires_split_by = True
     def split(self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None) -> dict[str, np.array]:
         if by_column is None:
             raise ValueError("Stratified split requires a column to stratify by.")
@@ -50,6 +52,7 @@ class _StratifiedSplitStrategy(_SplitStrategy):
         return {split_name: split_indices for split_name, split_indices in zip(splits, splits_indices)}
     
 class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
+    requires_split_by = True
     def split(self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None) -> dict[str, np.array]:
         if by_column is None:
             raise ValueError("Traversal index split requires an embeddings column to compute traversal index.")
@@ -70,7 +73,7 @@ def split_table(
     split_strategy: Literal["random", "stratified", "traversal_index"] = "random",
     shuffle: bool = True,
     split_by: int | str | Callable[[Any], int] | None = None,
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, tlc.Table]:
     """
     Splits a table into two or more tables based on the specified strategy.
 
@@ -83,7 +86,7 @@ def split_table(
         strategies. Provide a string if the rows are dictionaries, or an integer if the rows are tuples/lists. If a
         callable is provided it will be called with each row and should return the value on which to split.
 
-    :returns: Split tables as per requested strategy, including k-fold results if `n_folds` is provided.
+    :returns: Split tables as per requested strategy.
     """
     if splits is None:
         splits = {"train": 0.8, "val": 0.2}
@@ -99,7 +102,15 @@ def split_table(
         raise ValueError(f"Invalid split strategy: {split_strategy}. Must be one of {_STRATEGY_MAP.keys()}")
     
     strategy = strategy_class(random_seed)
-    splits_indices = strategy.split(indices, splits, by_column=_get_column(table, split_by))
+
+    kwargs = {}
+    if strategy.requires_split_by:
+        if split_by is None:
+            raise ValueError(f"Split strategy '{split_strategy}' requires a split_by column.")
+        kwargs["by_column"] = _get_column(table, split_by)
+
+
+    splits_indices = strategy.split(indices, splits, **kwargs)
 
     # Return dictionary with tables based on final split indices
     return {
