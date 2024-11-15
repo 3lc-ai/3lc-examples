@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import abc
+import math
+import warnings
 from typing import Any, Callable, Literal
 
+import fpsample
 import numpy as np
 import tlc
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle as sk_shuffle
 
 from tools.common import keep_indices
-from tools.metrics import traversal_index
 
 
 class _SplitStrategy(abc.ABC):
@@ -53,11 +55,39 @@ class _StratifiedSplitStrategy(_SplitStrategy):
     
 class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
     requires_split_by = True
+
     def split(self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None) -> dict[str, np.array]:
-        if by_column is None:
-            raise ValueError("Traversal index split requires an embeddings column to compute traversal index.")
-        traversal_indices = traversal_index(by_column)
-        return super().split(traversal_indices, splits)
+        # Sort to take smallest splits first
+        splits = dict(sorted(splits.items(), key=lambda x: x[1]))
+        largest_split_name = list(splits.keys())[-1]
+
+        # Track original indices explicitly
+        original_indices = indices.tolist()
+        remaining_indices = original_indices.copy()  # Absolute indices from the start
+
+        # FPS one split at a time
+        split_indices = {}
+        for split_name, split_proportion in list(splits.items())[:-1]:
+            # Determine the number of samples for this split
+            split_size = int(len(original_indices) * split_proportion)
+            
+            # Perform sampling on the current subset of remaining indices
+            sampled_indices = fpsample.bucket_fps_kdtree_sampling(
+                by_column[remaining_indices],  # Subset of `by_column` corresponding to remaining indices
+                split_size,
+            ).tolist()
+
+            # Map sampled indices to their absolute values in the original array
+            split_indices[split_name] = [remaining_indices[i] for i in sampled_indices]
+
+            # Update remaining indices by removing the sampled ones
+            remaining_indices = [idx for idx in remaining_indices if idx not in split_indices[split_name]]
+
+        # Add the remaining indices to the largest split
+        split_indices[largest_split_name] = remaining_indices
+
+        # Return results as numpy arrays
+        return {s: np.array(split_indices[s]) for s in splits}
     
 _STRATEGY_MAP = {
     "random": _RandomSplitStrategy,
@@ -78,7 +108,7 @@ def split_table(
     Splits a table into two or more tables based on the specified strategy.
 
     :param table: The table to split.
-    :param splits: Proportions for train and validation splits, ignored if `n_folds` is provided. Default is 80/20.
+    :param splits: Proportions for train and validation splits. Default is a 80/20 train and val split.
     :param random_seed: Seed for reproducibility.
     :param split_strategy: "random", "stratified" (requires `split_by`), or "traversal_index" (requires `split_by`).
     :param shuffle: Shuffle data for "random" split. Default is True.
@@ -90,6 +120,11 @@ def split_table(
     """
     if splits is None:
         splits = {"train": 0.8, "val": 0.2}
+
+    if not math.isclose(sum(splits.values()), 1.0):
+        warnings.warn("Split proportions do not sum to 1. Normalizing.", stacklevel=2)
+        total = sum(splits.values())
+        splits = {k: v / total for k, v in splits.items()}
 
     indices = np.arange(len(table))
 
