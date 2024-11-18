@@ -43,10 +43,6 @@ def add_embeddings_to_table(
     if model is None:
         model_name = "google/vit-base-patch16-224"
         model = ViTModel.from_pretrained(model_name).to(device)
-        embedding_extraction_fn = embedding_extraction_fn or (lambda output: output.last_hidden_state[:, 0, :])
-
-    # Prepare preprocessing function
-    if preprocess_fn is None:
         image_processor = ViTImageProcessor.from_pretrained(model_name)
         preprocess_fn = transforms.Compose(
             [
@@ -55,6 +51,7 @@ def add_embeddings_to_table(
                 transforms.Normalize(mean=image_processor.image_mean, std=image_processor.image_std),
             ]
         )
+        embedding_extraction_fn = lambda output: output.last_hidden_state[:, 0, :]
 
     # Map the table to ensure samples are compatible with the model
     table.map(preprocess_fn)
