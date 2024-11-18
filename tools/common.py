@@ -125,25 +125,6 @@ def is_windows() -> bool:
     return platform.system() == "Windows"
 
 
-def get_column_from_table(table: tlc.Table, column_name: str) -> np.ndarray:
-    if isinstance(table, tlc.core.objects.tables.in_memory_columns_table._InMemoryColumnsTable):
-        table_with_columns = table
-
-    elif table.row_cache_populated:
-        init_params = json.loads((table.url / "object.3lc.json").read())
-        init_params["row_cache_url"] = tlc.Url(init_params["row_cache_url"]).to_absolute(table.url)
-        table_with_columns = TableFromRowCache(init_params)
-    else:
-        # Worst case, aggregate column values, row by row
-        column_values = []
-        for row in table:
-            column_values.append(row[column_name])
-        return np.array(column_values, dtype=np.float32)
-
-    pa_column = table_with_columns.get_column(column_name)
-    return np.array(pa_column.to_numpy().tolist(), dtype=np.float32)
-
-
 def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = None) -> tlc.Table:
     """Keep only the rows with the specified indices in the table.
 
