@@ -55,7 +55,7 @@ def export_to_yolo(
 
     if is_windows() and image_strategy == "symlink":
         raise ValueError("Symlinking images is not supported on Windows, choose a different 'image_strategy'.")
-    
+
     if image_strategy is None:
         print(
             "WARNING: No image strategy provided, defaulting to 'copy'. "
@@ -94,15 +94,24 @@ def export_to_yolo(
             image_width = row.get(tlc.WIDTH, row[tlc.BOUNDING_BOXES][tlc.IMAGE_WIDTH])
             image_height = row.get(tlc.HEIGHT, row[tlc.BOUNDING_BOXES][tlc.IMAGE_HEIGHT])
 
-            image_path = Path(tlc.Url(row["image"]).to_absolute().to_str()) # Resolve aliases
+            image_path = Path(tlc.Url(row["image"]).to_absolute().to_str())  # Resolve aliases
             bounding_box_dicts = row["bbs"]["bb_list"]
 
             # Read out the bounding boxes
             lines = []
             for bounding_box_dict in bounding_box_dicts:
-                bounding_box = bb_type(
-                    [bounding_box_dict["x0"], bounding_box_dict["y0"], bounding_box_dict["x1"], bounding_box_dict["y1"]]
-                ).normalize(image_width, image_height).to_top_left_xywh()
+                bounding_box = (
+                    bb_type(
+                        [
+                            bounding_box_dict["x0"],
+                            bounding_box_dict["y0"],
+                            bounding_box_dict["x1"],
+                            bounding_box_dict["y1"],
+                        ]
+                    )
+                    .normalize(image_width, image_height)
+                    .to_top_left_xywh()
+                )
 
                 bounding_box_xywh = CenteredXYWHBoundingBox.from_top_left_xywh(bounding_box)
 
@@ -155,19 +164,20 @@ def export_to_yolo(
 def _image_path_to_label_path(full_path: Path) -> Path:
     # Replace the last occurrence of 'images' with 'labels', if there is one
     parts = list(full_path.parts)
-    
+
     for i in range(len(parts) - 1, -1, -1):
         if parts[i] == "images":
             parts[i] = "labels"
             break
-    
+
     return Path(*parts).with_suffix(".txt")
 
+
 def _handle_image(
-        original_image_path: Path,
-        output_image_path: Path,
-        image_strategy: Literal["ignore", "copy", "symlink", "move"],
-    ) -> Path:
+    original_image_path: Path,
+    output_image_path: Path,
+    image_strategy: Literal["ignore", "copy", "symlink", "move"],
+) -> Path:
     # Handle conflicting image name where output image already exists
     if output_image_path.exists():
         output_image_path = _handle_conflicting_image_name(output_image_path)
@@ -182,8 +192,9 @@ def _handle_image(
         pass
     else:
         raise ValueError(f"Invalid image_strategy: {image_strategy}")
-    
+
     return output_image_path
+
 
 def _handle_conflicting_image_name(output_image_path: Path) -> Path:
     # Find the next available filename by adding a number to the end
@@ -191,8 +202,9 @@ def _handle_conflicting_image_name(output_image_path: Path) -> Path:
     while output_image_path.exists() and i < 10000:
         output_image_path = output_image_path.with_name(f"{output_image_path.stem}_{i:04d}{output_image_path.suffix}")
         i += 1
-    
+
     return output_image_path
+
 
 def _verify_table_schema(table: tlc.Table) -> None:
     # Verify that the table has the expected schema
@@ -226,6 +238,7 @@ def _verify_table_schema(table: tlc.Table) -> None:
     # Check if the table has a value-mapping for its labels.
     if table.get_value_map("bbs.bb_list.label") is None:
         raise ValueError("Table does not have a value-mapping for its bounding box labels.")
+
 
 def main(args):
     table = tlc.Table.from_url(args.table_url)
