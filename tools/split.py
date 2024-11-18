@@ -121,6 +121,11 @@ def split_table(
     if splits is None:
         splits = {"train": 0.8, "val": 0.2}
 
+    for _, split_proportion in splits.items():
+        if split_proportion < 0 or split_proportion > 1:
+            msg = f"Invalid split proportion: {split_proportion}, must be between 0 and 1."
+            raise ValueError(msg)
+
     if not math.isclose(sum(splits.values()), 1.0):
         warnings.warn("Split proportions do not sum to 1. Normalizing.", stacklevel=2)
         total = sum(splits.values())
@@ -134,16 +139,18 @@ def split_table(
 
     strategy_class = _STRATEGY_MAP.get(split_strategy)
     if strategy_class is None:
-        raise ValueError(f"Invalid split strategy: {split_strategy}. Must be one of {_STRATEGY_MAP.keys()}")
+        available_strategies = ", ".join(_STRATEGY_MAP.keys())
+        msg = f"Invalid split strategy: {split_strategy}. Must be one of {available_strategies}"
+        raise ValueError(msg)
     
     strategy = strategy_class(random_seed)
 
     kwargs = {}
     if strategy.requires_split_by:
         if split_by is None:
-            raise ValueError(f"Split strategy '{split_strategy}' requires a split_by column.")
+            msg = f"Split strategy '{split_strategy}' requires a split_by column."
+            raise ValueError(msg)
         kwargs["by_column"] = _get_column(table, split_by)
-
 
     splits_indices = strategy.split(indices, splits, **kwargs)
 
@@ -158,6 +165,7 @@ def split_table(
     }
 
 def _get_column(table, column: int | str | Callable[[Any], int]) -> np.array:
+    # TODO: Use more performant `tlc.get_column` when available
     if isinstance(column, (int, str)):
         return np.array([row[column] for row in table])
     
@@ -165,4 +173,5 @@ def _get_column(table, column: int | str | Callable[[Any], int]) -> np.array:
         return np.array([column(row) for row in table])
     
     else:
-        raise ValueError(f"Invalid label_column: {column}")
+        msg = f"Invalid column type: {type(column)}"
+        raise ValueError(msg)
