@@ -2,8 +2,6 @@
 
 This folder contains notebooks demonstrating how to modify and extend data in 3LC, by creating new tables.
 
-Here’s a placeholder table for the specified notebooks, formatted with three columns per row:
-
 |  |  |  |
 |:----------:|:----------:|:----------:|
 | **Add Image Metrics** | **Add Embeddings** | **Add Classification Metrics** |

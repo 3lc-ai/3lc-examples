@@ -2,8 +2,6 @@
 
 This folder contains notebooks demonstrating how to work with Runs and metrics in 3LC.
 
-Here’s a placeholder table for the specified notebooks, formatted with three columns per row:
-
 |  |  |  |
 |:----------:|:----------:|:----------:|
 | **Collect Metrics** | **SAM Embeddings** |  |
