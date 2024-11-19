@@ -155,7 +155,7 @@ def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = 
 
 
 def examples_root() -> Path:
-    return Path(__file__).parent.parent
+    return Path(__file__).parent.parent.parent  # TODO: still not robust..!
 
 
 def data_root() -> Path:
