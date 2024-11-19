@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A set of open-source tools for extending and enhancing the base 3lc functionality."
 authors = ["3LC <hello@3lc.ai>"]
 readme = "README.md"
-license = "MIT"
+license = "Apache-2.0"
 keywords = ["AI", "tools", "data workflows", "3lc"]
 packages = [{ include = "tlc_tools", from = "src" }]
 
@@ -12,7 +12,8 @@ packages = [{ include = "tlc_tools", from = "src" }]
 python = ">=3.9,<3.13"
 3lc = { version = "^2.10.0", extras = [] }
 fpsample = "^0.3.3"
-segment-anything = { git = "https://github.com/facebookresearch/segment-anything" }
+segment-anything = { git = "https://github.com/facebookresearch/segment-anything", optional = true }
+opencv-python = "^4.10.0.84"
 
 [tool.poetry.extras]
 umap = ["3lc"]
