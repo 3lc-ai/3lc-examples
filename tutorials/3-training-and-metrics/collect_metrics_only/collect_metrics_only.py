@@ -27,26 +27,9 @@ def main():
     # Use a resnet18 model from timm, already trained on CIFAR-10
     model = timm.create_model("hf_hub:FredMell/resnet18-cifar10", pretrained=True).to(device)
 
-    # Prepare the datasets and create corresponding 3LC tables
-    train_dataset = torchvision.datasets.CIFAR10(root="data", train=True, download=True)
-    eval_dataset = torchvision.datasets.CIFAR10(root="data", train=False)
-
-    structure = (tlc.PILImage("Image"), tlc.CategoricalLabel("Label", classes=train_dataset.classes))
-
-    train_table = tlc.Table.from_torch_dataset(
-        train_dataset,
-        structure=structure,
-        project_name="Metrics Collection Only",
-        dataset_name="CIFAR-10-train",
-        table_name="original"
-    )
-    eval_table = tlc.Table.from_torch_dataset(
-        eval_dataset,
-        structure=structure,
-        project_name="Metrics Collection Only",
-        dataset_name="CIFAR-10-eval",
-        table_name="original"
-    )
+    # Load the tables from the tutorial ../../1-create-tables/create-table-from-torch.ipynb
+    train_table = tlc.Table.from_names("initial", "CIFAR-10-train", "3LC Tutorials")
+    eval_table = tlc.Table.from_names("initial", "CIFAR-10-val", "3LC Tutorials")
 
     # Apply the transforms to the tables
     train_table = train_table.map(transform)
@@ -56,19 +39,22 @@ def main():
     tlc.init(project_name=train_table.project_name, description="Only collect metrics with trained model on CIFAR-10")
 
     dataloader_args = {"batch_size": 128, "num_workers": 4, "persistent_workers": True, "pin_memory": True}
+    classes = list(train_table.get_simple_value_map("Label").values())
 
     tlc.collect_metrics(
         table=train_table,
         predictor=model,
-        metrics_collectors=tlc.ClassificationMetricsCollector(classes=train_dataset.classes),
-        dataloader_args=dataloader_args
+        metrics_collectors=tlc.ClassificationMetricsCollector(classes=classes),
+        dataloader_args=dataloader_args,
+        split="train",
     )
 
     tlc.collect_metrics(
         table=eval_table,
         predictor=model,
-        metrics_collectors=tlc.ClassificationMetricsCollector(classes=train_dataset.classes),
-        dataloader_args=dataloader_args
+        metrics_collectors=tlc.ClassificationMetricsCollector(classes=classes),
+        dataloader_args=dataloader_args,
+        split="eval",
     )
 
     tlc.close()
