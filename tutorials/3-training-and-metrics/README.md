@@ -7,6 +7,6 @@ Here’s a placeholder table for the specified notebooks, formatted with three c
 |  |  |  |
 |:----------:|:----------:|:----------:|
 | **Collect Metrics** | **SAM Embeddings** |  |
-| [![train-image-classification](../images/collect-only.png)](collect_metrics_only) | [![train-object-detection](../images/placeholder.png)](train-object-detection.ipynb) ||
-| This notebook covers using a trained image classification model for metrics collection. | This notebook demonstrates training object detection models, including metrics collection and evaluation. ||
+| [![train-image-classification](../images/collect-only.png)](collect_metrics_only) | [![train-object-detection](../images/sam-embeddings.png)](train-object-detection.ipynb) ||
+| This notebook covers using a trained image classification model for metrics collection. Collects the metrics "predicted_label", "confidence", and "loss".| This notebook demonstrates training object detection models, including metrics collection and evaluation. ||
 
