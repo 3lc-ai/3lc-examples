@@ -5,8 +5,8 @@ This folder contains notebooks demonstrating how to modify and extend data in 3L
 Here’s a placeholder table for the specified notebooks, formatted with three columns per row:
 
 |  |  |  |
-|------------|------------|------------|
-| <div align="center">Add Image Metrics</div> | <div align="center">Add Embeddings</div> | <div align="center">Add Global Image Metrics</div> |
+|:----------:|:----------:|:----------:|
+| Add Image Metrics | Add Embeddings | Add Global Image Metrics |
 | [![add-image-metrics](../images/placeholder.png)](add-image-metrics.ipynb) | [![add-embeddings](../images/placeholder.png)](add-embeddings.ipynb) | [![add-classification-metrics](../images/placeholder.png)](add-classification-metrics.ipynb) |
 | This notebook covers adding image metrics, showing how to compute and store metrics associated with each image. |  This notebook demonstrates adding embeddings, allowing for advanced searches and similarity comparisons. | Explores adding global image metrics to enhance dataset-level analysis and aggregation. |
 | Split Tables | Add New Data | Add New Data and Split |
