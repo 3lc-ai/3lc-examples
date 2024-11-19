@@ -1,13 +1,24 @@
 [tool.poetry]
-name = "tools"
+name = "3lc_tools"
 version = "0.1.0"
-description = ""
+description = "A set of open-source tools for extending and enhancing the base 3lc functionality."
 authors = ["3LC <hello@3lc.ai>"]
 readme = "README.md"
+license = "MIT"
+keywords = ["AI", "tools", "data workflows", "3lc"]
+packages = [{ include = "tlc_tools", from = "src" }]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.13"
-3lc = "^2.9.0"
+python = ">=3.9,<3.13"
+3lc = { version = "^2.10.0", extras = [] }
+fpsample = "^0.3.3"
+segment-anything = { git = "https://github.com/facebookresearch/segment-anything" }
+
+[tool.poetry.extras]
+umap = ["3lc"]
+pacmap = ["3lc"]
+huggingface = ["3lc"]
+sam = ["segment-anything"]
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.9"
@@ -16,8 +27,9 @@ mypy = "^1.12.0"
 papermill = "^2.6.0"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
 
 [tool.ruff]
 include = [

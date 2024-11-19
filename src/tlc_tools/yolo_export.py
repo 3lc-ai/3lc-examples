@@ -8,7 +8,7 @@ import yaml
 from tlc.core.builtins.types.bounding_box import CenteredXYWHBoundingBox
 from tqdm import tqdm
 
-from tools.common import is_windows
+from tlc_tools.common import is_windows
 
 
 def export_to_yolo(

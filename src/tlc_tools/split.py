@@ -13,7 +13,7 @@ import tlc
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle as sk_shuffle
 
-from tools.common import keep_indices
+from tlc_tools.common import keep_indices
 
 
 class _SplitStrategy(abc.ABC):

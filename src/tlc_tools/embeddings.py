@@ -11,7 +11,7 @@ import tqdm
 from torchvision import transforms
 from transformers import ViTImageProcessor, ViTModel
 
-from tools import add_columns_to_table
+from tlc_tools import add_columns_to_table
 
 
 def add_embeddings_to_table(
