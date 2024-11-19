@@ -7,7 +7,7 @@ Here’s a placeholder table for the specified notebooks, formatted with three c
 |  |  |  |
 |:----------:|:----------:|:----------:|
 | **Add Image Metrics** | **Add Embeddings** | **Add Classification Metrics** |
-| [![add-image-metrics](../images/add-image-metrics.png)](add-image-metrics.ipynb) | [![add-embeddings](../images/add-embeddings.png)](add-embeddings.ipynb) | [![add-classification-metrics](../images/placeholder.png)](add-classification-metrics.ipynb) |
+| [![add-image-metrics](../images/add-image-metrics.png)](add-image-metrics.ipynb) | [![add-embeddings](../images/add-embeddings.png)](add-embeddings.ipynb) | [![add-classification-metrics](../images/add-classification-metrics.png)](add-classification-metrics.ipynb) |
 | This notebook covers adding image metrics, showing how to compute and store metrics associated with each image. |  This notebook demonstrates adding embeddings, allowing for advanced searches and similarity comparisons. | Explores adding global image metrics to enhance dataset-level analysis and aggregation. |
 | **Split Tables** | **Add New Data** | **Add New Data and Split** |
 | [![split-tables](../images/placeholder.png)](split-tables.ipynb) | [![add-new-data](../images/placeholder.png)](add-new-data.ipynb) | [![add-new-data-and-split](../images/placeholder.png)](add-new-data-and-split.ipynb) |
