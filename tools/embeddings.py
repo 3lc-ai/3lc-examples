@@ -54,7 +54,8 @@ def add_embeddings_to_table(
         embedding_extraction_fn = lambda output: output.last_hidden_state[:, 0, :]
 
     # Map the table to ensure samples are compatible with the model
-    table.map(preprocess_fn)
+    if preprocess_fn:
+        table.map(preprocess_fn)
 
     # Set up DataLoader
     dataloader = torch.utils.data.DataLoader(table, batch_size=batch_size, shuffle=False)

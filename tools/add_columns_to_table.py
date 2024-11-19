@@ -74,24 +74,48 @@ def add_columns_to_table(
     # TableWriter accepts data as a dictionary of column names to lists
     data = defaultdict(list)
 
-    # Copy over all rows from the input table
-    for row in table.table_rows:
+    ### 
+    # # Copy over all rows from the input table
+    # for row in table.table_rows:
+    #     for column_name, column_value in row.items():
+    #         if column_name == "bbs":
+    #             data[column_name].append(cast_bbs(column_value))
+    #             continue
+    #         if input_schemas[column_name].sample_type == tlc.PILImage.sample_type:
+    #             image_url = tlc.Url(column_value).to_absolute(table.url)
+    #             # if not isinstance(image_url, tlc.Url)
+    #             column_value = Image.open(image_url.to_str())
+    #         data[column_name].append(column_value)
+
+    # # Add the new columns
+    # for column_name, column_values in columns.items():
+    #     data[column_name] = column_values
+
+    # assert len({len(data[column_name]) for column_name in data}) == 1, "All columns must have the same length"
+
+    # table_writer.add_batch(data)
+    ###
+
+    # Alternate implementation
+    for i, row in enumerate(table.table_rows):
+        
+        output_row = {}
         for column_name, column_value in row.items():
             if column_name == "bbs":
                 data[column_name].append(cast_bbs(column_value))
                 continue
             if input_schemas[column_name].sample_type == tlc.PILImage.sample_type:
-                image_url = tlc.Url(column_value).to_absolute()
+                image_url = tlc.Url(column_value).to_absolute(table.url)
                 # if not isinstance(image_url, tlc.Url)
                 column_value = Image.open(image_url.to_str())
-            data[column_name].append(column_value)
+            
+            output_row[column_name] = column_value
 
-    # Add the new columns
-    for column_name, column_values in columns.items():
-        data[column_name] = column_values
+        # Add the new columns
+        for column_name in columns:
+            output_row[column_name] = columns[column_name][i]
 
-    assert len({len(data[column_name]) for column_name in data}) == 1, "All columns must have the same length"
+        table_writer.add_row(output_row)
 
-    table_writer.add_batch(data)
     new_table = table_writer.finalize()
     return new_table
