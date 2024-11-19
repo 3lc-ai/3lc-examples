@@ -7,7 +7,8 @@ The `tlc` Python package provides several helper functions for creating tables f
 |                        |                        |                        |
 |------------------------|------------------------|------------------------|
 | Image Classification   | Custom Table           | Bounding Boxes         |
-| [![img][image-classification-img]][image-classification-link] <br> Create a table from a folder of subfolders, each subfolder containing images belonging to a certain class. | [![custom][custom-img]][custom-link] <br> Write a custom Table by specifying a schema and adding data row-by-row. | [![bb][bb-img]][bb-link] <br> Write a custom Table containing images and bounding boxes, using custom bounding boxes of an arbitrary format. |
+| [![img][image-classification-img]][image-classification-link] | [![custom][custom-img]][custom-link] | [![bb][bb-img]][bb-link] |
+| Create a table from a folder of subfolders, each subfolder containing images belonging to a certain class. | Write a custom Table by specifying a schema and adding data row-by-row. | Write a custom Table containing images and bounding boxes, using custom bounding boxes of an arbitrary format. |
 | YOLO                   | Semantic Segmentation  | Video Thumbnails       |
 | [![yolo][yolo-img]][yolo-link] <br> Load images and bounding boxes from the YOLO YAML file format. | [![semseg][semseg-img]][semseg-link] <br> Write a Table from images and one or more masks | [![video][video-img]][video-link] <br> Write a Table with video thumbnails. |
 | From Torch Dataset      |  |    |
