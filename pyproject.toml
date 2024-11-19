@@ -12,8 +12,8 @@ packages = [{ include = "tlc_tools", from = "src" }]
 python = ">=3.9,<3.13"
 3lc = { version = "^2.10.0", extras = [] }
 fpsample = "^0.3.3"
-segment-anything = { git = "https://github.com/facebookresearch/segment-anything", optional = true }
 opencv-python = "^4.10.0.84"
+segment-anything = { git = "https://github.com/facebookresearch/segment-anything", optional = true }
 datasets = { version = ">=2.17.0", optional = true }
 transformers = {version = "^4.30.2", optional = true}
 evaluate = {version = "^0.4.1", optional = true}
