@@ -32,6 +32,9 @@ cd 3lc-examples
 
 # Activate your Python environment (if applicable)
 
+# Install the 3lc-tools Python package:
+pip install -e .
+
 # Open the Jupyter notebook interface:
 jupyter notebook
 
