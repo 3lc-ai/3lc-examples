@@ -6,6 +6,6 @@ Here’s a placeholder table for the specified notebooks, formatted with three c
 
 |  |  |  |
 |:----------:|:----------:|:----------:|
-| <div align="center">Bounding Box Embeddings</div> |
+| **Bounding Box Embeddings** |
 | [![bb-embeddings](../images/placeholder.png)](bb-embeddings.ipynb) |
 | This notebook covers adding embeddings to bounding boxes, enabling advanced searches and similarity comparisons. |||
