@@ -3232,7 +3232,7 @@ crt = ["botocore[crt] (>=1.33.2,<2.0a.0)"]
 name = "segment_anything"
 version = "1.0"
 description = ""
-optional = false
+optional = true
 python-versions = "*"
 files = []
 develop = false
@@ -3857,12 +3857,12 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 type = ["pytest-mypy"]
 
 [extras]
-huggingface = ["3lc"]
-pacmap = ["3lc"]
+huggingface = []
+pacmap = []
 sam = ["segment-anything"]
-umap = ["3lc"]
+umap = []
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "a9f1b964f480a1dfd4b9ee563527d047196eb829324780f19ebb4e6641e9fd28"
+content-hash = "9193867effd1ab26351794f95b9e04d2f6890d19771be6285d03de2532d438e5"
