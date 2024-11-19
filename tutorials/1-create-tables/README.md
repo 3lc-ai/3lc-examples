@@ -6,7 +6,7 @@ The `tlc` Python package provides several helper functions for creating tables f
 
 |                        |                        |                        |
 |------------------------|------------------------|------------------------|
-| Image Classification   | Custom Table           | Bounding Boxes         |
+| <div align="center">Image Classification</div> | <div align="center">Custom Table</div>      | <div align="center">Bounding Boxes</div>         |
 | [![img][image-classification-img]][image-classification-link] | [![custom][custom-img]][custom-link] | [![bb][bb-img]][bb-link] |
 | Create a table from a folder of subfolders, each subfolder containing images belonging to a certain class. | Write a custom Table by specifying a schema and adding data row-by-row. | Write a custom Table containing images and bounding boxes, using custom bounding boxes of an arbitrary format. |
 | YOLO                   | Semantic Segmentation  | Video Thumbnails       |
