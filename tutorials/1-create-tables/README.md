@@ -12,7 +12,7 @@ The `tlc` Python package provides several helper functions for creating tables f
 | [![yolo][yolo-img]][yolo-link] <br> Load images and bounding boxes from the YOLO YAML file format. | [![semseg][semseg-img]][semseg-link] <br> Write a Table from images and one or more masks | [![video][video-img]][video-link] <br> Write a Table with video thumbnails. |
 |                        |                        |                        |
 | From Torch Dataset      |  |    |
-| [![torch][torch-img]][torch-link] <br> Write a Table from a PyTorch Dataset. |  |    |
+| [![torch][torch-img]][torch-link] <br> Create a Table directly from a PyTorch Dataset (CIFAR-10). |  |    |
 
 [image-classification-img]: ../images/create-image-classification-table.png
 [image-classification-link]: create-image-classification-table.ipynb
@@ -26,5 +26,5 @@ The `tlc` Python package provides several helper functions for creating tables f
 [semseg-link]: create-semantic-segmentation-dataset.ipynb
 [video-img]: ../images/create-video-thumbnail-table.png
 [video-link]: create-video-thumbnail-table.ipynb
-[torch-img]: ../images/placeholder.png
+[torch-img]: ../images/from-torch.png
 [torch-link]: create-table-from-torch.ipynb
