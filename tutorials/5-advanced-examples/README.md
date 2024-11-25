@@ -5,5 +5,5 @@ This folder contains notebooks demonstrating how to work with Runs and metrics i
 |  |  |  |
 |:----------:|:----------:|:----------:|
 | **Bounding Box Embeddings** |
-| [![bb-embeddings](../images/placeholder.png)](bb-embeddings.ipynb) |
-| This notebook covers adding embeddings to bounding boxes, enabling advanced searches and similarity comparisons. |||
+| [![bb-embeddings](../images/bb-embeddings.png)](bb-embeddings) |
+| These notebooks cover training a bounding box classifier, and then adding per-bounding-box embeddings to the initial table |||
