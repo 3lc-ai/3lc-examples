@@ -5,5 +5,5 @@ This folder contains notebooks showcasing complete examples of training and eval
 |  |  |  |
 |:----------:|:----------:|:----------:|
 | **Hugging Face Segmentation** | **Fine-tune SAM** |  |
-| [![hf-segmentation](../images/placeholder.png)](hf-segmentation.ipynb) | [![fine-tune-sam](../images/placeholder.png)](fine-tune-sam.ipynb) ||
+| [![hf-segmentation](../images/huggingface-segformer.png)](huggingface-segmentation-example.ipynb) | [![fine-tune-sam](../images/staver.png)](fine-tune-sam/1-create-sam-dataset.ipynb) ||
 | This notebook demonstrates training a segmentation model using Hugging Face, including metrics collection and evaluation. | This notebook covers fine-tuning a model using SAM, showcasing the process and evaluation. ||
