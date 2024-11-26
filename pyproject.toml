@@ -16,13 +16,15 @@ opencv-python = "^4.10.0.84"
 scikit-learn = "^1.5.2"
 segment-anything = { git = "https://github.com/facebookresearch/segment-anything", optional = true }
 datasets = { version = ">=2.17.0", optional = true }
-transformers = {version = "^4.30.2", optional = true}
-evaluate = {version = "^0.4.1", optional = true}
-umap-learn = {version = "^0.5.4", optional = true}
-pacmap = {version = "^0.7.1", optional = true}
-joblib = {version = "^1.4.0", optional = true}
-timm = {version = "^1.0.11", optional = true}
-kaggle = {version = "^1.6.17", optional = true}
+transformers = { version = "^4.30.2", optional = true}
+evaluate = { version = "^0.4.1", optional = true}
+umap-learn = { version = "^0.5.4", optional = true}
+pacmap = { version = "^0.7.1", optional = true}
+joblib = { version = "^1.4.0", optional = true}
+timm = { version = "^1.0.11", optional = true}
+kaggle = { version = "^1.6.17", optional = true}
+ultralytics = { git = "https://github.com/3lc-ai/ultralytics", optional = true }
+pytorch-lightning = {version = "^2.4.0", optional = true}
 
 [tool.poetry.extras]
 huggingface = ["datasets", "transformers", "evaluate"]
@@ -31,6 +33,8 @@ pacmap = ["pacmap", "joblib"]
 sam = ["segment-anything"]
 timm = ["timm"]
 kaggle = ["kaggle"]
+ultralytics = ["ultralytics"]
+lightning = ["pytorch-lightning"]
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.9"

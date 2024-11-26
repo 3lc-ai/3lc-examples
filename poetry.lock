@@ -320,7 +320,7 @@ tests-mypy = ["mypy (>=1.11.1)", "pytest-mypy-plugins"]
 name = "bleach"
 version = "6.2.0"
 description = "An easy safelist-based HTML-sanitizing tool."
-optional = false
+optional = true
 python-versions = ">=3.9"
 files = [
     {file = "bleach-6.2.0-py3-none-any.whl", hash = "sha256:117d9c6097a7c3d22fd578fcd8d35ff1e125df6736f554da4e432fdd63f31e5e"},
@@ -1468,7 +1468,7 @@ test = ["ipykernel", "pre-commit", "pytest (<8)", "pytest-cov", "pytest-timeout"
 name = "kaggle"
 version = "1.6.17"
 description = "Kaggle API"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "kaggle-1.6.17.tar.gz", hash = "sha256:439a7dea1d5039f320fd6ad5ec21b688dcfa70d405cb42095b81f41edc401b81"},
@@ -1606,6 +1606,27 @@ files = [
     {file = "kiwisolver-1.4.7-pp39-pypy39_pp73-win_amd64.whl", hash = "sha256:0c6c43471bc764fad4bc99c5c2d6d16a676b1abf844ca7c8702bdae92df01ee0"},
     {file = "kiwisolver-1.4.7.tar.gz", hash = "sha256:9893ff81bd7107f7b685d3017cc6583daadb4fc26e4a888350df530e41980a60"},
 ]
+
+[[package]]
+name = "lightning-utilities"
+version = "0.11.9"
+description = "Lightning toolbox for across the our ecosystem."
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "lightning_utilities-0.11.9-py3-none-any.whl", hash = "sha256:ac6d4e9e28faf3ff4be997876750fee10dc604753dbc429bf3848a95c5d7e0d2"},
+    {file = "lightning_utilities-0.11.9.tar.gz", hash = "sha256:f5052b81344cc2684aa9afd74b7ce8819a8f49a858184ec04548a5a109dfd053"},
+]
+
+[package.dependencies]
+packaging = ">=17.1"
+setuptools = "*"
+typing-extensions = "*"
+
+[package.extras]
+cli = ["fire"]
+docs = ["requests (>=2.0.0)"]
+typing = ["mypy (>=1.0.0)", "types-setuptools"]
 
 [[package]]
 name = "linkify-it-py"
@@ -2926,6 +2947,17 @@ files = [
 test = ["enum34", "ipaddress", "mock", "pywin32", "wmi"]
 
 [[package]]
+name = "py-cpuinfo"
+version = "9.0.0"
+description = "Get CPU info with pure Python"
+optional = true
+python-versions = "*"
+files = [
+    {file = "py-cpuinfo-9.0.0.tar.gz", hash = "sha256:3cdbbf3fac90dc6f118bfd64384f309edeadd902d7c8fb17f02ffa1fc3f49690"},
+    {file = "py_cpuinfo-9.0.0-py3-none-any.whl", hash = "sha256:859625bc251f64e21f077d099d4162689c762b5d6a4c3c97553d56241c9674d5"},
+]
+
+[[package]]
 name = "pyarrow"
 version = "14.0.2"
 description = "Python library for Apache Arrow"
@@ -3252,7 +3284,7 @@ six = ">=1.5"
 name = "python-slugify"
 version = "8.0.4"
 description = "A Python slugify application that also handles Unicode"
-optional = false
+optional = true
 python-versions = ">=3.7"
 files = [
     {file = "python-slugify-8.0.4.tar.gz", hash = "sha256:59202371d1d05b54a9e7720c5e038f928f45daaffe41dd10822f3907b937c856"},
@@ -3264,6 +3296,36 @@ text-unidecode = ">=1.3"
 
 [package.extras]
 unidecode = ["Unidecode (>=1.1.1)"]
+
+[[package]]
+name = "pytorch-lightning"
+version = "2.4.0"
+description = "PyTorch Lightning is the lightweight PyTorch wrapper for ML researchers. Scale your models. Write less boilerplate."
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "pytorch-lightning-2.4.0.tar.gz", hash = "sha256:6aa897fd9d6dfa7b7b49f37c2f04e13592861831d08deae584dfda423fdb71c8"},
+    {file = "pytorch_lightning-2.4.0-py3-none-any.whl", hash = "sha256:9ac7935229ac022ef06994c928217ed37f525ac6700f7d4fc57009624570e655"},
+]
+
+[package.dependencies]
+fsspec = {version = ">=2022.5.0", extras = ["http"]}
+lightning-utilities = ">=0.10.0"
+packaging = ">=20.0"
+PyYAML = ">=5.4"
+torch = ">=2.1.0"
+torchmetrics = ">=0.7.0"
+tqdm = ">=4.57.0"
+typing-extensions = ">=4.4.0"
+
+[package.extras]
+all = ["bitsandbytes (>=0.42.0)", "deepspeed (>=0.8.2,<=0.9.3)", "hydra-core (>=1.2.0)", "ipython[all] (<8.15.0)", "jsonargparse[signatures] (>=4.27.7)", "lightning-utilities (>=0.8.0)", "matplotlib (>3.1)", "omegaconf (>=2.2.3)", "requests (<2.32.0)", "rich (>=12.3.0)", "tensorboardX (>=2.2)", "torchmetrics (>=0.10.0)", "torchvision (>=0.16.0)"]
+deepspeed = ["deepspeed (>=0.8.2,<=0.9.3)"]
+dev = ["bitsandbytes (>=0.42.0)", "cloudpickle (>=1.3)", "coverage (==7.3.1)", "deepspeed (>=0.8.2,<=0.9.3)", "fastapi", "hydra-core (>=1.2.0)", "ipython[all] (<8.15.0)", "jsonargparse[signatures] (>=4.27.7)", "lightning-utilities (>=0.8.0)", "matplotlib (>3.1)", "numpy (>=1.17.2)", "omegaconf (>=2.2.3)", "onnx (>=1.12.0)", "onnxruntime (>=1.12.0)", "pandas (>1.0)", "psutil (<5.9.6)", "pytest (==7.4.0)", "pytest-cov (==4.1.0)", "pytest-random-order (==1.1.0)", "pytest-rerunfailures (==12.0)", "pytest-timeout (==2.1.0)", "requests (<2.32.0)", "rich (>=12.3.0)", "scikit-learn (>0.22.1)", "tensorboard (>=2.9.1)", "tensorboardX (>=2.2)", "torchmetrics (>=0.10.0)", "torchvision (>=0.16.0)", "uvicorn"]
+examples = ["ipython[all] (<8.15.0)", "lightning-utilities (>=0.8.0)", "requests (<2.32.0)", "torchmetrics (>=0.10.0)", "torchvision (>=0.16.0)"]
+extra = ["bitsandbytes (>=0.42.0)", "hydra-core (>=1.2.0)", "jsonargparse[signatures] (>=4.27.7)", "matplotlib (>3.1)", "omegaconf (>=2.2.3)", "rich (>=12.3.0)", "tensorboardX (>=2.2)"]
+strategies = ["deepspeed (>=0.8.2,<=0.9.3)"]
+test = ["cloudpickle (>=1.3)", "coverage (==7.3.1)", "fastapi", "numpy (>=1.17.2)", "onnx (>=1.12.0)", "onnxruntime (>=1.12.0)", "pandas (>1.0)", "psutil (<5.9.6)", "pytest (==7.4.0)", "pytest-cov (==4.1.0)", "pytest-random-order (==1.1.0)", "pytest-rerunfailures (==12.0)", "pytest-timeout (==2.1.0)", "scikit-learn (>0.22.1)", "tensorboard (>=2.9.1)", "uvicorn"]
 
 [[package]]
 name = "pytz"
@@ -4154,6 +4216,27 @@ doc = ["jupyterlite-pyodide-kernel", "jupyterlite-sphinx (>=0.12.0)", "jupytext"
 test = ["array-api-strict", "asv", "gmpy2", "hypothesis (>=6.30)", "mpmath", "pooch", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "scikit-umfpack", "threadpoolctl"]
 
 [[package]]
+name = "seaborn"
+version = "0.13.2"
+description = "Statistical data visualization"
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "seaborn-0.13.2-py3-none-any.whl", hash = "sha256:636f8336facf092165e27924f223d3c62ca560b1f2bb5dff7ab7fad265361987"},
+    {file = "seaborn-0.13.2.tar.gz", hash = "sha256:93e60a40988f4d65e9f4885df477e2fdaff6b73a9ded434c1ab356dd57eefff7"},
+]
+
+[package.dependencies]
+matplotlib = ">=3.4,<3.6.1 || >3.6.1"
+numpy = ">=1.20,<1.24.0 || >1.24.0"
+pandas = ">=1.2"
+
+[package.extras]
+dev = ["flake8", "flit", "mypy", "pandas-stubs", "pre-commit", "pytest", "pytest-cov", "pytest-xdist"]
+docs = ["ipykernel", "nbconvert", "numpydoc", "pydata_sphinx_theme (==0.10.0rc2)", "pyyaml", "sphinx (<6.0.0)", "sphinx-copybutton", "sphinx-design", "sphinx-issues"]
+stats = ["scipy (>=1.7)", "statsmodels (>=0.12)"]
+
+[[package]]
 name = "segment_anything"
 version = "1.0"
 description = ""
@@ -4330,7 +4413,7 @@ tests = ["pytest", "pytest-cov"]
 name = "text-unidecode"
 version = "1.3"
 description = "The most basic Text::Unidecode port"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "text-unidecode-1.3.tar.gz", hash = "sha256:bad6603bb14d279193107714b288be206cac565dfa49aa5b105294dd5c4aab93"},
@@ -4578,6 +4661,34 @@ opt-einsum = ["opt-einsum (>=3.3)"]
 optree = ["optree (>=0.12.0)"]
 
 [[package]]
+name = "torchmetrics"
+version = "1.6.0"
+description = "PyTorch native Metrics"
+optional = true
+python-versions = ">=3.9"
+files = [
+    {file = "torchmetrics-1.6.0-py3-none-any.whl", hash = "sha256:a508cdd87766cedaaf55a419812bf9f493aff8fffc02cc19df5a8e2e7ccb942a"},
+    {file = "torchmetrics-1.6.0.tar.gz", hash = "sha256:aebba248708fb90def20cccba6f55bddd134a58de43fb22b0c5ca0f3a89fa984"},
+]
+
+[package.dependencies]
+lightning-utilities = ">=0.8.0"
+numpy = ">1.20.0"
+packaging = ">17.1"
+torch = ">=2.0.0"
+
+[package.extras]
+all = ["SciencePlots (>=2.0.0)", "gammatone (>=1.0.0)", "ipadic (>=1.0.0)", "librosa (>=0.10.0)", "matplotlib (>=3.6.0)", "mecab-python3 (>=1.0.6)", "mypy (==1.13.0)", "nltk (>3.8.1)", "numpy (<2.0)", "onnxruntime (>=1.12.0)", "pesq (>=0.0.4)", "piq (<=0.8.0)", "pycocotools (>2.0.0)", "pystoi (>=0.4.0)", "regex (>=2021.9.24)", "requests (>=2.19.0)", "scipy (>1.0.0)", "sentencepiece (>=0.2.0)", "torch (==2.5.1)", "torch-fidelity (<=0.4.0)", "torchaudio (>=2.0.1)", "torchvision (>=0.15.1)", "tqdm (<4.68.0)", "transformers (>4.4.0)", "transformers (>=4.42.3)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate"]
+audio = ["gammatone (>=1.0.0)", "librosa (>=0.10.0)", "numpy (<2.0)", "onnxruntime (>=1.12.0)", "pesq (>=0.0.4)", "pystoi (>=0.4.0)", "requests (>=2.19.0)", "torchaudio (>=2.0.1)"]
+detection = ["pycocotools (>2.0.0)", "torchvision (>=0.15.1)"]
+dev = ["PyTDC (==0.4.1)", "SciencePlots (>=2.0.0)", "bert-score (==0.3.13)", "dython (==0.7.6)", "dython (>=0.7.8,<0.8.0)", "fairlearn", "fast-bss-eval (>=0.1.0)", "faster-coco-eval (>=1.6.3)", "gammatone (>=1.0.0)", "huggingface-hub (<0.27)", "ipadic (>=1.0.0)", "jiwer (>=2.3.0)", "kornia (>=0.6.7)", "librosa (>=0.10.0)", "lpips (<=0.1.4)", "matplotlib (>=3.6.0)", "mecab-ko (>=1.0.0,<1.1.0)", "mecab-ko-dic (>=1.0.0)", "mecab-python3 (>=1.0.6)", "mir-eval (>=0.6)", "monai (==1.3.2)", "monai (==1.4.0)", "mypy (==1.13.0)", "netcal (>1.0.0)", "nltk (>3.8.1)", "numpy (<2.0)", "numpy (<2.2.0)", "onnxruntime (>=1.12.0)", "pandas (>1.4.0)", "permetrics (==2.0.0)", "pesq (>=0.0.4)", "piq (<=0.8.0)", "pycocotools (>2.0.0)", "pystoi (>=0.4.0)", "pytorch-msssim (==1.0.0)", "regex (>=2021.9.24)", "requests (>=2.19.0)", "rouge-score (>0.1.0)", "sacrebleu (>=2.3.0)", "scikit-image (>=0.19.0)", "scipy (>1.0.0)", "sentencepiece (>=0.2.0)", "sewar (>=0.4.4)", "statsmodels (>0.13.5)", "torch (==2.5.1)", "torch-complex (<0.5.0)", "torch-fidelity (<=0.4.0)", "torchaudio (>=2.0.1)", "torchvision (>=0.15.1)", "tqdm (<4.68.0)", "transformers (>4.4.0)", "transformers (>=4.42.3)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate"]
+image = ["scipy (>1.0.0)", "torch-fidelity (<=0.4.0)", "torchvision (>=0.15.1)"]
+multimodal = ["piq (<=0.8.0)", "transformers (>=4.42.3)"]
+text = ["ipadic (>=1.0.0)", "mecab-python3 (>=1.0.6)", "nltk (>3.8.1)", "regex (>=2021.9.24)", "sentencepiece (>=0.2.0)", "tqdm (<4.68.0)", "transformers (>4.4.0)"]
+typing = ["mypy (==1.13.0)", "torch (==2.5.1)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate"]
+visual = ["SciencePlots (>=2.0.0)", "matplotlib (>=3.6.0)"]
+
+[[package]]
 name = "torchvision"
 version = "0.20.1"
 description = "image and video datasets and models for torch deep learning"
@@ -4794,6 +4905,67 @@ files = [
 test = ["coverage", "pytest", "pytest-cov"]
 
 [[package]]
+name = "ultralytics"
+version = "8.3.31"
+description = "Ultralytics YOLO 🚀 for SOTA object detection, multi-object tracking, instance segmentation, pose estimation and image classification."
+optional = true
+python-versions = ">=3.8"
+files = []
+develop = false
+
+[package.dependencies]
+3lc = ">=2.10.0"
+matplotlib = ">=3.3.0"
+numpy = [
+    {version = ">=1.23.0,<2.0.0", markers = "sys_platform == \"darwin\""},
+    {version = ">=1.23.0", markers = "sys_platform != \"darwin\""},
+]
+opencv-python = ">=4.6.0"
+pandas = ">=1.1.4"
+pillow = ">=7.1.2"
+psutil = "*"
+py-cpuinfo = "*"
+pyyaml = ">=5.3.1"
+requests = ">=2.23.0"
+scipy = ">=1.4.1"
+seaborn = ">=0.11.0"
+torch = [
+    {version = ">=1.8.0", markers = "sys_platform != \"win32\""},
+    {version = ">=1.8.0,<2.4.0 || >2.4.0", markers = "sys_platform == \"win32\""},
+]
+torchvision = ">=0.9.0"
+tqdm = ">=4.64.0"
+ultralytics-thop = ">=2.0.0"
+
+[package.extras]
+dev = ["coverage[toml]", "ipython", "mkdocs (>=1.6.0)", "mkdocs-jupyter", "mkdocs-macros-plugin (>=1.0.5)", "mkdocs-material (>=9.5.9)", "mkdocs-redirects", "mkdocs-ultralytics-plugin (>=0.1.8)", "mkdocstrings[python]", "pytest", "pytest-cov"]
+export = ["coremltools (>=7.0)", "flatbuffers (>=23.5.26,<100)", "h5py (!=3.11.0)", "keras", "numpy (==1.23.5)", "onnx (>=1.12.0)", "openvino (>=2024.0.0)", "scikit-learn (>=1.3.2)", "tensorflow (>=2.0.0)", "tensorflowjs (>=3.9.0)", "tensorstore (>=0.1.63)"]
+extra = ["albumentations (>=1.4.6)", "hub-sdk (>=0.0.12)", "ipython", "pycocotools (>=2.0.7)"]
+logging = ["comet", "dvclive (>=2.12.0)", "tensorboard (>=2.13.0)"]
+solutions = ["shapely (>=2.0.0)", "streamlit"]
+
+[package.source]
+type = "git"
+url = "https://github.com/3lc-ai/ultralytics"
+reference = "HEAD"
+resolved_reference = "75b38ce7aaaab183ca32dc85df22a71c914f4886"
+
+[[package]]
+name = "ultralytics-thop"
+version = "2.0.12"
+description = "Ultralytics THOP package for fast computation of PyTorch model FLOPs and parameters."
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "ultralytics_thop-2.0.12-py3-none-any.whl", hash = "sha256:094e713cb019fee240b381c22a2c1c739ea155d48f8d516275deb10460e9246f"},
+    {file = "ultralytics_thop-2.0.12.tar.gz", hash = "sha256:335860c10191c5b33970eb1f5eb7e472c197095f3a99cfb54687b395171d642d"},
+]
+
+[package.dependencies]
+numpy = "*"
+torch = "*"
+
+[[package]]
 name = "umap-learn"
 version = "0.5.7"
 description = "Uniform Manifold Approximation and Projection"
@@ -4903,7 +5075,7 @@ watchmedo = ["PyYAML (>=3.10)"]
 name = "webencodings"
 version = "0.5.1"
 description = "Character encoding aliases for legacy web content"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "webencodings-0.5.1-py2.py3-none-any.whl", hash = "sha256:a0af1213f3c2226497a97e2b3aa01a7e4bee4f403f95be16fc9acd2947514a78"},
@@ -5333,12 +5505,15 @@ type = ["pytest-mypy"]
 
 [extras]
 huggingface = ["datasets", "evaluate", "transformers"]
+kaggle = ["kaggle"]
+lightning = ["pytorch-lightning"]
 pacmap = ["joblib", "pacmap"]
 sam = ["segment-anything"]
 timm = ["timm"]
+ultralytics = ["ultralytics"]
 umap = ["joblib", "umap-learn"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "f31640124e493ef8e05d08f996cda9393e392734696b8a4f54598de09e6b51be"
+content-hash = "43db4da253b95af6e81244f5f836629e84811c3dfcd0bad36c6f8e6a6846810a"
