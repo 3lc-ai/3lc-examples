@@ -42,7 +42,8 @@ def cast_bbs(bbs):
     for bb in bbs["bb_list"]:
         for key in ["x0", "y0", "x1", "y1"]:
             bb[key] = float(bb[key])
-    bbs["segmentation"] = [[float(x) for x in sublist] for sublist in bbs["segmentation"]]
+    if "segmentation" in bbs:
+        bbs["segmentation"] = [[float(x) for x in sublist] for sublist in bbs["segmentation"]]
     return bbs
 
 def add_columns_to_table(
