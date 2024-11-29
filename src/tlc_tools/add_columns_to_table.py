@@ -6,6 +6,8 @@ from typing import Any, Callable
 
 import tlc
 from PIL import Image
+
+from tlc_tools.metrics import IMAGE_METRICS, compute_image_metrics
 from .common import check_package_version
 
 _SampleTypeStructure = typing.Union[
@@ -73,7 +75,7 @@ def add_columns_to_table(
     )
 
     # TableWriter accepts data as a dictionary of column names to lists
-    data = defaultdict(list)
+    # data = defaultdict(list)
 
     ### 
     # # Copy over all rows from the input table
@@ -103,11 +105,10 @@ def add_columns_to_table(
         output_row = {}
         for column_name, column_value in row.items():
             if column_name == "bbs":
-                data[column_name].append(cast_bbs(column_value))
-                continue
+                column_value = cast_bbs(column_value)
+
             if input_schemas[column_name].sample_type == tlc.PILImage.sample_type:
                 image_url = tlc.Url(column_value).to_absolute(table.url)
-                # if not isinstance(image_url, tlc.Url)
                 column_value = Image.open(image_url.to_str())
             
             output_row[column_name] = column_value
@@ -120,3 +121,29 @@ def add_columns_to_table(
 
     new_table = table_writer.finalize()
     return new_table
+
+
+def add_image_metrics_to_table(
+    table: tlc.Table,
+    image_metrics: list[IMAGE_METRICS] | None = None,
+    image_column_name: str = "image",
+    output_table_name: str = "added_image_metrics",
+    description: str = "Table with added image metrics",
+) -> tlc.Table:
+    """"""
+    check_package_version("tlc", "2.9")
+
+    new_columns = defaultdict(list)
+    for row in table.table_rows:
+        image_path = tlc.Url(row[image_column_name]).to_absolute().to_str()
+        metrics = compute_image_metrics(image_path, image_metrics)
+        for column_name, value in metrics.items():
+            new_columns[column_name].append(value)
+
+    extended_table = add_columns_to_table(
+        table=table,
+        columns=new_columns,
+        output_table_name=output_table_name,
+        description=description,
+    )
+    return extended_table

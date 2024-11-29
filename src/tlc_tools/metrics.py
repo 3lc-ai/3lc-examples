@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import Literal
 
 import cv2
 import numpy as np
@@ -121,11 +122,25 @@ def traversal_index(embeddings):
 
     return [int(idx) for idx in final_traversal_order]
 
+IMAGE_METRICS = Literal["width", "height", "brightness", "contrast", "sharpness", "average_red", "average_green", "average_blue"]
 
-def compute_image_metrics(image_path: str):
+def compute_image_metrics(image_path: str, metrics: list[IMAGE_METRICS] | None = None) -> dict[str, float]:
     """Return a dict of image metrics for the given image path."""
+
+    if not metrics:
+        metrics = ["width", "height", "brightness", "contrast", "sharpness", "average_red", "average_green", "average_blue"]
+
+    computed_metrics = {}
+
     image = Image.open(image_path)
     width, height = image.size
+    
+    if "width" in metrics:
+        computed_metrics["width"] = width
+
+    if "height" in metrics:
+        computed_metrics["height"] = height
+
     pixels = np.array(image)
 
     # Convert to grayscale for some metrics
@@ -133,29 +148,40 @@ def compute_image_metrics(image_path: str):
     stat = ImageStat.Stat(grayscale_image)
 
     # Compute brightness (average grayscale value)
-    brightness = stat.mean[0]
+    if "brightness" in metrics:
+        brightness = stat.mean[0]
+        computed_metrics["brightness"] = brightness
 
     # Compute contrast (standard deviation of grayscale values)
-    contrast = stat.stddev[0]
+    if "contrast" in metrics:
+        contrast = stat.stddev[0]
+        computed_metrics["contrast"] = contrast
 
     # Sharpness (variance of the Laplacian)
-    sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
+    if "sharpness" in metrics:
+        sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
+        computed_metrics["sharpness"] = sharpness
 
     # Compute average RGB values
-    try:
-        avg_r = np.mean(pixels[:, :, 0])
-        avg_g = np.mean(pixels[:, :, 1])
-        avg_b = np.mean(pixels[:, :, 2])
-    except IndexError:  # Image is grayscale
-        avg_r = avg_g = avg_b = 0
+    if "average_red" in metrics:
+        try:
+            avg_r = np.mean(pixels[:, :, 0])
+        except IndexError:  # Image is grayscale
+            avg_r = 0
+        computed_metrics["average_red"] = avg_r
+    
+    if "average_green" in metrics:
+        try:
+            avg_g = np.mean(pixels[:, :, 1])
+        except IndexError:
+            avg_g = 0
+        computed_metrics["average_green"] = avg_g
+    
+    if "average_blue" in metrics:
+        try:
+            avg_b = np.mean(pixels[:, :, 2])
+        except IndexError:
+            avg_b = 0
+        computed_metrics["average_blue"] = avg_b
 
-    return {
-        "width": width,
-        "height": height,
-        "brightness": brightness,
-        "sharpness": sharpness,
-        "contrast": contrast,
-        "average_red": avg_r,
-        "average_green": avg_g,
-        "average_blue": avg_b,
-    }
+    return computed_metrics
