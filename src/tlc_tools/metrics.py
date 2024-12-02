@@ -11,6 +11,19 @@ from sklearn.cluster import KMeans
 
 
 def diversity(labels, embeddings):
+    """
+    Calculate diversity scores for a dataset based on embeddings.
+
+    Each sample is assigned a score indicating its proximity to the cluster center 
+    of its label group, with lower scores for samples closer to the center.
+
+    Args:
+        labels (list or array-like): Class labels for the samples.
+        embeddings (np.ndarray): Feature embeddings of the samples.
+
+    Returns:
+        list: Diversity scores for each sample, ranked by distance to the cluster center.
+    """
     # Convert embeddings to a NumPy array
     embeddings = embeddings.astype(np.float32)
     unique_labels = np.unique(labels)
@@ -45,7 +58,19 @@ def diversity(labels, embeddings):
 
 
 def uniqueness(labels, embeddings):
-    # Convert embeddings to a NumPy array
+    """
+    Calculate uniqueness scores for a dataset based on embeddings.
+
+    Each sample is assigned a score based on the mean pairwise distance to other samples 
+    within the same label group, with higher scores indicating greater uniqueness.
+
+    Args:
+        labels (list or array-like): Class labels for the samples.
+        embeddings (np.ndarray): Feature embeddings of the samples.
+
+    Returns:
+        list: Uniqueness scores for each sample, reflecting their distinctiveness within their label group.
+    """
     unique_labels = np.unique(labels)
     label_to_indices = defaultdict(list)
 
