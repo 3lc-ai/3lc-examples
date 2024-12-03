@@ -6,9 +6,9 @@ from typing import Any, Callable
 
 import tlc
 from PIL import Image
+from tqdm.auto import tqdm
 
 from tlc_tools.metrics import IMAGE_METRICS, compute_image_metrics
-from .common import check_package_version
 
 _SampleTypeStructure = typing.Union[
     tlc.SampleType, typing.Type[tlc.SampleType], list, tuple, dict, tlc.Schema, tlc.ScalarValue, Callable
@@ -40,13 +40,6 @@ def _infer_schemas(
 
     return inferred_schemas
 
-def cast_bbs(bbs):
-    for bb in bbs["bb_list"]:
-        for key in ["x0", "y0", "x1", "y1"]:
-            bb[key] = float(bb[key])
-    if "segmentation" in bbs:
-        bbs["segmentation"] = [[float(x) for x in sublist] for sublist in bbs["segmentation"]]
-    return bbs
 
 def add_columns_to_table(
     table: tlc.Table,
@@ -56,7 +49,6 @@ def add_columns_to_table(
     description: str = "Table with added columns",
 ) -> tlc.Table:
     """"""
-    check_package_version("tlc", "2.9")
 
     schemas = _infer_schemas(columns, schemas)
     _check_columns_and_schemas(columns, schemas)
@@ -74,43 +66,13 @@ def add_columns_to_table(
         input_tables=[table.url],
     )
 
-    # TableWriter accepts data as a dictionary of column names to lists
-    # data = defaultdict(list)
-
-    ### 
-    # # Copy over all rows from the input table
-    # for row in table.table_rows:
-    #     for column_name, column_value in row.items():
-    #         if column_name == "bbs":
-    #             data[column_name].append(cast_bbs(column_value))
-    #             continue
-    #         if input_schemas[column_name].sample_type == tlc.PILImage.sample_type:
-    #             image_url = tlc.Url(column_value).to_absolute(table.url)
-    #             # if not isinstance(image_url, tlc.Url)
-    #             column_value = Image.open(image_url.to_str())
-    #         data[column_name].append(column_value)
-
-    # # Add the new columns
-    # for column_name, column_values in columns.items():
-    #     data[column_name] = column_values
-
-    # assert len({len(data[column_name]) for column_name in data}) == 1, "All columns must have the same length"
-
-    # table_writer.add_batch(data)
-    ###
-
-    # Alternate implementation
-    for i, row in enumerate(table.table_rows):
-        
+    for i, row in tqdm(enumerate(table.table_rows), desc="Adding columns to table", total=len(table)):
         output_row = {}
         for column_name, column_value in row.items():
-            if column_name == "bbs":
-                column_value = cast_bbs(column_value)
-
             if input_schemas[column_name].sample_type == tlc.PILImage.sample_type:
                 image_url = tlc.Url(column_value).to_absolute(table.url)
                 column_value = Image.open(image_url.to_str())
-            
+
             output_row[column_name] = column_value
 
         # Add the new columns

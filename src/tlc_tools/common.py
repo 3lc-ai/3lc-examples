@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import platform
 import subprocess
 import sys
-from pathlib import Path
 
-import numpy as np
 import tlc
 import torch
 from packaging import version
-from tlc.core.objects.tables.from_url.table_from_row_cache import TableFromRowCache
 
 
 def infer_torch_device() -> torch.device:
@@ -45,7 +41,7 @@ def check_tlc_package_version() -> str:
         return f"tlc version: {tlc.__version__}"
 
 
-def check_package_version(package_name: str, required_version: str) -> str:
+def check_package_version(package_name: str, required_version: str) -> None:
     """Check if the installed version of a package meets the required version.
 
     Args:
@@ -56,15 +52,10 @@ def check_package_version(package_name: str, required_version: str) -> str:
         str: A message indicating whether the installed version is sufficient or not.
 
     """
-    try:
-        package = __import__(package_name)
-        installed_version = package.__version__
-        if version.parse(installed_version) >= version.parse(required_version):
-            return f"{package_name} version {installed_version} is sufficient (required: {required_version})"
-        else:
-            return f"{package_name} version {installed_version} is not sufficient (required: {required_version})"
-    except ImportError:
-        return f"{package_name} package is not installed."
+
+    package = __import__(package_name)
+    installed_version = package.__version__
+    assert version.parse(installed_version) >= version.parse(required_version)
 
 
 def install_package(package_name: str):
@@ -152,28 +143,3 @@ def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = 
     )
     edited_table.ensure_fully_defined()
     return edited_table
-
-
-def examples_root() -> Path:
-    return Path(__file__).parent.parent.parent  # TODO: still not robust..!
-
-
-def data_root() -> Path:
-    return examples_root() / "data"
-
-
-def get_dataset_path(name: str) -> str:
-    return (data_root() / name).absolute().as_posix()
-
-
-if __name__ == "__main__":
-    # Example usage
-    print(check_tlc_package_version())
-    print(f"Python version: {check_python_version()}")
-    if not is_package_installed("tlc"):
-        print("Installing tlc package...")
-        install_package("tlc")
-        print(check_tlc_package_version())
-    else:
-        print("tlc package is already installed.")
-    print(check_package_version("tlc", "1.0.0"))
