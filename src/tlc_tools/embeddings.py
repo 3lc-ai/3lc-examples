@@ -12,6 +12,7 @@ from torchvision import transforms
 from transformers import ViTImageProcessor, ViTModel
 
 from tlc_tools import add_columns_to_table
+from tlc_tools.common import infer_torch_device
 
 
 def add_embeddings_to_table(
@@ -37,7 +38,7 @@ def add_embeddings_to_table(
 
     :returns: Table with an added column containing embeddings.
     """
-    device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = device or infer_torch_device()
 
     # Load default model if none provided
     if model is None:
@@ -51,7 +52,10 @@ def add_embeddings_to_table(
                 transforms.Normalize(mean=image_processor.image_mean, std=image_processor.image_std),
             ]
         )
-        embedding_extraction_fn = lambda output: output.last_hidden_state[:, 0, :]
+        embedding_extraction_fn = lambda output: output.last_hidden_state[:, 0, :].cpu().numpy()
+
+    if embedding_extraction_fn is None:
+        embedding_extraction_fn = lambda output: output.cpu().numpy() if isinstance(output, torch.Tensor) else output
 
     # Map the table to ensure samples are compatible with the model
     if preprocess_fn:
@@ -65,7 +69,7 @@ def add_embeddings_to_table(
     for batch in tqdm.tqdm(dataloader, total=len(dataloader), desc="Extracting embeddings"):
         with torch.no_grad():
             outputs = model(batch.to(device))
-            embeddings = embedding_extraction_fn(outputs).cpu().numpy()
+            embeddings = embedding_extraction_fn(outputs)
 
         all_embeddings.extend(embeddings.tolist())
 
