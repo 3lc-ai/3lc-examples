@@ -120,7 +120,7 @@ class BBCropDataset(Dataset):
         label = random_bb["label"]
         return crop, torch.tensor(label, dtype=torch.long)
 
-    def generate_background(self, image, bbs):
+    def generate_background(self, image, bbs, max_attempts=100):
         """
         Generate a background patch from the image.
 
@@ -140,7 +140,7 @@ class BBCropDataset(Dataset):
             for bb in bbs
         ]
 
-        while True:
+        for i in range(max_attempts):
             # Generate a random box
             x = max(
                 min(int(self.random_gen.normalvariate(mu=image_width // 2, sigma=image_width // 6)), image_width - 1), 0
@@ -167,6 +167,10 @@ class BBCropDataset(Dataset):
             # Ensure the proposed box does not intersect any ground truth boxes
             if not any(self._intersects(proposal_box, gt_box) for gt_box in gt_boxes_xywh):
                 break
+
+        if i == max_attempts - 1:
+            # Return a 100x100 black square if no valid background patch is found
+            return Image.new("RGB", (100, 100), color=(0, 0, 0)), torch.tensor(self.background_label, dtype=torch.long)
 
         # Crop the background patch from the image
         background_patch = image.crop((x, y, x + w, y + h))
