@@ -93,8 +93,6 @@ def add_image_metrics_to_table(
     description: str = "Table with added image metrics",
 ) -> tlc.Table:
     """"""
-    check_package_version("tlc", "2.9")
-
     new_columns = defaultdict(list)
     for row in table.table_rows:
         image_path = tlc.Url(row[image_column_name]).to_absolute().to_str()

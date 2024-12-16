@@ -43,6 +43,19 @@ Thank you for your interest in contributing to our collection of tutorial notebo
 - **Code Comments**:
   - Be liberal about adding comments to explain the code and its purpose. Use markdown cells for longer explanations.
 
+- **Info Boxes**:
+  - Use HTML in markdown cells to create info boxes for important notes or warnings. E.g.
+
+  ```html
+    <div style="background-color: #e7f3fe; padding: 10px; border-left: 6px solid #2196F3; margin-bottom: 15px; color: #333;">,
+      <strong>Info:</strong> This is an info box.
+      <ul>
+          <li>There are several pieces of information here.</li>
+          <li>Here is another one</li>
+      </ul>
+    </div>
+  ```
+
 ## Getting Started with Contributions
 
 1. **Fork and Clone the Repository**:
