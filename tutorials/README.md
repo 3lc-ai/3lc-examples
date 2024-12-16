@@ -1,8 +1,8 @@
 # Tutorials
 
-This folder contains simple tutorials showcasing basic features of the `3lc` Python package.
+This folder contains simple tutorials on how to get the most out of the `tlc` Python package. The tutorials are organized in a way that you can follow them step by step, starting from the basics and moving to more advanced topics. The notebooks are designed to be easily re-used and modified to fit your specific use case, in many cases by simply changing the input data.
 
-Here's the reformatted table with two rows and three columns:
+The notebooks in the tutorials utilize the `tlc_tools` Python package as an additional helper library to simplify the code and make it easier to follow. Follow the installation instructions in the top-level README of this repository to get up and running.
 
 |                          |                       |                                          |
 |:------------------------:|:---------------------:|:----------------------------------------:|

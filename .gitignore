@@ -6,3 +6,4 @@ dist/
 *.pt
 *.pth
 *.npy
+**/lightning_logs/

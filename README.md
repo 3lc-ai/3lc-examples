@@ -46,14 +46,14 @@ Follow these steps to set up the repository and environment for running the note
 
     This will install the main package, `tlc_tools`, along with its dependencies. Additionally, the following optional extras are provided for specific notebooks:
 
-    + huggingface: For transformer models and hugging face datasets.
-    + umap: For dimensionality reduction.
-    + pacmap: For dimensionality reduction.
-    + sam: For segmentation tasks (Segment Anything Model).
-    + timm: For pretrained vision models.
-    + kaggle: For downloading datasets.
-    + ultralytics: For YOLOv8 object detection.
-    + lightning: For PyTorch Lightning tasks.
+    + **huggingface**: For transformer models and hugging face datasets.
+    + **umap**: For dimensionality reduction.
+    + **pacmap**: For dimensionality reduction.
+    + **sam**: For segmentation tasks (Segment Anything Model).
+    + **timm**: For pretrained vision models.
+    + **kaggle**: For downloading datasets.
+    + **ultralytics**: For YOLOv8/YOLO11 object detection.
+    + **lightning**: For PyTorch Lightning tasks.
 
     To install extras required for a specific notebook, use the following syntax:
 
