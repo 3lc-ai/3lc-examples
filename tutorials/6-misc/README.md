@@ -6,4 +6,4 @@ This section contains a collection of tutorials that don't fit into any of the o
 |:-----------:|:----------:|:----------:|
 | **Dimensionality Reduction** | **View Augmented Samples** | |
 | [![placeholder](../images/mammoth.png)](mammoth) | [![placeholder](../images/augmentations.png)](write-augmented-samples.ipynb) | |
-| Description for the first item, detailing the content or function associated with the clickable image. | Description for the second item, detailing the content or function associated with the clickable image. | |
+| Experiment with multiple parametrizations of dimensionality reduction algorithms on the same Table.  | Register augmented samples as on-the-fly metrics in a 3LC Run. | |

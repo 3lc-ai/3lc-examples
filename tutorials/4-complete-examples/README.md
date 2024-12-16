@@ -9,4 +9,4 @@ This folder contains notebooks showcasing complete examples of training and eval
 | This notebook demonstrates training a segmentation model using Hugging Face, including metrics collection and evaluation. | This notebook covers fine-tuning a model using SAM, showcasing the process and evaluation. | Train a YOLO classifier on existing 3LC Tables |
 | **PyTorch Lightning Classifier** | | |
 | [![lightning](../images/lightning.png)](pytorch-lightning-classification.ipynb) | |  |
-| | |  |
+| Adds Table creation and metrics collection to a PyTorch Lightning module using the 3LC decorator |  |  |
