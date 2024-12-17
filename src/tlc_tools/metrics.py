@@ -19,7 +19,7 @@ def diversity(labels: list | np.ndarray, embeddings: np.ndarray) -> list[float]:
 
     :param labels: Class labels for the samples.
     :param embeddings: Feature embeddings of the samples.
-    :param list: Diversity scores for each sample, ranked by distance to the cluster center.
+    :returns: Diversity scores for each sample, ranked by distance to the cluster center.
     """
     # Convert embeddings to a NumPy array
     embeddings = embeddings.astype(np.float32)
@@ -31,7 +31,7 @@ def diversity(labels: list | np.ndarray, embeddings: np.ndarray) -> list[float]:
         label_to_indices[label].append(idx)
 
     # Calculate diversity scores
-    diversity_scores = np.zeros(len(embeddings), dtype=int)
+    diversity_scores = [0] * len(embeddings)
 
     for label in unique_labels:
         indices = label_to_indices[label]
@@ -51,7 +51,7 @@ def diversity(labels: list | np.ndarray, embeddings: np.ndarray) -> list[float]:
         for rank, idx in enumerate(sorted_indices):
             diversity_scores[indices[idx]] = rank + 1
 
-    return cast(list[float], diversity_scores.tolist())
+    return diversity_scores
 
 
 def uniqueness(labels: list[int | float] | np.ndarray, embeddings: np.ndarray) -> list[float]:
@@ -73,7 +73,7 @@ def uniqueness(labels: list[int | float] | np.ndarray, embeddings: np.ndarray) -
         label_to_indices[label].append(idx)
 
     # Calculate uniqueness scores
-    uniqueness_scores = np.zeros(len(embeddings), dtype=float)
+    uniqueness_scores = [0.0] * len(embeddings)
 
     for label in unique_labels:
         indices = label_to_indices[label]
@@ -89,7 +89,7 @@ def uniqueness(labels: list[int | float] | np.ndarray, embeddings: np.ndarray) -
         for idx, mean_distance in zip(indices, mean_distances):
             uniqueness_scores[idx] = mean_distance
 
-    return cast(list[float], uniqueness_scores.tolist())
+    return uniqueness_scores
 
 
 def traversal_index(embeddings):

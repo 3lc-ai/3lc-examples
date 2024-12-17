@@ -36,6 +36,6 @@ def object_detection_sample_weights(
     smoothed_weights = [(1 - alpha) + alpha * w for w in image_weights]
 
     # Step 5: Normalize the image-level weights
-    normalized_weights = np.array(smoothed_weights) / np.sum(smoothed_weights)
+    normalized_weights: np.ndarray = np.array(smoothed_weights) / np.sum(smoothed_weights)
 
     return normalized_weights

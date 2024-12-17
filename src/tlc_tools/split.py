@@ -159,7 +159,7 @@ def split_table(
         msg = f"Invalid split strategy: {split_strategy}. Must be one of {available_strategies}"
         raise ValueError(msg)
 
-    strategy = strategy_class(random_seed)
+    strategy = strategy_class(random_seed)  # type: ignore[abstract]
 
     kwargs = {}
     if strategy.requires_split_by:
