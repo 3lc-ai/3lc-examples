@@ -6,7 +6,6 @@ import platform
 import subprocess
 import sys
 
-import tlc
 import torch
 from packaging import version
 
@@ -37,7 +36,7 @@ def check_tlc_package_version() -> str:
         return f"tlc version: {tlc.__version__}"
 
 
-def check_package_version(package_name: str, required_version: str) -> None:
+def check_package_version(package_name: str, required_min_version: str) -> None:
     """Check if the installed version of a package meets the required version.
 
     :param package_name: The name of the package to check.
@@ -50,7 +49,7 @@ def check_package_version(package_name: str, required_version: str) -> None:
 
     package = __import__(package_name)
     installed_version = package.__version__
-    assert version.parse(installed_version) >= version.parse(required_version)
+    assert version.parse(installed_version) >= version.parse(required_min_version)
 
 
 def install_package(package_name: str) -> None:
@@ -100,29 +99,3 @@ def is_package_installed(package_name: str) -> bool:
 
 def is_windows() -> bool:
     return platform.system() == "Windows"
-
-
-def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = None) -> tlc.Table:
-    """Keep only the rows with the specified indices in the table.
-
-    :param table: The table to filter.
-    :param indices: The indices to keep.
-    :returns: The filtered table.
-    """
-
-    all_indices = list(range(len(table)))
-    indices_to_remove = list(set(all_indices) - set(indices))
-    runs_and_values = []
-    for index in indices_to_remove:
-        runs_and_values.extend([[index], True])
-    edits = {
-        tlc.SHOULD_DELETE: {"runs_and_values": runs_and_values},
-    }
-    edited_table = tlc.EditedTable(
-        url=table.url.create_sibling(table_name or "remove").create_unique(),
-        input_table_url=table,
-        edits=edits,
-        row_cache_url="./row_cache.parquet",
-    )
-    edited_table.ensure_fully_defined()
-    return edited_table

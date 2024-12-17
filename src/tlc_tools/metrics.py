@@ -173,47 +173,49 @@ def compute_image_metrics(image_path: str, metrics: list[IMAGE_METRICS] | None =
     if "height" in metrics:
         computed_metrics["height"] = height
 
-    pixels = np.array(image)
-
     # Convert to grayscale for some metrics
-    grayscale_image = image.convert("L")
-    stat = ImageStat.Stat(grayscale_image)
+    if "brightness" in metrics or "contrast" in metrics:
+        grayscale_image = image.convert("L")
+        stat = ImageStat.Stat(grayscale_image)
 
-    # Compute brightness (average grayscale value)
-    if "brightness" in metrics:
-        brightness = stat.mean[0]
-        computed_metrics["brightness"] = brightness
+        # Compute brightness (average grayscale value)
+        if "brightness" in metrics:
+            brightness = stat.mean[0]
+            computed_metrics["brightness"] = brightness
 
-    # Compute contrast (standard deviation of grayscale values)
-    if "contrast" in metrics:
-        contrast = stat.stddev[0]
-        computed_metrics["contrast"] = contrast
+        # Compute contrast (standard deviation of grayscale values)
+        if "contrast" in metrics:
+            contrast = stat.stddev[0]
+            computed_metrics["contrast"] = contrast
 
-    # Sharpness (variance of the Laplacian)
-    if "sharpness" in metrics:
-        sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
-        computed_metrics["sharpness"] = sharpness
+    if "sharpness" in metrics or "average_red" in metrics or "average_green" in metrics or "average_blue" in metrics:
+        pixels = np.array(image)
 
-    # Compute average RGB values
-    if "average_red" in metrics:
-        try:
-            avg_r = np.mean(pixels[:, :, 0])
-        except IndexError:  # Image is grayscale
-            avg_r = 0
-        computed_metrics["average_red"] = avg_r
+        # Sharpness (variance of the Laplacian)
+        if "sharpness" in metrics:
+            sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
+            computed_metrics["sharpness"] = sharpness
 
-    if "average_green" in metrics:
-        try:
-            avg_g = np.mean(pixels[:, :, 1])
-        except IndexError:
-            avg_g = 0
-        computed_metrics["average_green"] = avg_g
+        # Compute average RGB values
+        if "average_red" in metrics:
+            try:
+                avg_r = np.mean(pixels[:, :, 0])
+            except IndexError:  # Image is grayscale
+                avg_r = 0
+            computed_metrics["average_red"] = avg_r
 
-    if "average_blue" in metrics:
-        try:
-            avg_b = np.mean(pixels[:, :, 2])
-        except IndexError:
-            avg_b = 0
-        computed_metrics["average_blue"] = avg_b
+        if "average_green" in metrics:
+            try:
+                avg_g = np.mean(pixels[:, :, 1])
+            except IndexError:
+                avg_g = 0
+            computed_metrics["average_green"] = avg_g
+
+        if "average_blue" in metrics:
+            try:
+                avg_b = np.mean(pixels[:, :, 2])
+            except IndexError:
+                avg_b = 0
+            computed_metrics["average_blue"] = avg_b
 
     return computed_metrics

@@ -19,6 +19,7 @@ class BBCropDataset(Dataset):
         add_background: bool = False,
         background_freq: float = 0.5,
         is_train: bool = True,
+        image_column_name: str = "image",
         x_max_offset: float = 0.0,
         y_max_offset: float = 0.0,
         y_scale_range: tuple[float, float] = (1.0, 1.0),
@@ -39,6 +40,9 @@ class BBCropDataset(Dataset):
         self.table = table
         self.transform = transform
         self.label_map = label_map or table.get_value_map("bbs.bb_list.label")
+        self.image_column_name = image_column_name
+        if not self.label_map:
+            raise ValueError("No label map found. Expecting label map under the key 'bbs.bb_list.label'.")
         self.bb_schema = table.schema.values["rows"].values["bbs"].values["bb_list"]
         self.add_background = add_background
         self.background_freq = background_freq
@@ -87,7 +91,7 @@ class BBCropDataset(Dataset):
         return crop, label
 
     def load_image_data(self, row):
-        image_bytes = tlc.Url(row["image"]).read()
+        image_bytes = tlc.Url(row[self.image_column_name]).read()
         image = Image.open(BytesIO(image_bytes))
         return image
 
@@ -158,10 +162,10 @@ class BBCropDataset(Dataset):
                 ),
                 1,
             )
-            proposal_box = [x, y, w, h]
+            proposed_box = [x, y, w, h]
 
             # Ensure the proposed box does not intersect any ground truth boxes
-            if not any(self._intersects(proposal_box, gt_box) for gt_box in gt_boxes_xywh):
+            if not any(self._intersects(proposed_box, gt_box) for gt_box in gt_boxes_xywh):
                 break
 
         if i == max_attempts - 1:

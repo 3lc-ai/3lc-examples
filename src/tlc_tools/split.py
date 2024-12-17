@@ -13,8 +13,6 @@ import tlc
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle as sk_shuffle
 
-from tlc_tools.common import keep_indices
-
 
 class _SplitStrategy(abc.ABC):
     requires_split_by = False
@@ -192,3 +190,29 @@ def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.
     else:
         msg = f"Invalid column type: {type(column)}"
         raise ValueError(msg)
+
+
+def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = None) -> tlc.Table:
+    """Keep only the rows with the specified indices in the table.
+
+    :param table: The table to filter.
+    :param indices: The indices to keep.
+    :returns: The filtered table.
+    """
+
+    all_indices = list(range(len(table)))
+    indices_to_remove = list(set(all_indices) - set(indices))
+    runs_and_values = []
+    for index in indices_to_remove:
+        runs_and_values.extend([[index], True])
+    edits = {
+        tlc.SHOULD_DELETE: {"runs_and_values": runs_and_values},
+    }
+    edited_table = tlc.EditedTable(
+        url=table.url.create_sibling(table_name or "remove").create_unique(),
+        input_table_url=table,
+        edits=edits,
+        row_cache_url="./row_cache.parquet",
+    )
+    edited_table.ensure_fully_defined()
+    return edited_table
