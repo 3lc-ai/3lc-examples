@@ -6,13 +6,13 @@ The `tlc` Python package provides several helper functions for creating tables f
 
 |                        |                        |                        |
 |:----------:|:----------:|:----------:|
-| **Image Classification** | **Custom Table** | **Bounding Boxes** |
+| **Image classification** | **Custom Table** | **Bounding boxes** |
 | [![img][image-classification-img]][image-classification-link] | [![custom][custom-img]][custom-link]   | [![bb][bb-img]][bb-link]                 |
 | Create a table from a folder of subfolders, each subfolder containing images belonging to a certain class. | Write a custom Table by specifying a schema and adding data row-by-row. | Write a custom Table containing images and bounding boxes, using custom bounding boxes of an arbitrary format. |
-| **YOLO** | **Semantic Segmentation**  | **Video Thumbnails** |
+| **YOLO** | **Semantic segmentation**  | **Video thumbnails** |
 | [![yolo][yolo-img]][yolo-link] | [![semseg][semseg-img]][semseg-link] | [![video][video-img]][video-link] |
 | Load images and bounding boxes from the YOLO YAML file format. | Write a Table from images and one or more masks. | Work with video datasets in 3LC by creating thumbnails and storing URLs to video files. |
-| **From Torch Dataset** | **COCO** |    |
+| **From PyTorch Dataset** | **COCO** |    |
 | [![torch][torch-img]][torch-link] | [![coco][coco-img]][coco-link] |    |
 | Create a Table directly from a PyTorch Dataset (CIFAR-10). | Create a table from a folder of images and a COCO format JSON file. | |
 

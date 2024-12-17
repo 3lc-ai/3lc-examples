@@ -4,6 +4,6 @@ This folder contains notebooks demonstrating how to work with Runs and metrics i
 
 |  |  |  |
 |:----------:|:----------:|:----------:|
-| **Bounding Box Embeddings** |
-| [![bb-embeddings](../images/bb-embeddings.png)](bb-embeddings) |
+| **Bounding box embeddings** | | |
+| [![bb-embeddings](../images/bb-embeddings.png)](bb-embeddings) | | |
 | These notebooks cover training a bounding box classifier, and then adding per-bounding-box embeddings to the initial table |||
