@@ -1,7 +1,7 @@
-import argparse
 import shutil
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal, Mapping
+from typing import Literal
 
 import tlc
 import yaml

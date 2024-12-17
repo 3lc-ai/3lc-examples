@@ -1,6 +1,6 @@
 import random
+from collections.abc import Mapping
 from io import BytesIO
-from typing import Mapping
 
 import tlc
 import torch
@@ -136,7 +136,7 @@ class BBCropDataset(Dataset):
             for bb in bbs
         ]
 
-        for i in range(max_attempts):
+        for i in range(max_attempts):  # noqa: B007
             # Generate a random box
             x = max(
                 min(int(self.random_gen.normalvariate(mu=image_width // 2, sigma=image_width // 6)), image_width - 1), 0

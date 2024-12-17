@@ -37,11 +37,11 @@ ultralytics = ["ultralytics"]
 lightning = ["pytorch-lightning"]
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.6.9"
 pytest = "^8.3.3"
-mypy = "^1.12.0"
 papermill = "^2.6.0"
 pre-commit = "^4.0.1"
+ruff = "^0.8.3"
+mypy = "^1.13.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -51,12 +51,12 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 include = [
     "pyproject.toml",
-    "tools/**/*.py",
+    "src/tlc_tools/**/*.py",
     "tests/**/*.py",
 ]
 line-length = 120
 indent-width = 4
-target-version = "py38"
+target-version = "py39"
 
 [tool.ruff.lint]
 select = [

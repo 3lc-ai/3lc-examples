@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 from tlc_tools.metrics import IMAGE_METRICS, compute_image_metrics
 
 _SampleTypeStructure = typing.Union[
-    tlc.SampleType, typing.Type[tlc.SampleType], list, tuple, dict, tlc.Schema, tlc.ScalarValue, Callable
+    tlc.SampleType, type[tlc.SampleType], list, tuple, dict, tlc.Schema, tlc.ScalarValue, Callable
 ]
 
 

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Callable
 
-import numpy as np
 import tlc
 import torch
 import torch.utils.data
@@ -30,7 +28,8 @@ def add_embeddings_to_table(
 
     :param table: The table containing images.
     :param model: Model to use for embedding extraction. If None, defaults to ViT from Hugging Face.
-    :param embedding_extraction_fn: Function to extract embeddings from the model output. If None, defaults to selecting the [CLS] token for ViT.
+    :param embedding_extraction_fn: Function to extract embeddings from the model output. If None, defaults to selecting
+        the [CLS] token for ViT.
     :param embedding_column: Column name to add embeddings to in the table.
     :param batch_size: Batch size for processing images.
     :param device: Device to use for inference.
@@ -52,10 +51,10 @@ def add_embeddings_to_table(
                 transforms.Normalize(mean=image_processor.image_mean, std=image_processor.image_std),
             ]
         )
-        embedding_extraction_fn = lambda output: output.last_hidden_state[:, 0, :].cpu().numpy()
+        embedding_extraction_fn = lambda output: output.last_hidden_state[:, 0, :].cpu().numpy()  # noqa: E731
 
     if embedding_extraction_fn is None:
-        embedding_extraction_fn = lambda output: output.cpu().numpy() if isinstance(output, torch.Tensor) else output
+        embedding_extraction_fn = lambda output: output.cpu().numpy() if isinstance(output, torch.Tensor) else output  # noqa: E731
 
     # Map the table to ensure samples are compatible with the model
     if preprocess_fn:
