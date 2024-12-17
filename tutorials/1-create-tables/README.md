@@ -32,4 +32,3 @@ The `tlc` Python package provides several helper functions for creating tables f
 [torch-link]: create-table-from-torch.ipynb
 [coco-img]: ../images/coco.png
 [coco-link]: create-table-from-coco.ipynb
-
