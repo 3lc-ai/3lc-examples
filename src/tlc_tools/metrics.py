@@ -10,19 +10,16 @@ from scipy.spatial.distance import pdist, squareform
 from sklearn.cluster import KMeans
 
 
-def diversity(labels, embeddings):
+def diversity(labels: list | np.ndarray, embeddings: np.ndarray) -> list[float]:
     """
     Calculate diversity scores for a dataset based on embeddings.
 
-    Each sample is assigned a score indicating its proximity to the cluster center 
+    Each sample is assigned a score indicating its proximity to the cluster center
     of its label group, with lower scores for samples closer to the center.
 
-    Args:
-        labels (list or array-like): Class labels for the samples.
-        embeddings (np.ndarray): Feature embeddings of the samples.
-
-    Returns:
-        list: Diversity scores for each sample, ranked by distance to the cluster center.
+    :param labels: Class labels for the samples.
+    :param embeddings: Feature embeddings of the samples.
+    :param list: Diversity scores for each sample, ranked by distance to the cluster center.
     """
     # Convert embeddings to a NumPy array
     embeddings = embeddings.astype(np.float32)
@@ -57,19 +54,16 @@ def diversity(labels, embeddings):
     return diversity_scores.tolist()
 
 
-def uniqueness(labels, embeddings):
+def uniqueness(labels: list[int | float] | np.ndarray, embeddings: np.ndarray) -> list[float]:
     """
     Calculate uniqueness scores for a dataset based on embeddings.
 
-    Each sample is assigned a score based on the mean pairwise distance to other samples 
+    Each sample is assigned a score based on the mean pairwise distance to other samples
     within the same label group, with higher scores indicating greater uniqueness.
 
-    Args:
-        labels (list or array-like): Class labels for the samples.
-        embeddings (np.ndarray): Feature embeddings of the samples.
-
-    Returns:
-        list: Uniqueness scores for each sample, reflecting their distinctiveness within their label group.
+    :param labels: Class labels for the samples.
+    :param embeddings: Feature embeddings of the samples.
+    :returns: Uniqueness scores for each sample, reflecting their distinctiveness within their label group.
     """
     unique_labels = np.unique(labels)
     label_to_indices = defaultdict(list)
@@ -147,19 +141,32 @@ def traversal_index(embeddings):
 
     return [int(idx) for idx in final_traversal_order]
 
-IMAGE_METRICS = Literal["width", "height", "brightness", "contrast", "sharpness", "average_red", "average_green", "average_blue"]
+
+IMAGE_METRICS = Literal[
+    "width", "height", "brightness", "contrast", "sharpness", "average_red", "average_green", "average_blue"
+]
+
 
 def compute_image_metrics(image_path: str, metrics: list[IMAGE_METRICS] | None = None) -> dict[str, float]:
     """Return a dict of image metrics for the given image path."""
 
     if not metrics:
-        metrics = ["width", "height", "brightness", "contrast", "sharpness", "average_red", "average_green", "average_blue"]
+        metrics = [
+            "width",
+            "height",
+            "brightness",
+            "contrast",
+            "sharpness",
+            "average_red",
+            "average_green",
+            "average_blue",
+        ]
 
     computed_metrics = {}
 
     image = Image.open(image_path)
     width, height = image.size
-    
+
     if "width" in metrics:
         computed_metrics["width"] = width
 
@@ -194,14 +201,14 @@ def compute_image_metrics(image_path: str, metrics: list[IMAGE_METRICS] | None =
         except IndexError:  # Image is grayscale
             avg_r = 0
         computed_metrics["average_red"] = avg_r
-    
+
     if "average_green" in metrics:
         try:
             avg_g = np.mean(pixels[:, :, 1])
         except IndexError:
             avg_g = 0
         computed_metrics["average_green"] = avg_g
-    
+
     if "average_blue" in metrics:
         try:
             avg_b = np.mean(pixels[:, :, 2])

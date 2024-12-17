@@ -14,9 +14,7 @@ from packaging import version
 def infer_torch_device() -> torch.device:
     """Infer the device to use for the computation.
 
-    Returns:
-        torch.device: The device to use for computation.
-
+    :returns: The device to use for computation.
     """
     if torch.cuda.is_available():
         return torch.device("cuda")
@@ -29,9 +27,7 @@ def infer_torch_device() -> torch.device:
 def check_tlc_package_version() -> str:
     """Check the installed version of the tlc package.
 
-    Returns:
-        str: Version of the tlc package if installed, otherwise a message indicating it's not installed.
-
+    :returns: Version of the tlc package if installed, otherwise a message indicating it's not installed.
     """
     try:
         import tlc
@@ -44,9 +40,8 @@ def check_tlc_package_version() -> str:
 def check_package_version(package_name: str, required_version: str) -> None:
     """Check if the installed version of a package meets the required version.
 
-    Args:
-        package_name (str): The name of the package to check.
-        required_version (str): The minimum required version of the package.
+    :param package_name: The name of the package to check.
+    :param required_version: The minimum required version of the package.
 
     Returns:
         str: A message indicating whether the installed version is sufficient or not.
@@ -58,12 +53,11 @@ def check_package_version(package_name: str, required_version: str) -> None:
     assert version.parse(installed_version) >= version.parse(required_version)
 
 
-def install_package(package_name: str):
-    """Install a package using pip.
+def install_package(package_name: str) -> None:
+    """
+    Install a package using pip.
 
-    Args:
-        package_name (str): The name of the package to install.
-
+    :param package_name: The name of the package to install.
     """
     subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
 
@@ -71,11 +65,8 @@ def install_package(package_name: str):
 def run_command(command) -> str:
     """Run a command in the system shell and return the output.
 
-    Args:
-        command (str): The command to run.
-
-    Returns:
-        str: The output from the command.
+    :param command: The command to run.
+    :returns: The output from the command.
 
     """
     try:
@@ -85,11 +76,10 @@ def run_command(command) -> str:
         return f"Error running command: {e.stderr.decode().strip()}"
 
 
-def check_python_version():
+def check_python_version() -> str:
     """Check the version of Python currently running.
 
-    Returns:
-        str: Python version.
+    :returns: Python version.
     """
     return sys.version
 
@@ -97,12 +87,8 @@ def check_python_version():
 def is_package_installed(package_name: str) -> bool:
     """Check if a specific package is installed.
 
-    Args:
-        package_name (str): The name of the package to check.
-
-    Returns:
-        bool: True if the package is installed, False otherwise.
-
+    :param package_name: The name of the package to check.
+    :returns: True if the package is installed, False otherwise.
     """
     try:
         __import__(package_name)
@@ -119,12 +105,9 @@ def is_windows() -> bool:
 def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = None) -> tlc.Table:
     """Keep only the rows with the specified indices in the table.
 
-    Args:
-        table (tlc.Table): The table to filter.
-        indices (list[int]): The indices to keep.
-
-    Returns:
-        tlc.Table: The filtered table.
+    :param table: The table to filter.
+    :param indices: The indices to keep.
+    :returns: The filtered table.
     """
 
     all_indices = list(range(len(table)))

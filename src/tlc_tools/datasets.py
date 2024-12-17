@@ -1,5 +1,6 @@
 import random
 from io import BytesIO
+from typing import Mapping
 
 import tlc
 import torch
@@ -14,24 +15,26 @@ class BBCropDataset(Dataset):
         self,
         table: tlc.Table,
         transform=None,
-        label_map=None,
-        add_background=False,
-        background_freq=0.5,
-        is_train=True,
+        label_map: Mapping = None,
+        add_background: bool = False,
+        background_freq: float = 0.5,
+        is_train: bool = True,
         x_max_offset: float = 0.0,
         y_max_offset: float = 0.0,
         y_scale_range: tuple[float, float] = (1.0, 1.0),
         x_scale_range: tuple[float, float] = (1.0, 1.0),
     ):
         """
-        Args:
-            table: tlc.Table, the input table containing image and bounding box data.
-            transform: callable, transformations to apply to cropped images.
-            label_map: dict, mapping from original labels to contiguous integer labels.
-            add_background: bool, whether to include background patches.
-            background_freq: float, probability of sampling a background patch.
-            is_train: bool, whether the dataset is used for training (affects background generation).
-            crop_func: callable, function to crop bounding boxes (defaults to tlc.BBCropInterface.crop).
+        :param table: The input table containing image and bounding box data.
+        :param transform: Transformations to apply to cropped images.
+        :param label_map: Mapping from original labels to contiguous integer labels.
+        :param add_background: Whether to include background patches.
+        :param background_freq: Probability of sampling a background patch.
+        :param is_train: Whether the dataset is used for training (affects background generation).
+        :param x_max_offset: Maximum offset in the x direction for bounding box cropping.
+        :param y_max_offset: Maximum offset in the y direction for bounding box cropping.
+        :param y_scale_range: Range of scaling factors in the y direction for bounding box cropping.
+        :param x_scale_range: Range of scaling factors in the x direction for bounding box cropping.
         """
         self.table = table
         self.transform = transform
@@ -47,18 +50,15 @@ class BBCropDataset(Dataset):
         self.y_scale_range = y_scale_range
         self.x_scale_range = x_scale_range
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.table)  # Dataset length tied to the number of table rows
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
         """
         Fetch a sample from the dataset.
 
-        Args:
-            idx: int, index provided by the sampler.
-
-        Returns:
-            tuple: (cropped image, label) where label is a tensor.
+        :param idx: int, index provided by the sampler.
+        :returns: (cropped image, label) where label is a tensor.
         """
         # Determine if a background patch should be generated
         is_background = self.add_background and self.random_gen.random() < self.background_freq and self.is_train
@@ -95,12 +95,9 @@ class BBCropDataset(Dataset):
         """
         Crop a bounding box from the image.
 
-        Args:
-            image: PIL.Image, the input image.
-            bbs: list, bounding boxes associated with the image.
-
-        Returns:
-            tuple: (cropped image, label) where label is a tensor.
+        :param image: PIL.Image, the input image.
+        :param bbs: list, bounding boxes associated with the image.
+        :returns: (cropped image, label) where label is a tensor.
         """
         if not bbs:
             raise ValueError("No bounding boxes found. Check your sampler.")
@@ -124,9 +121,8 @@ class BBCropDataset(Dataset):
         """
         Generate a background patch from the image.
 
-        Args:
-            image: PIL.Image, the input image.
-            bbs: list, bounding boxes associated with the image.
+        :param image: The input image.
+        :param bbs: Bounding boxes associated with the image.
 
         Returns:
             tuple: (background patch, background label) where label is a tensor.
@@ -177,16 +173,13 @@ class BBCropDataset(Dataset):
         return background_patch, torch.tensor(self.background_label, dtype=torch.long)
 
     @staticmethod
-    def _intersects(box1, box2):
+    def _intersects(box1: list[int], box2: list[int]) -> bool:
         """
         Check if two bounding boxes intersect.
 
-        Args:
-            box1: list[int], first bounding box [x, y, w, h].
-            box2: list[int], second bounding box [x, y, w, h].
-
-        Returns:
-            bool: True if boxes intersect, otherwise False.
+        :param box1: First bounding box [x, y, w, h].
+        :param box2: Second bounding box [x, y, w, h].
+        :returns: True if boxes intersect, otherwise False.
         """
         x1, y1, w1, h1 = box1
         x2, y2, w2, h2 = box2
