@@ -44,17 +44,36 @@ Thank you for your interest in contributing to our collection of tutorial notebo
   - Be liberal about adding comments to explain the code and its purpose. Use markdown cells for longer explanations.
 
 - **Info Boxes**:
-  - Use HTML in markdown cells to create info boxes for important notes or warnings. E.g.
+  - Use HTML in markdown cells to create nice colorful info boxes for important notes or warnings. E.g.
 
   ```html
-    <div style="background-color: #e7f3fe; padding: 10px; border-left: 6px solid #2196F3; margin-bottom: 15px; color: #333;">,
-      <strong>Info:</strong> This is an info box.
+  <div style="background-color: #e7f3fe; padding: 10px; border-left: 6px solid #2196F3; margin-bottom: 15px; color: #333;">
+      <strong>Info:</strong> Here's some helpful information.
       <ul>
-          <li>There are several pieces of information here.</li>
-          <li>Here is another one</li>
+          <li>This is placeholder content to demonstrate the info box.</li>
+          <li>You can use this box to share tips, notices, or other general information.</li>
       </ul>
-    </div>
+  </div>
+
+  <div style="background-color: #e6f9e6; padding: 10px; border-left: 6px solid #4CAF50; margin-bottom: 15px; color: #333;">
+      <strong>Success:</strong> This is a success box.
+      <ul>
+          <li>The operation completed successfully.</li>
+          <li>Everything is running smoothly.</li>
+      </ul>
+  </div>
+
+  <div style="background-color: #fff8e1; padding: 10px; border-left: 6px solid #FFC107; margin-bottom: 15px; color: #333;">
+      <strong>Warning:</strong> This is a warning box.
+      <ul>
+          <li>Be careful with the next steps.</li>
+          <li>Some settings may require review.</li>
+      </ul>
+  </div>
   ```
+
+  Which results in boxes like:
+  ![Info Box Example](tutorials/images/info-boxes.png)
 
 ## Getting Started with Contributions
 
