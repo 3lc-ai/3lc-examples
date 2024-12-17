@@ -17,13 +17,15 @@ from tlc_tools.common import keep_indices
 
 
 class _SplitStrategy(abc.ABC):
+    requires_split_by = False
+
     def __init__(self, seed: int = 0):
         self.seed = seed
 
     @abc.abstractmethod
     def split(
-        self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None
-    ) -> dict[str, np.array]:
+        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+    ) -> dict[str, np.ndarray]:
         """Split the indices into the specified splits."""
         ...
 
@@ -35,8 +37,6 @@ class _SplitStrategy(abc.ABC):
 
 
 class _RandomSplitStrategy(_SplitStrategy):
-    requires_split_by = False
-
     def split(
         self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None
     ) -> dict[str, np.array]:

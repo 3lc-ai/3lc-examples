@@ -1,12 +1,15 @@
 from collections import defaultdict
+from collections.abc import Mapping
 
 import numpy as np
 import tlc
 
 
-def object_detection_sample_weights(table: tlc.Table, alpha=1.0, include_zero_weighted_images=False):
+def object_detection_sample_weights(
+    table: tlc.Table, alpha: float = 1.0, include_zero_weighted_images: bool = False
+) -> np.array:
     # Step 1: Calculate class frequency across all bounding boxes
-    class_counts = defaultdict(int)
+    class_counts: Mapping[int, int] = defaultdict(int)
     total_boxes = 0
 
     # images: a list of dictionaries, each containing image data with bounding boxes and their labels

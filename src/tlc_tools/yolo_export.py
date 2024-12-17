@@ -63,11 +63,14 @@ def export_to_yolo(
         )
         image_strategy = "copy"
 
+    tables_dict: dict[str, tlc.Table] = {}
     for split in tables:
-        if isinstance(tables[split], (str, Path)):
-            tables[split] = tlc.Table.from_url(str(tables[split]))
+        if isinstance(tables[split], (str, Path, tlc.Url)):
+            tables_dict[split] = tlc.Table.from_url(str(tables[split]))
+        else:
+            tables_dict[split] = tables[split]
 
-        _verify_table_schema(tables[split])
+        _verify_table_schema(tables_dict[split])
 
     output_url = tlc.Url(output_url)
 
@@ -85,7 +88,7 @@ def export_to_yolo(
     images_path = output_path / "images"
 
     # Iterate over the dataset and write labels to the output url, based on the filenames
-    for split, table in tables.items():
+    for split, table in tables_dict.items():
         table.ensure_complete_schema()
         bb_schema = table.schema.values["rows"].values[tlc.BOUNDING_BOXES].values[tlc.BOUNDING_BOX_LIST]
         bb_type = tlc.BoundingBox.from_schema(bb_schema)
@@ -139,14 +142,14 @@ def export_to_yolo(
 
     yaml_content = {
         "path": output_path.absolute().as_posix(),
-        **{split: (images_path / split).relative_to(output_path).as_posix() for split in tables},
+        **{split: (images_path / split).relative_to(output_path).as_posix() for split in tables_dict},
         "names": categories,
     }
 
     dataset_yaml_file = output_path / f"{dataset_name}.yaml"
     with open(dataset_yaml_file, "w", encoding="utf-8") as f:
         f.write("# YOLO Dataset YAML file - Created from 3LC Tables:\n")
-        for split, table in tables.items():
+        for split, table in tables_dict.items():
             f.write(f"# {split}: {table.url}\n")
         f.write("\n")
 

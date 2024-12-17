@@ -15,7 +15,7 @@ class BBCropDataset(Dataset):
         self,
         table: tlc.Table,
         transform=None,
-        label_map: Mapping = None,
+        label_map: Mapping | None = None,
         add_background: bool = False,
         background_freq: float = 0.5,
         is_train: bool = True,
