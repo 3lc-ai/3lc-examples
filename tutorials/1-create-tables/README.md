@@ -14,7 +14,7 @@ The `tlc` Python package provides several helper functions for creating tables f
 | Load images and bounding boxes from the YOLO YAML file format. | Write a Table from images and one or more masks. | Work with video datasets in 3LC by creating thumbnails and storing URLs to video files. |
 | **From PyTorch Dataset** | **COCO** |    |
 | [![torch][torch-img]][torch-link] | [![coco][coco-img]][coco-link] |    |
-| Create a Table directly from a PyTorch Dataset (CIFAR-10). | Create a table from a folder of images and a COCO format JSON file. | |
+| Create a Table directly from a PyTorch Dataset (CIFAR-10). | Create a Table from a folder of images and a COCO format JSON file. | |
 
 [image-classification-img]: ../images/create-image-classification-table.png
 [image-classification-link]: create-image-classification-table.ipynb
