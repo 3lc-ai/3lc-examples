@@ -119,7 +119,9 @@ def split_table(
     Splits a table into two or more tables based on the specified strategy.
 
     :param table: The table to split.
-    :param splits: Proportions for train and validation splits. Default is a 80/20 train and val split.
+    :param splits: Proportions for splits, as a dictionary with split names as keys and proportions as values. Default
+        is {"train": 0.8, "val": 0.2}. Any number of splits can be requested. Proportions are normalized if they do not
+        sum to 1.
     :param random_seed: Seed for reproducibility.
     :param split_strategy: "random", "stratified" (requires `split_by`), or "traversal_index" (requires `split_by`).
     :param shuffle: Shuffle data for "random" split. Default is True.
