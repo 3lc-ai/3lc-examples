@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Literal
+from typing import Literal, cast
 
 import cv2
 import numpy as np
@@ -51,7 +51,7 @@ def diversity(labels: list | np.ndarray, embeddings: np.ndarray) -> list[float]:
         for rank, idx in enumerate(sorted_indices):
             diversity_scores[indices[idx]] = rank + 1
 
-    return diversity_scores.tolist()
+    return cast(list[float], diversity_scores.tolist())
 
 
 def uniqueness(labels: list[int | float] | np.ndarray, embeddings: np.ndarray) -> list[float]:
@@ -89,7 +89,7 @@ def uniqueness(labels: list[int | float] | np.ndarray, embeddings: np.ndarray) -
         for idx, mean_distance in zip(indices, mean_distances):
             uniqueness_scores[idx] = mean_distance
 
-    return uniqueness_scores.tolist()
+    return cast(list[float], uniqueness_scores.tolist())
 
 
 def traversal_index(embeddings):

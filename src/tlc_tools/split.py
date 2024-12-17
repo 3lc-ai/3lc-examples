@@ -38,8 +38,8 @@ class _SplitStrategy(abc.ABC):
 
 class _RandomSplitStrategy(_SplitStrategy):
     def split(
-        self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None
-    ) -> dict[str, np.array]:
+        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+    ) -> dict[str, np.ndarray]:
         split_sizes = self._get_split_sizes(len(indices), splits)
         splits_indices = np.split(indices, np.cumsum(split_sizes[:-1]))
         return {split_name: split_indices for split_name, split_indices in zip(splits, splits_indices)}
@@ -49,8 +49,8 @@ class _StratifiedSplitStrategy(_SplitStrategy):
     requires_split_by = True
 
     def split(
-        self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None
-    ) -> dict[str, np.array]:
+        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+    ) -> dict[str, np.ndarray]:
         if by_column is None:
             raise ValueError("Stratified split requires a column to stratify by.")
 
@@ -65,8 +65,11 @@ class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
     requires_split_by = True
 
     def split(
-        self, indices: np.array, splits: dict[str, float], by_column: np.array | None = None
-    ) -> dict[str, np.array]:
+        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+    ) -> dict[str, np.ndarray]:
+        if by_column is None:
+            raise ValueError("Traversal index split requires a column to traverse by.")
+
         # Sort to take smallest splits first
         splits = dict(sorted(splits.items(), key=lambda x: x[1]))
         largest_split_name = list(splits.keys())[-1]
@@ -131,7 +134,7 @@ def split_table(
 
     :returns: Split tables as per requested strategy.
     """
-    if splits is None:
+    if not splits or splits is None:
         splits = {"train": 0.8, "val": 0.2}
 
     for _, split_proportion in splits.items():
@@ -178,7 +181,7 @@ def split_table(
     }
 
 
-def _get_column(table: tlc.Table, column: int | str | Callable[[Any], int]) -> np.array:
+def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.ndarray:
     # TODO: Use more performant `tlc.get_column` when available
     if isinstance(column, (int, str)):
         return np.array([row[column] for row in table])
