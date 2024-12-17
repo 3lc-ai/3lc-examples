@@ -1,4 +1,5 @@
 import random
+import warnings
 from collections.abc import Mapping
 from io import BytesIO
 
@@ -170,6 +171,10 @@ class BBCropDataset(Dataset):
 
         if i == max_attempts - 1:
             # Return a 100x100 black square if no valid background patch is found
+            warnings.warn(
+                "No valid background patch found. Returning a black square. Please check your data.",
+                stacklevel=2,
+            )
             return Image.new("RGB", (100, 100), color=(0, 0, 0)), torch.tensor(self.background_label, dtype=torch.long)
 
         # Crop the background patch from the image
