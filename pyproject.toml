@@ -2,7 +2,7 @@
 name = "3lc_tools"
 version = "0.1.0"
 description = "A set of open-source tools for extending and enhancing the base 3lc functionality."
-authors = ["3LC <hello@3lc.ai>"]
+authors = ["3LC <support@3lc.ai>"]
 readme = "README.md"
 license = "Apache-2.0"
 keywords = ["AI", "tools", "data workflows", "3lc"]
