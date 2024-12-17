@@ -176,7 +176,7 @@ def split_table(
     }
 
 
-def _get_column(table, column: int | str | Callable[[Any], int]) -> np.array:
+def _get_column(table: tlc.Table, column: int | str | Callable[[Any], int]) -> np.array:
     # TODO: Use more performant `tlc.get_column` when available
     if isinstance(column, (int, str)):
         return np.array([row[column] for row in table])
