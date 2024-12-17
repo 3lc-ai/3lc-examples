@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Literal, cast
+from typing import Literal
 
 import cv2
 import numpy as np
@@ -10,7 +10,7 @@ from scipy.spatial.distance import pdist, squareform
 from sklearn.cluster import KMeans
 
 
-def diversity(labels: list | np.ndarray, embeddings: np.ndarray) -> list[float]:
+def diversity(labels: list | np.ndarray, embeddings: np.ndarray) -> list[int]:
     """
     Calculate diversity scores for a dataset based on embeddings.
 
