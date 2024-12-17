@@ -70,7 +70,7 @@ class BBCropDataset(Dataset):
         image = self.load_image_data(row)
 
         bbs = row["bbs"]["bb_list"]
-        while len(bbs) == 0 and not is_background:
+        while not is_background and len(bbs) == 0:
             row_idx = self.random_gen.randint(0, len(self.table) - 1)
             row = self.table.table_rows[row_idx]
             image = self.load_image_data(row)
