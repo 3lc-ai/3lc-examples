@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "3lc_tools"
-version = "0.1.0"
+version = "2.11"
 description = "A set of open-source tools for extending and enhancing the base 3lc functionality."
 authors = ["3LC <support@3lc.ai>"]
 readme = "README.md"
