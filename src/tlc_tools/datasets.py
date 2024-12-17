@@ -61,7 +61,7 @@ class BBCropDataset(Dataset):
         :returns: (cropped image, label) where label is a tensor.
         """
         # Determine if a background patch should be generated
-        is_background = self.add_background and self.random_gen.random() < self.background_freq and self.is_train
+        is_background = self.add_background and self.is_train and self.random_gen.random() < self.background_freq
 
         # Select a random row for background or use the given index
         row_idx = self.random_gen.randint(0, len(self.table) - 1) if is_background else idx
