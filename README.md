@@ -99,8 +99,8 @@ We welcome contributions to this repository! If you have a suggestion for an
 additional example or improvement, please open an issue or create a pull
 request.
 
-Any contributions should be made in the `tutorials` and `data` folders only,
-other files and folders are maintained by the 3LC team. See the
+Any contributions should be made in the `tools`, `tutorials` and `data` folders
+only, other files and folders are maintained by the 3LC team. See the
 [CONTRIBUTING.md](CONTRIBUTING.md) file for more details.
 
 ### Data

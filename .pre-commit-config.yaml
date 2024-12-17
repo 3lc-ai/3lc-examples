@@ -3,10 +3,14 @@ repos:
   rev: v0.8.3
   hooks:
     - id: ruff
+      exclude: ^example-notebooks/
       args: [ --fix ]
     - id: ruff-format
+      exclude: ^example-notebooks/
 
 - repo: https://github.com/kynan/nbstripout
   rev: 0.8.1
   hooks:
     - id: nbstripout
+      exclude: ^example-notebooks/
+
