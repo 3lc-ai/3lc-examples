@@ -1,0 +1,78 @@
+[tool.poetry]
+name = "3lc_tools"
+version = "2.11"
+description = "A set of open-source tools for extending and enhancing the base 3lc functionality."
+authors = ["3LC <support@3lc.ai>"]
+readme = "README.md"
+license = "Apache-2.0"
+keywords = ["AI", "tools", "data workflows", "3lc"]
+packages = [{ include = "tlc_tools", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+3lc = { version = "^2.10.0", extras = [] }
+fpsample = "^0.3.3"
+opencv-python = "^4.10.0.84"
+scikit-learn = "^1.5.2"
+segment-anything = { git = "https://github.com/facebookresearch/segment-anything", optional = true }
+datasets = { version = ">=2.17.0", optional = true }
+transformers = { version = "^4.30.2", optional = true}
+evaluate = { version = "^0.4.1", optional = true}
+umap-learn = { version = "^0.5.4", optional = true}
+pacmap = { version = "^0.7.1", optional = true}
+joblib = { version = "^1.4.0", optional = true}
+timm = { version = "^1.0.11", optional = true}
+kaggle = { version = "^1.6.17", optional = true}
+ultralytics = { git = "https://github.com/3lc-ai/ultralytics", optional = true }
+pytorch-lightning = {version = "^2.4.0", optional = true}
+
+[tool.poetry.extras]
+huggingface = ["datasets", "transformers", "evaluate"]
+umap = ["umap-learn", "joblib"]
+pacmap = ["pacmap", "joblib"]
+sam = ["segment-anything"]
+timm = ["timm"]
+kaggle = ["kaggle"]
+ultralytics = ["ultralytics"]
+lightning = ["pytorch-lightning"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+papermill = "^2.6.0"
+pre-commit = "^4.0.1"
+ruff = "^0.8.3"
+mypy = "^1.13.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+include = [
+    "pyproject.toml",
+    "src/tlc_tools/**/*.py",
+    "tests/**/*.py",
+]
+line-length = 120
+indent-width = 4
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "E",
+    "F",
+    "UP",
+    "SIM",
+    "I",
+]
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true

@@ -1,3 +1,9 @@
 *.venv*/
 .env
-transient_data
+.vscode/
+__pycache__/
+dist/
+*.pt
+*.pth
+*.npy
+**/lightning_logs/
