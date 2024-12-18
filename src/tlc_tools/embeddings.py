@@ -23,17 +23,21 @@ def add_embeddings_to_table(
     preprocess_fn: Callable | None = None,
 ) -> tlc.Table:
     """
-    Adds embeddings to a table using a specified model and optional dimensionality reduction.
+    Adds embeddings to a table using a specified model and optional
+    dimensionality reduction.
 
 
     :param table: The table containing images.
-    :param model: Model to use for embedding extraction. If None, defaults to ViT from Hugging Face.
-    :param embedding_extraction_fn: Function to extract embeddings from the model output. If None, defaults to selecting
-        the [CLS] token for ViT.
+    :param model: Model to use for embedding extraction. If None, defaults to
+        ViT from Hugging Face.
+    :param embedding_extraction_fn: Function to extract embeddings from the
+        model output. If None, defaults to selecting the [CLS] token for ViT.
     :param embedding_column: Column name to add embeddings to in the table.
     :param batch_size: Batch size for processing images.
     :param device: Device to use for inference.
-    :param preprocess_fn: Preprocessing function for images. If None, defaults to a standard ViT preprocessing pipeline.
+    :param preprocess_fn: Preprocessing function for images. If model is None,
+        this argument is ignored and the function defaults to a standard ViT
+        preprocessing pipeline.
 
     :returns: Table with an added column containing embeddings.
     """
