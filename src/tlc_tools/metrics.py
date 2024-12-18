@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Literal
+from typing import Literal, get_args
 
 import cv2
 import numpy as np
@@ -151,16 +151,7 @@ def compute_image_metrics(image_path: str, metrics: list[IMAGE_METRICS] | None =
     """Return a dict of image metrics for the given image path."""
 
     if not metrics:
-        metrics = [
-            "width",
-            "height",
-            "brightness",
-            "contrast",
-            "sharpness",
-            "average_red",
-            "average_green",
-            "average_blue",
-        ]
+        metrics = list(get_args(IMAGE_METRICS))
 
     computed_metrics = {}
 
@@ -196,26 +187,16 @@ def compute_image_metrics(image_path: str, metrics: list[IMAGE_METRICS] | None =
             sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
             computed_metrics["sharpness"] = sharpness
 
+        is_rgb = len(pixels.shape) == 3 and pixels.shape[2] == 3
+
         # Compute average RGB values
         if "average_red" in metrics:
-            try:
-                avg_r = np.mean(pixels[:, :, 0])
-            except IndexError:  # Image is grayscale
-                avg_r = 0
-            computed_metrics["average_red"] = avg_r
+            computed_metrics["average_red"] = np.mean(pixels[:, :, 0]) if is_rgb else 0
 
         if "average_green" in metrics:
-            try:
-                avg_g = np.mean(pixels[:, :, 1])
-            except IndexError:
-                avg_g = 0
-            computed_metrics["average_green"] = avg_g
+            computed_metrics["average_green"] = np.mean(pixels[:, :, 1]) if is_rgb else 0
 
         if "average_blue" in metrics:
-            try:
-                avg_b = np.mean(pixels[:, :, 2])
-            except IndexError:
-                avg_b = 0
-            computed_metrics["average_blue"] = avg_b
+            computed_metrics["average_blue"] = np.mean(pixels[:, :, 2]) if is_rgb else 0
 
     return computed_metrics
