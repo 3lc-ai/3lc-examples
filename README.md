@@ -1,4 +1,4 @@
-# `tlc` Python Package Example Notebooks
+# `tlc` Python Package Example Notebooks, Tutorials, and Tools
 
 Welcome to our collection of example notebooks and tutorials for the `tlc`
 Python package! This repository contains various Jupyter notebooks and Python
@@ -21,22 +21,77 @@ You will need the following tools installed on your system:
 
 ### Installation
 
-Clone this repository to your local machine:
+Follow these steps to set up the repository and environment for running the notebooks.
 
-```bash
-# Copy code
-git clone https://github.com/3lc-ai/3lc-examples.git
+1. Clone the Repository
 
-# Navigate to the cloned directory:
-cd 3lc-examples
+    ```bash
+    git clone https://github.com/3lc-ai/3lc-examples.git
+    cd 3lc-examples
+    ```
 
-# Activate your Python environment (if applicable)
+2. Python Environment Setup
 
-# Open the Jupyter notebook interface:
-jupyter notebook
+    It is recommended to use a virtual environment or Conda
+    environment to avoid conflicts with system-wide packages. Activate your
+    environment before proceeding.
 
-#From the Jupyter interface, open any notebook from the list to get started.
-```
+3. Install Required Python Packages
+
+    Install the required Python packages with:
+
+    ```bash
+    pip install -e .
+    ```
+
+    This will install the main package, `tlc_tools`, along with its dependencies. Additionally, the following optional extras are provided for specific notebooks:
+
+    + **huggingface**: For transformer models and hugging face datasets.
+    + **umap**: For dimensionality reduction.
+    + **pacmap**: For dimensionality reduction.
+    + **sam**: For segmentation tasks (Segment Anything Model).
+    + **timm**: For pretrained vision models.
+    + **kaggle**: For downloading datasets.
+    + **ultralytics**: For YOLOv8/YOLO11 object detection.
+    + **lightning**: For PyTorch Lightning tasks.
+
+    To install extras required for a specific notebook, use the following syntax:
+
+    ```bash
+      pip install -e .[extra_name]
+    ```
+
+    For example, to install packages required for notebooks using Hugging Face and UMAP:
+
+    ```bash
+    pip install -e .[huggingface,umap]
+    ```
+
+    If you want to install all extras at once, use:
+
+    ```bash
+    pip install -e .[all]
+    ```
+
+    To install the dev dependencies for formatting code and running tests, use:
+
+    ```bash
+    pip install -e .[dev]
+    ```
+
+4. Running the Notebooks
+
+    You can open and run the notebooks with your preferred notebook editor or interface, such as Jupyter Notebook, JupyterLab, or VS Code. Start your notebook interface in the top-level of the repository to ensure relative paths in the notebooks work correctly.
+
+    Example for Jupyter:
+
+    ```bash
+    jupyter lab
+    ```
+
+5. Get Started
+
+    From your notebook interface, open any notebook from the repository to get started. Be sure to select the correct kernel/environment where the packages have been installed.
 
 ## Contributing
 
@@ -44,8 +99,9 @@ We welcome contributions to this repository! If you have a suggestion for an
 additional example or improvement, please open an issue or create a pull
 request.
 
-Any contributions should be made in the `tutorials` and `data` folders only,
-other files and folders are maintained by the 3LC team.
+Any contributions should be made in the `tools`, `tutorials` and `data` folders
+only, other files and folders are maintained by the 3LC team. See the
+[CONTRIBUTING.md](CONTRIBUTING.md) file for more details.
 
 ### Data
 

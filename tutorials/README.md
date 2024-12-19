@@ -1,15 +1,14 @@
-# Tutorial
+# Tutorials
 
-This folder contains simple tutorials showcasing basic features of the `3lc` Python package.
+This folder contains simple tutorials on how to get the most out of the `tlc` Python package. The tutorials are organized in a way that you can follow them step by step, starting from the basics and moving to more advanced topics. The notebooks are designed to be easily re-used and modified to fit your specific use case, in many cases by simply changing the input data.
 
-## Overview
+The notebooks in the tutorials utilize the `tlc_tools` Python package as an additional helper library to simplify the code and make it easier to follow. Follow the installation instructions in the top-level README of this repository to get up and running.
 
-+ [Register Image Classification Dataset](write-image-classification-table.ipynb) Write a table consisting of images and labels.
-+ [Add Image Metrics](add-image-metrics.ipynb) Extend an existing table with image metrics.
-+ [Add Embeddings](add-embeddings.ipynb) Extend an existing table with embeddings from a pre-trained model.
-+ [Register Augmented Samples](write-augmented-samples.ipynb) Register images as metrics on-the-fly, using image augmentation as an example.
-+ [Collect Metrics from a Pre-trained Model](collect_metrics_only) Collect classification metrics from a pre-trained model.
-+ [Write Video Thumbnails](write-video-thumbnails.ipynb) Write a table consisting of video thumbnails and paths to videos.
-+ [Tutorial 2](write-bb-table.ipynb) Write a table consisting of images and random bounding boxes.
-+ [Finetune Segment-Anything-Model (SAM)](sam) Prepare a dataset for SAM and finetune the model.
-+ [Mammoth Dataset](mammoth) Writes a 3D point cloud dataset and uses UMAP and PaCMAP to reduce the dimensionality.
+|                          |                       |                                          |
+|:------------------------:|:---------------------:|:----------------------------------------:|
+| **1: Creating Tables** | **2: Modifying and Extending Tables** | **3: Training and Metrics Collection** |
+| [![Creating Tables](images/1.png)](1-create-tables) | [![Modifying and Extending Tables](images/2.png)](2-modify-tables) | [![Training and Metrics Collection](images/3.png)](3-training-and-metrics) |
+| Learn how to create tables from various sources, introducing table schemas and covering the most common use cases. | Explore examples for modifying and extending tables, including splitting tables, adding new columns, and using the latest data. | Examples focused on metrics collection and runs. Introduces small, precise examples to gather and analyze model metrics. |
+| **4: Complete Examples** | **5: Advanced Examples** | **6: Misc.** |
+| [![Complete Examples](images/4.png)](4-complete-examples) | [![Advanced Examples](images/5.png)](5-advanced-examples) | [![Miscellaneous](images/6.png)](6-misc) |
+| Full examples of training and evaluation, showcasing integrations with frameworks like Hugging Face and SAM. | Advanced tutorials, including working with bounding box embeddings, training on image crops, and enhancing datasets with embeddings. | Additional examples and utilities, covering tasks like writing augmented samples and flattening complex data structures. |
