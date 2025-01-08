@@ -19,11 +19,6 @@ Here's a brief overview of the example notebooks included in this directory:
   detectron2.
 + [Per Bounding Box Metrics](./calculate-luminosity.ipynb): Describes metric collection for individual bounding boxes in
   images.
-+ [Per Bounding Box Embeddings](./add-bb-embeddings.ipynb): Covers embedding collection for bounding boxes and uses UMAP
-  for dimensionality reduction.
-+ [Bounding Box Classifier](./train-bb-classifier.ipynb): Details an advanced workflow where a model is trained to
-  classify bounding boxes in an image, which can be used in conjunction with an object detection model to find bounding
-  boxes of special interest.
 + [PyTorch Lightning SegFormer](./pytorch-lightning-segformer.ipynb): Demonstrates how to use a custom metrics collector
   for collecting predicted masks from a semantic segmentation model.
 
