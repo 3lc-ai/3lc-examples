@@ -17,7 +17,7 @@ class BBCropDataset(Dataset):
         table: tlc.Table,
         transform=None,
         label_map: Mapping | None = None,
-        add_background: bool = False,
+        add_background: bool | None = None,
         background_freq: float = 0.5,
         is_train: bool = True,
         image_column_name: str = "image",
@@ -30,7 +30,9 @@ class BBCropDataset(Dataset):
         :param table: The input table containing image and bounding box data.
         :param transform: Transformations to apply to cropped images.
         :param label_map: Mapping from original labels to contiguous integer labels.
-        :param add_background: Whether to include background patches.
+        :param add_background: Whether to include background patches. Defaults to None, which means that background
+            patches will be sampled if there is only one class in the dataset, and not sampled if there are multiple
+            classes.
         :param background_freq: Probability of sampling a background patch.
         :param is_train: Whether the dataset is used for training (affects background generation).
         :param x_max_offset: Maximum offset in the x direction for bounding box cropping.
@@ -45,7 +47,10 @@ class BBCropDataset(Dataset):
         if not self.label_map:
             raise ValueError("No label map found. Expecting label map under the key 'bbs.bb_list.label'.")
         self.bb_schema = table.schema.values["rows"].values["bbs"].values["bb_list"]
-        self.add_background = add_background
+        if add_background is None:
+            self.add_background = len(self.label_map) == 1
+        else:
+            self.add_background = add_background
         self.background_freq = background_freq
         self.is_train = is_train
         self.background_label = len(self.label_map) if add_background else None
