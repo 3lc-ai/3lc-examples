@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import typing
 from collections import defaultdict
 from typing import Any, Callable
@@ -71,7 +72,7 @@ def add_columns_to_table(
         for column_name, column_value in row.items():
             if input_schemas[column_name].sample_type == tlc.PILImage.sample_type:
                 image_url = tlc.Url(column_value).to_absolute(table.url)
-                column_value = Image.open(image_url.to_str())
+                column_value = Image.open(io.BytesIO(image_url.read()))
 
             output_row[column_name] = column_value
 
@@ -94,7 +95,7 @@ def add_image_metrics_to_table(
 ) -> tlc.Table:
     """"""
     new_columns = defaultdict(list)
-    for row in table.table_rows:
+    for row in tqdm(table.table_rows, desc="Computing image metrics", total=len(table)):
         image_path = tlc.Url(row[image_column_name]).to_absolute().to_str()
         metrics = compute_image_metrics(image_path, image_metrics)
         for column_name, value in metrics.items():

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import io
 from collections import defaultdict
 from typing import Literal, get_args
 
 import cv2
 import numpy as np
+import tlc
 from PIL import Image, ImageStat
 from scipy.spatial.distance import pdist, squareform
 from sklearn.cluster import KMeans
@@ -147,7 +149,7 @@ IMAGE_METRICS = Literal[
 ]
 
 
-def compute_image_metrics(image_path: str, metrics: list[IMAGE_METRICS] | None = None) -> dict[str, float]:
+def compute_image_metrics(image_path: str | tlc.Url, metrics: list[IMAGE_METRICS] | None = None) -> dict[str, float]:
     """Return a dict of image metrics for the given image path."""
 
     if not metrics:
@@ -155,7 +157,11 @@ def compute_image_metrics(image_path: str, metrics: list[IMAGE_METRICS] | None =
 
     computed_metrics = {}
 
-    image = Image.open(image_path)
+    # Convert str to Url if needed
+    url = tlc.Url(image_path) if isinstance(image_path, str) else image_path
+
+    # Open image from URL using BytesIO
+    image = Image.open(io.BytesIO(url.read()))
     width, height = image.size
 
     if "width" in metrics:
