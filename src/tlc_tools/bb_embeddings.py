@@ -1,6 +1,5 @@
 """Functions for adding embeddings to bounding boxes in TLC tables."""
 
-import os
 from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
@@ -23,7 +22,7 @@ from tlc_tools.datasets import BBCropDataset
 from tlc_tools.split import split_table
 
 
-def convert_to_rgb(img):
+def _convert_to_rgb(img):
     """Convert image to RGB format."""
     return img.convert("RGB")
 
@@ -32,7 +31,7 @@ def fine_tune_bb_classifier(
     table: tlc.Table,
     *,
     model_name: str = "efficientnet_b0",
-    checkpoint_dir: Optional[Union[str, Path]] = None,
+    save_path: Union[str, Path],
     epochs: int = 10,
     batch_size: int = 32,
     train_val_split: float = 0.8,
@@ -45,29 +44,9 @@ def fine_tune_bb_classifier(
     learning_rate: float = 1e-4,
     lr_decay: float = 0.9516,
     num_workers: int = 8,
+    verbose: bool = True,
 ) -> Path:
-    """Fine-tune a classifier on bounding box crops from the table.
-
-    Args:
-        table: Input TLC table containing images and bounding boxes
-        model_name: Name of timm model to use as backbone
-        checkpoint_dir: Directory to save model checkpoint
-        epochs: Number of epochs to train
-        batch_size: Training batch size
-        train_val_split: Fraction of data to use for training
-        images_per_epoch: Number of images to sample per epoch
-        include_background: Whether to include background class
-        x_max_offset: Maximum horizontal jitter during training
-        y_max_offset: Maximum vertical jitter during training
-        x_scale_range: Range of horizontal scaling during training
-        y_scale_range: Range of vertical scaling during training
-        learning_rate: Initial learning rate
-        lr_decay: Learning rate decay factor per epoch
-        num_workers: Number of worker processes for data loading
-
-    Returns:
-        Path to saved model checkpoint
-    """
+    """Fine-tune a classifier on bounding box crops."""
     device = infer_torch_device()
 
     # Split table into train/val
@@ -78,7 +57,7 @@ def fine_tune_bb_classifier(
     # Setup transforms
     common_transforms = transforms.Compose(
         [
-            transforms.Lambda(convert_to_rgb),
+            transforms.Lambda(_convert_to_rgb),
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -118,8 +97,20 @@ def fine_tune_bb_classifier(
     sampler = WeightedRandomSampler(weights=num_bbs_per_image, num_samples=images_per_epoch)
 
     # Create dataloaders
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        sampler=sampler,
+        num_workers=num_workers,
+        persistent_workers=True,
+    )
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        persistent_workers=True,
+    )
 
     # Create model
     num_classes = len(table.get_simple_value_map("bbs.bb_list.label"))
@@ -134,13 +125,21 @@ def fine_tune_bb_classifier(
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=lr_decay)
 
-    # Training loop
-    for epoch in range(epochs):
-        # Training Phase
+    # Track metrics for progress reporting
+    prev_train_loss = None
+    prev_train_acc = None
+    prev_val_loss = None
+    prev_val_acc = None
+
+    # Training loop with epoch-level progress bar
+    epoch_bar = tqdm.tqdm(range(epochs), desc="Fine-tuning classifier", disable=not verbose, leave=True)
+
+    for epoch in epoch_bar:
         model.train()
         train_loss, train_correct, train_total = 0.0, 0, 0
 
-        for inputs, labels in tqdm.tqdm(train_dataloader, desc=f"Epoch {epoch+1} [Train]"):
+        # Training phase with hidden progress bar
+        for inputs, labels in tqdm.tqdm(train_dataloader, desc="Training", leave=False, disable=not verbose):
             inputs, labels = inputs.to(device), labels.to(device)
 
             optimizer.zero_grad()
@@ -154,17 +153,16 @@ def fine_tune_bb_classifier(
             train_correct += (preds == labels).sum().item()
             train_total += labels.size(0)
 
-        train_loss /= train_total
+        train_loss = train_loss / train_total
         train_acc = train_correct / train_total
 
-        # Validation Phase
+        # Validation phase
         model.eval()
         val_loss, val_correct, val_total = 0.0, 0, 0
 
         with torch.no_grad():
-            for inputs, labels in tqdm.tqdm(val_dataloader, desc=f"Epoch {epoch+1} [Val]"):
+            for inputs, labels in tqdm.tqdm(val_dataloader, desc="Validating", leave=False, disable=not verbose):
                 inputs, labels = inputs.to(device), labels.to(device)
-
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
 
@@ -173,32 +171,33 @@ def fine_tune_bb_classifier(
                 val_correct += (preds == labels).sum().item()
                 val_total += labels.size(0)
 
-        val_loss /= val_total
+        val_loss = val_loss / val_total
         val_acc = val_correct / val_total
+
+        # Calculate changes from previous epoch
+        train_loss_delta = f" ({train_loss - prev_train_loss:+.4f})" if prev_train_loss is not None else ""
+        train_acc_delta = f" ({(train_acc - prev_train_acc)*100:+.2f}%)" if prev_train_acc is not None else ""
+        val_loss_delta = f" ({val_loss - prev_val_loss:+.4f})" if prev_val_loss is not None else ""
+        val_acc_delta = f" ({(val_acc - prev_val_acc)*100:+.2f}%)" if prev_val_acc is not None else ""
+
+        # Update previous values
+        prev_train_loss = train_loss
+        prev_train_acc = train_acc
+        prev_val_loss = val_loss
+        prev_val_acc = val_acc
+
+        # Update progress bar with final epoch metrics
+        if epoch == epochs - 1 and verbose:
+            print(f"\n  Epoch {epoch+1}/{epochs}:")
+            print(f"    Train: loss={train_loss:.4f}{train_loss_delta}, " f"acc={train_acc*100:.2f}%{train_acc_delta}")
+            print(f"    Val:   loss={val_loss:.4f}{val_loss_delta}, " f"acc={val_acc*100:.2f}%{val_acc_delta}")
 
         # Update learning rate
         scheduler.step()
 
-        # Log metrics
-        if False:
-            tlc.log(
-                {
-                    "epoch": epoch + 1,
-                    "train_loss": train_loss,
-                    "train_acc": train_acc,
-                    "val_loss": val_loss,
-                    "val_acc": val_acc,
-                    "lr": optimizer.param_groups[0]["lr"],
-                }
-            )
-
     # Save model
-    checkpoint_dir = Path(checkpoint_dir or ".")
-    checkpoint_dir.parent.mkdir(parents=True, exist_ok=True)
-    checkpoint_path = checkpoint_dir / f"{model_name}_bb_classifier.pth"
-    torch.save(model.state_dict(), checkpoint_path)
-
-    return checkpoint_path
+    torch.save(model.state_dict(), save_path)
+    return save_path
 
 
 def collect_bb_embeddings(
@@ -208,6 +207,7 @@ def collect_bb_embeddings(
     model_name: str = "efficientnet_b0",
     batch_size: int = 32,
     save_dir: Optional[Union[str, Path]] = None,
+    verbose: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Collect embeddings and predicted labels for all bounding boxes.
 
@@ -217,6 +217,7 @@ def collect_bb_embeddings(
         model_name: Name of timm model used for training
         batch_size: Batch size for inference
         save_dir: Optional directory to save embeddings and labels
+        verbose: Whether to print progress messages
 
     Returns:
         tuple of (embeddings, labels) arrays
@@ -225,15 +226,15 @@ def collect_bb_embeddings(
 
     # Create model and load checkpoint
     num_classes = len(table.get_simple_value_map("bbs.bb_list.label"))
-    model = timm.create_model(model_name, pretrained=False, num_classes=num_classes)
-    model.load_state_dict(torch.load(model_checkpoint))
+    model: torch.nn.Module = timm.create_model(model_name, pretrained=False, num_classes=num_classes)
+    model.load_state_dict(torch.load(model_checkpoint, weights_only=True))
     model = model.to(device)
     model.eval()
 
     # Setup image transform
     image_transform = transforms.Compose(
         [
-            transforms.Lambda(convert_to_rgb),
+            transforms.Lambda(_convert_to_rgb),
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -304,6 +305,9 @@ def collect_bb_embeddings(
         np.save(save_dir / "embeddings.npy", embeddings)
         np.save(save_dir / "labels.npy", labels)
 
+    if verbose:
+        print(f"Collected embeddings shape: {embeddings.shape}")
+
     return embeddings, labels
 
 
@@ -312,6 +316,7 @@ def reduce_embeddings(
     *,
     n_components: int = 3,
     save_dir: Optional[Union[str, Path]] = None,
+    verbose: bool = True,
 ) -> np.ndarray:
     """Reduce dimensionality of embeddings using PaCMAP.
 
@@ -322,6 +327,7 @@ def reduce_embeddings(
 
     # Fit and transform the embeddings
     reduced_embeddings = reducer.fit_transform(embeddings)
+    assert isinstance(reduced_embeddings, np.ndarray)
 
     # Save if requested
     if save_dir is not None:
@@ -340,6 +346,7 @@ def add_embeddings_to_table(
     embedding_column_name: str = "embedding",
     predicted_label_column_name: str = "predicted_label",
     description: str = "Added embeddings from fine-tuned bb-classifier",
+    verbose: bool = True,
 ) -> tlc.Table:
     """Create new table with embeddings added to bounding boxes.
 
@@ -350,6 +357,7 @@ def add_embeddings_to_table(
         embedding_column_name: Name of column to store embeddings
         predicted_label_column_name: Name of column to store predicted labels
         description: Description for the new table
+        verbose: Whether to print progress messages
 
     Returns:
         New table with embeddings added to bounding boxes
@@ -397,7 +405,9 @@ def add_embeddings_to_table(
         table_writer.add_row(new_row)
 
     # Create and return the new table
-    return table_writer.finalize()
+    output_table = table_writer.finalize()
+
+    return output_table
 
 
 def add_bb_embeddings(
@@ -405,19 +415,20 @@ def add_bb_embeddings(
     *,
     # Model parameters
     model_name: str = "efficientnet_b0",
-    checkpoint_dir: Optional[Union[str, Path]] = None,
+    save_path: str | Path = "./bb_embeddings",
     # Training parameters
     epochs: int = 10,
     batch_size: int = 32,
     train_val_split: float = 0.8,
+    num_workers: int = 8,
     # Output parameters
     embedding_dim: int = 3,
     embedding_column_name: str = "embedding",
     predicted_label_column_name: str = "predicted_label",
-    description: Optional[str] = None,
+    description: str | None = None,
+    verbose: bool = True,
 ) -> tlc.Table:
-    """Fine-tune a classifier on bounding box crops and add the resulting embeddings
-    to the input table.
+    """Fine-tune a classifier on bounding box crops and add embeddings to table.
 
     This function:
     1. Fine-tunes a classifier on crops of the bounding boxes
@@ -426,58 +437,77 @@ def add_bb_embeddings(
     4. Creates a new table with embeddings added as a column
 
     Args:
-        table: Input TLC table containing images and bounding boxes
-        model_name: Name of timm model to use as backbone
-        checkpoint_dir: Directory to save intermediate artifacts (model checkpoints etc)
-        epochs: Number of epochs to train classifier
-        batch_size: Batch size for training and inference
-        train_val_split: Fraction of data to use for training
-        embedding_dim: Number of dimensions to reduce embeddings to
-        embedding_column_name: Name of column to store embeddings
-        predicted_label_column_name: Name of column to store predicted labels
-        description: Description for output table
-
-    Returns:
-        New TLC table with embeddings added to bounding boxes
+        table: Input table containing images and bounding boxes
+        model_name: Name of timm model to use
+        save_path: Directory path where artifacts will be saved
     """
-    # Use default checkpoint dir if none provided
-    if checkpoint_dir is None:
-        checkpoint_dir = Path(os.getenv("TRANSIENT_DATA_PATH", "./data"))
-    checkpoint_dir = Path(checkpoint_dir)
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    # Ensure save_path is a directory
+    save_path = Path(save_path)
+    if save_path.exists() and not save_path.is_dir():
+        raise ValueError(f"save_path must be a directory: {save_path}")
 
-    # Fine-tune classifier
+    # Create directory
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    # Define artifact paths
+    model_path = save_path / f"{model_name}_bb_classifier.pth"
+    # embeddings_path = save_path / "embeddings.npy"
+    # labels_path = save_path / "labels.npy"
+
+    if verbose:
+        print(f"Saving artifacts to: {save_path}")
+
+    # Pass specific paths to component functions
     model_path = fine_tune_bb_classifier(
         table,
         model_name=model_name,
-        checkpoint_dir=checkpoint_dir,
+        save_path=model_path,
         epochs=epochs,
         batch_size=batch_size,
         train_val_split=train_val_split,
+        num_workers=num_workers,
     )
 
-    # Collect embeddings
+    # Step 2: Collect embeddings
+    if verbose:
+        print("Step 2/4: Collecting embeddings")
+
     embeddings, labels = collect_bb_embeddings(
         table,
         model_path,
         model_name=model_name,
         batch_size=batch_size,
-        save_dir=checkpoint_dir,
+        save_dir=save_path,
+        verbose=verbose,
     )
 
-    # Reduce dimensionality
+    # Step 3: Reduce dimensionality
+    if verbose:
+        print(f"Step 3/4: Reducing embeddings to {embedding_dim} dimensions")
+
     reduced_embeddings = reduce_embeddings(
         embeddings,
         n_components=embedding_dim,
-        save_dir=checkpoint_dir,
+        save_dir=save_path,
+        verbose=verbose,
     )
 
-    # Create output table
-    return add_embeddings_to_table(
+    # Step 4: Create output table
+    if verbose:
+        print("Step 4/4: Creating output table")
+
+    output_table = add_embeddings_to_table(
         table,
         reduced_embeddings,
         labels,
         embedding_column_name=embedding_column_name,
         predicted_label_column_name=predicted_label_column_name,
-        description=description,
+        description=description or f"Added embeddings from fine-tuned bb-classifier {model_name}",
+        verbose=verbose,
     )
+
+    if verbose:
+        print(f"\nDone! Output table: {output_table.name}")
+        print("=======================================")
+
+    return output_table
