@@ -45,7 +45,8 @@ class BBCropDataset(Dataset):
         self.label_map = label_map or table.get_value_map("bbs.bb_list.label")
         self.image_column_name = image_column_name
         if not self.label_map:
-            raise ValueError("No label map found. Expecting label map under the key 'bbs.bb_list.label'.")
+            msg = "No label map found. Expecting label map under the key 'bbs.bb_list.label'."
+            raise ValueError(msg)
         self.bb_schema = table.schema.values["rows"].values["bbs"].values["bb_list"]
         if add_background is None:
             self.add_background = len(self.label_map) == 1
@@ -110,7 +111,8 @@ class BBCropDataset(Dataset):
         :returns: (cropped image, label) where label is a tensor.
         """
         if not bbs:
-            raise ValueError("No bounding boxes found. Check your sampler.")
+            msg = "No bounding boxes found. Check your sampler."
+            raise ValueError(msg)
 
         random_bb = random.choice(bbs)
 

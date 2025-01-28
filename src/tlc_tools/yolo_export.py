@@ -54,7 +54,8 @@ def export_to_yolo(
     # TODO: consider overriding names of various fields (image, bbs, etc.)
 
     if is_windows() and image_strategy == "symlink":
-        raise ValueError("Symlinking images is not supported on Windows, choose a different 'image_strategy'.")
+        msg = "Symlinking images is not supported on Windows, choose a different 'image_strategy'."
+        raise ValueError(msg)
 
     if image_strategy is None:
         print(
@@ -194,7 +195,8 @@ def _handle_image(
     elif image_strategy == "ignore":
         pass
     else:
-        raise ValueError(f"Invalid image_strategy: {image_strategy}")
+        msg = f"Invalid image_strategy: {image_strategy}"
+        raise ValueError(msg)
 
     return output_image_path
 
@@ -219,16 +221,20 @@ def _verify_table_schema(table: tlc.Table) -> None:
     required_keys = [tlc.IMAGE, tlc.BOUNDING_BOXES]
     for key in required_keys:
         if key not in row:
-            raise ValueError(f"Table does not have the required key: {key}")
+            msg = f"Table does not have the required key: {key}"
+            raise ValueError(msg)
 
     # Check if bboxes is a Mapping with a bounding_boxes key
     if tlc.BOUNDING_BOXES not in row:
-        raise ValueError(f"Table does not have a '{tlc.BOUNDING_BOXES}' key in its rows.")
+        msg = f"Table does not have a '{tlc.BOUNDING_BOXES}' key in its rows."
+        raise ValueError(msg)
     bbs = row[tlc.BOUNDING_BOXES]
     if not isinstance(bbs, dict):
-        raise ValueError(f"Bounding boxes must be a dict, got: {type(bbs)}")
+        msg = f"Bounding boxes must be a dict, got: {type(bbs)}"
+        raise ValueError(msg)
     if tlc.BOUNDING_BOX_LIST not in bbs:
-        raise ValueError(f"Bounding boxes must have a '{tlc.BOUNDING_BOX_LIST}' key.")
+        msg = f"Bounding boxes must have a '{tlc.BOUNDING_BOX_LIST}' key."
+        raise ValueError(msg)
     bb_list = bbs[tlc.BOUNDING_BOX_LIST]
 
     # Check if bounding_boxes is a list of dicts with the required keys
@@ -236,11 +242,13 @@ def _verify_table_schema(table: tlc.Table) -> None:
     for bounding_box in bb_list:
         for key in required_bounding_box_keys:
             if key not in bounding_box:
-                raise ValueError(f"Bounding box does not have the required key: {key}")
+                msg = f"Bounding box does not have the required key: {key}"
+                raise ValueError(msg)
 
     # Check if the table has a value-mapping for its labels.
     if table.get_value_map("bbs.bb_list.label") is None:
-        raise ValueError("Table does not have a value-mapping for its bounding box labels.")
+        msg = "Table does not have a value-mapping for its bounding box labels."
+        raise ValueError(msg)
 
 
 def main(args):

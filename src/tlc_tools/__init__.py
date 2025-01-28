@@ -9,9 +9,8 @@ try:
     check_package_version("tlc", required_min_version)
     import tlc
 except Exception as e:
-    raise ImportError(
-        f"tlc_tools requires tlc version {required_min_version} or higher (found {tlc.__version__})."
-    ) from e
+    msg = f"tlc_tools requires tlc version {required_min_version} or higher (found {tlc.__version__})."
+    raise ImportError(msg) from e
 
 
 __all__ = ["add_columns_to_table", "split_table", "add_image_metrics_to_table"]

@@ -50,10 +50,12 @@ class _StratifiedSplitStrategy(_SplitStrategy):
         self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
     ) -> dict[str, np.ndarray]:
         if by_column is None:
-            raise ValueError("Stratified split requires a column to stratify by.")
+            msg = "Stratified split requires a column to stratify by."
+            raise ValueError(msg)
 
         if len(splits) != 2:
-            raise ValueError("Stratified split requires exactly two splits.")
+            msg = "Stratified split requires exactly two splits."
+            raise ValueError(msg)
         split_sizes = self._get_split_sizes(len(indices), splits)
         splits_indices = train_test_split(indices, test_size=split_sizes[1], stratify=by_column, random_state=self.seed)
         return {split_name: split_indices for split_name, split_indices in zip(splits, splits_indices)}
@@ -66,7 +68,8 @@ class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
         self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
     ) -> dict[str, np.ndarray]:
         if by_column is None:
-            raise ValueError("Traversal index split requires a column to traverse by.")
+            msg = "Traversal index split requires a column to traverse by."
+            raise ValueError(msg)
 
         # Sort to take smallest splits first
         splits = dict(sorted(splits.items(), key=lambda x: x[1]))
