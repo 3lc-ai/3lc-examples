@@ -76,11 +76,11 @@ def export_to_yolo(
 
     output_path = Path(output_url.to_str())
     if output_path.exists():
-        msg = f"output url {output_url} already exists, can only export to a new location."
+        msg = f"Output url {output_url} already exists, can only export to a new location."
         raise ValueError(msg)
 
     if output_path.suffix != "":
-        msg = f"output url must be a directory, not a file, got: {output_url}."
+        msg = f"Output url must be a directory, not a file, got: {output_url}."
         raise ValueError(msg)
 
     output_path.mkdir(parents=True)
