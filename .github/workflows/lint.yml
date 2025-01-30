@@ -27,13 +27,13 @@ jobs:
       run: uv sync --all-extras --dev
 
     - name: Run ruff linter
-      run: ruff check .
+      run: uv run ruff check .
 
     - name: Run ruff formatter
-      run: ruff format --check .
+      run: uv run ruff format --check .
 
     - name: Run mypy type checker
-      run: mypy .
+      run: uv run mypy .
 
     - name: Minimize uv cache
       run: uv cache prune --ci
