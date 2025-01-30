@@ -1,0 +1,39 @@
+name: Run linter, formatter and type checker
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "0.5.25"
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: ".python-version-ci"
+
+    - name: Install dependencies
+      run: uv sync --all-extras --dev
+
+    - name: Run ruff linter
+      run: ruff check .
+
+    - name: Run ruff formatter
+      run: ruff format --check .
+
+    - name: Run mypy type checker
+      run: mypy .
+
+    - name: Minimize uv cache
+      run: uv cache prune --ci
