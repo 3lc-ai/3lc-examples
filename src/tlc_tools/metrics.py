@@ -155,7 +155,7 @@ def compute_image_metrics(image_path: str | tlc.Url, metrics: list[IMAGE_METRICS
     if not metrics:
         metrics = list(get_args(IMAGE_METRICS))
 
-    computed_metrics = {}
+    computed_metrics: dict[str, float] = {}
 
     # Convert str to Url if needed
     url = tlc.Url(image_path) if isinstance(image_path, str) else image_path
@@ -191,18 +191,18 @@ def compute_image_metrics(image_path: str | tlc.Url, metrics: list[IMAGE_METRICS
         # Sharpness (variance of the Laplacian)
         if "sharpness" in metrics:
             sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
-            computed_metrics["sharpness"] = sharpness
+            computed_metrics["sharpness"] = float(sharpness)
 
         is_rgb = len(pixels.shape) == 3 and pixels.shape[2] == 3
 
         # Compute average RGB values
         if "average_red" in metrics:
-            computed_metrics["average_red"] = np.mean(pixels[:, :, 0]) if is_rgb else 0
+            computed_metrics["average_red"] = np.mean(pixels[:, :, 0]) if is_rgb else 0.0
 
         if "average_green" in metrics:
-            computed_metrics["average_green"] = np.mean(pixels[:, :, 1]) if is_rgb else 0
+            computed_metrics["average_green"] = np.mean(pixels[:, :, 1]) if is_rgb else 0.0
 
         if "average_blue" in metrics:
-            computed_metrics["average_blue"] = np.mean(pixels[:, :, 2]) if is_rgb else 0
+            computed_metrics["average_blue"] = np.mean(pixels[:, :, 2]) if is_rgb else 0.0
 
     return computed_metrics

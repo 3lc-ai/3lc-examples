@@ -52,7 +52,7 @@ def extend_table_with_metrics(
     :param output_table_name: Name of the output Table.
     :param add_embeddings: Whether to add embeddings to the Table.
     :param add_image_metrics: Whether to add image metrics to the Table.
-    :param model_checkpoint: Path to the model checkpoint.
+    :param model_checkpoint: Path to the model checkpoint. Required if add_embeddings is True.
     :param model_name: Name of the model to use from timm.
     :param batch_size: Batch size for processing.
     :param num_components: Number of components for PaCMAP.
@@ -67,7 +67,7 @@ def extend_table_with_metrics(
     if not (add_embeddings or add_image_metrics):
         raise ValueError("Must specify at least one type of metrics to add")
 
-    if add_embeddings and not model_checkpoint:
+    if add_embeddings and model_checkpoint is None:
         raise ValueError("Model checkpoint required for embeddings")
 
     # Get total BB count for progress bar
@@ -77,8 +77,8 @@ def extend_table_with_metrics(
     bb_schema = input_table.rows_schema.values["bbs"].values["bb_list"]
 
     # Collect embeddings if needed
-    labels = []
-    confidences_list = []
+    labels: list[int] = []
+    confidences_list: list[float] = []
     if add_embeddings:
         # Load model
         if device is None:
@@ -87,6 +87,7 @@ def extend_table_with_metrics(
         print("Device: ", device)
 
         # Load checkpoint first to get number of classes
+        assert isinstance(model_checkpoint, str)
         checkpoint = torch.load(model_checkpoint, map_location=device, weights_only=True)
         num_classes = checkpoint["classifier.bias"].shape[0]
 

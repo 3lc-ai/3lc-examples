@@ -80,7 +80,7 @@ def train_model(
     )
 
     # Calculate class frequencies across all bounding boxes
-    class_counts = {}
+    class_counts: dict[float, int] = {}
     for row in train_table.table_rows:
         for bb in row["bbs"]["bb_list"]:
             label = bb["label"]
