@@ -74,6 +74,7 @@ allow-direct-references = true
 
 [tool.ruff]
 include = [
+    "experimental/**/*.py",
     "pyproject.toml",
     "src/tlc_tools/**/*.py",
     "tests/**/*.py",
