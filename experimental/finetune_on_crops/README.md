@@ -1,5 +1,7 @@
 # augment_bb_table
 
+Before running this script, make sure you have installed the `tlc_tools` package. Refer to the [README.md](../../README.md) for how do this.
+
 A tool for training bounding box classifiers and extending tables with embeddings and image metrics.
 
 ## Usage
