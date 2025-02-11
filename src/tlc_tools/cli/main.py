@@ -65,25 +65,40 @@ def run_tool(tools: dict[str, ToolInfo], tool_name: str, args: list, allow_exper
 def main() -> int:
     """Main entry point for the CLI"""
     parser = create_parser()
-    args = parser.parse_args()
+
+    try:
+        args = parser.parse_args()
+    except Exception:
+        # If parsing fails, show help and return error code
+        parser.print_help()
+        return 1
+
+    # Handle help explicitly
+    if len(sys.argv) > 1 and sys.argv[1] in ["-h", "--help"]:
+        parser.print_help()
+        sys.exit(0)
 
     if args.version:
         version_str = f"3lc-tools: {version('3lc-tools')}, 3lc: {version('3lc')}"
         print(version_str)
-        return 0
+        sys.exit(0)
 
     tools = get_registered_tools()
 
     if args.command == "list":
         display_tools(tools)
-        return 0
+        sys.exit(0)
     elif args.command == "run":
-        run_tool(tools, args.tool, args.args, args.exp)
-        return 0
+        try:
+            run_tool(tools, args.tool, args.args, args.exp)
+            sys.exit(0)
+        except Exception as e:
+            print(f"Error: {str(e)}", file=sys.stderr)
+            sys.exit(1)
     else:
         parser.print_help()
-        return 1
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
