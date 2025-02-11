@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from importlib.metadata import version
 
 from .display import display_name, display_tools, normalize_tool_name
 from .registry import ToolInfo, get_registered_tools
@@ -13,6 +14,8 @@ def create_parser() -> argparse.ArgumentParser:
     :returns: The argument parser.
     """
     parser = argparse.ArgumentParser(description="List and run 3lc tools from the command line.")
+    parser.add_argument("--version", action="store_true", help="show installed versions")
+
     subparsers = parser.add_subparsers(dest="command")
 
     # List command
@@ -63,6 +66,11 @@ def main() -> int:
     """Main entry point for the CLI"""
     parser = create_parser()
     args = parser.parse_args()
+
+    if args.version:
+        version_str = f"3lc-tools: {version('3lc-tools')}, 3lc: {version('3lc')}"
+        print(version_str)
+        return 0
 
     tools = get_registered_tools()
 
