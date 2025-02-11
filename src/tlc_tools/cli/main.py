@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Sequence
 
 from .display import display_name, display_tools, normalize_tool_name
 from .registry import ToolInfo, get_registered_tools
