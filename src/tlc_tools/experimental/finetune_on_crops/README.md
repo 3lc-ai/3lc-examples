@@ -8,22 +8,22 @@ A tool for training bounding box classifiers and extending tables with embedding
 
 ```bash
 # Train model and process tables
-python augment_bb_table.py --train_table s3://path/to/train --val_table s3://path/to/val
+3lc-tools run --exp augment-bb-table --train_table s3://path/to/train --val_table s3://path/to/val
 
 # Train model only
-python augment_bb_table.py --train_table s3://path/to/train --val_table s3://path/to/val --train_only
+3lc-tools run --exp augment-bb-table --train_table s3://path/to/train --val_table s3://path/to/val --train_only
 
 # Process existing tables with trained model
-python augment_bb_table.py --input_tables "s3://path/to/table1,s3://path/to/table2"
+3lc-tools run --exp augment-bb-table --input_tables "s3://path/to/table1,s3://path/to/table2"
 
 # Only add embeddings (disable metrics)
-python augment_bb_table.py --input_tables "s3://path/to/table" --disable_metrics
+3lc-tools run --exp augment-bb-table --input_tables "s3://path/to/table" --disable_metrics
 
 # Only add metrics (disable embeddings)
-python augment_bb_table.py --input_tables "s3://path/to/table" --disable_embeddings
+3lc-tools run --exp augment-bb-table --input_tables "s3://path/to/table" --disable_embeddings
 
 # Control memory usage and embedding dimensions
-python augment_bb_table.py --input_tables "s3://path/to/table" --max_memory_gb 16 --reduce_last_dims 1
+3lc-tools run --exp augment-bb-table --input_tables "s3://path/to/table" --max_memory_gb 16 --reduce_last_dims 1
 ```
 
 ### Arguments
