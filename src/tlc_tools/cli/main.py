@@ -52,7 +52,11 @@ def run_tool(tools: dict[str, ToolInfo], tool_name: str, args: list, allow_exper
         sys.exit(1)
 
     # Pass the remaining arguments directly to the tool
-    tool.callable(args)
+    try:
+        tool.callable(args)
+    except Exception as e:
+        print(f"Tool '{display_name(normalized_name)}' failed with error: {e}")
+        sys.exit(1)
 
 
 def main() -> int:
