@@ -15,10 +15,15 @@ def display_name(name: str) -> str:
 
 def display_tools(tools: dict[str, ToolInfo]) -> None:
     """Display available tools"""
-    print("Available tools:")
-    if tools:
-        for tool_name, tool in sorted(tools.items()):
-            experimental_marker = " (experimental)" if tool.is_experimental else ""
-            print(f"  - {display_name(tool_name)}{experimental_marker} : {tool.description}")
-    else:
-        print("  No tools available")
+    from tabulate import tabulate
+
+    if not tools:
+        print("No tools available")
+        return
+
+    table_data = []
+    for tool_name, tool in sorted(tools.items()):
+        experimental_marker = "experimental" if tool.is_experimental else ""
+        table_data.append([display_name(tool_name), experimental_marker, tool.description])
+
+    print(tabulate(table_data, headers=["tool", "status", "description"], tablefmt="simple"))
