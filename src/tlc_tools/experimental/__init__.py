@@ -1,5 +1,3 @@
 """Experimental tools package."""
 
-from .finetune_on_crops import augment_bb_table
-
-__all__ = ["augment_bb_table"]
+from .finetune_on_crops.augment_bb_table import *  # noqa: F401, F403
