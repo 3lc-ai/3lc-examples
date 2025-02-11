@@ -6,8 +6,6 @@ import os
 import tlc
 
 from tlc_tools.cli.registry import register_tool
-from tlc_tools.experimental.finetune_on_crops.extend_table_with_metrics import extend_table_with_metrics
-from tlc_tools.experimental.finetune_on_crops.finetune_on_crops import train_model
 
 
 def parse_table_list(table_string):
@@ -17,9 +15,12 @@ def parse_table_list(table_string):
     return None
 
 
-@register_tool(experimental=True, description="Train a model and extend tables with embeddings and image metrics")
+@register_tool(experimental=True, description="train a model and extend tables with embeddings and image metrics")
 def cli_main(args=None, prog=None):
     """Train a model and extend tables with embeddings and image metrics"""
+
+    from tlc_tools.experimental.finetune_on_crops.extend_table_with_metrics import extend_table_with_metrics
+    from tlc_tools.experimental.finetune_on_crops.finetune_on_crops import train_model
 
     parser = argparse.ArgumentParser(prog=prog, description="Extend tables with embeddings and image metrics")
 
