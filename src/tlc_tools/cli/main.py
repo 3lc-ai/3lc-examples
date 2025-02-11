@@ -12,19 +12,19 @@ def create_parser() -> argparse.ArgumentParser:
 
     :returns: The argument parser.
     """
-    parser = argparse.ArgumentParser(description="3LC Tools CLI")
-    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+    parser = argparse.ArgumentParser(description="List and run 3lc tools from the command line.")
+    subparsers = parser.add_subparsers(dest="command")
 
     # List command
-    subparsers.add_parser("list", help="List available tools")
+    subparsers.add_parser("list", help="list available tools")
 
     # Run command
-    run_parser = subparsers.add_parser("run", help="Run a tool")
-    run_parser.add_argument("tool", help="Tool to run")
-    run_parser.add_argument("--exp", "--experimental", action="store_true", help="Allow running experimental tools")
+    run_parser = subparsers.add_parser("run", help="run a tool with arguments")
+    run_parser.add_argument("tool", help="tool to run")
+    run_parser.add_argument("--exp", "--experimental", action="store_true", help="allow running experimental tools")
 
     # Pass remaining args through to the tool
-    run_parser.add_argument("args", nargs=argparse.REMAINDER, help="Arguments to pass to the tool")
+    run_parser.add_argument("args", nargs=argparse.REMAINDER, help="arguments to pass to the tool")
 
     return parser
 
