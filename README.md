@@ -93,6 +93,28 @@ Follow these steps to set up the repository and environment for running the note
 
     From your notebook interface, open any notebook from the repository to get started. Be sure to select the correct kernel/environment where the packages have been installed.
 
+## CLI
+
+The `tlc_tools` package includes a CLI interface for running some tools directly. To see the available tools, run:
+
+```bash
+3lc-tools list
+```
+
+To run a tool, use the following syntax:
+
+```bash
+3lc-tools run <tool-name> <tool-args>
+```
+
+The tool name is the name presented in the `3lc-tools list` command, and the tool-args are forwarded to the tool.
+
+Some tools are experimental, which means they are not yet ready for production use and might change or be removed without notice. These tools require the `--exp` flag to be set:
+
+```bash
+3lc-tools run --exp <tool-name> <tool-args>
+```
+
 ## Contributing
 
 We welcome contributions to this repository! If you have a suggestion for an

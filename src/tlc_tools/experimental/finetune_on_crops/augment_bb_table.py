@@ -4,8 +4,10 @@ import argparse
 import os
 
 import tlc
-from extend_table_with_metrics import extend_table_with_metrics
-from finetune_on_crops import train_model
+
+from tlc_tools.cli.registry import register_tool
+from tlc_tools.experimental.finetune_on_crops.extend_table_with_metrics import extend_table_with_metrics
+from tlc_tools.experimental.finetune_on_crops.finetune_on_crops import train_model
 
 
 def parse_table_list(table_string):
@@ -15,51 +17,46 @@ def parse_table_list(table_string):
     return None
 
 
-def main(args=None):
-    """
-    Main function to process tables
-    Args:
-        args: Namespace object with arguments. If None, will parse from command line
-    """
-    if args is None:
-        parser = argparse.ArgumentParser(description="Extend tables with embeddings and image metrics")
+@register_tool(experimental=True, description="Train a model and extend tables with embeddings and image metrics")
+def cli_main(args=None, prog=None):
+    """Train a model and extend tables with embeddings and image metrics"""
 
-        # General arguments
-        parser.add_argument("--model_name", default="efficientnet_b0", help="Model architecture name")
-        parser.add_argument(
-            "--model_checkpoint", default="./models/bb_classifier.pth", help="Path to save/load model checkpoint"
-        )
-        parser.add_argument("--transient_data_path", default="./", help="Path for temporary files")
+    parser = argparse.ArgumentParser(prog=prog, description="Extend tables with embeddings and image metrics")
 
-        # Training arguments
-        parser.add_argument("--train_table", help="Training table URL")
-        parser.add_argument("--val_table", help="Validation table URL")
-        parser.add_argument("--train_only", action="store_true", help="Only train the model, don't add metrics")
-        parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+    # General arguments
+    parser.add_argument("--model_name", default="efficientnet_b0", help="Model architecture name")
+    parser.add_argument(
+        "--model_checkpoint", default="./models/bb_classifier.pth", help="Path to save/load model checkpoint"
+    )
+    parser.add_argument("--transient_data_path", default="./", help="Path for temporary files")
 
-        # Table extension arguments
-        parser.add_argument(
-            "--input_tables", type=parse_table_list, help="Comma-separated list of tables to extend with metrics"
-        )
-        parser.add_argument("--disable_embeddings", action="store_true", help="Disable adding embeddings to tables")
-        parser.add_argument("--disable_metrics", action="store_true", help="Disable adding image metrics to tables")
-        parser.add_argument("--output_suffix", default="_extended", help="Suffix for output table names")
-        parser.add_argument(
-            "--batch_size", type=int, default=32, help="Batch size for training and embedding collection"
-        )
-        parser.add_argument("--num_components", type=int, default=3, help="Number of PaCMAP components")
-        parser.add_argument("--n_neighbors", type=int, default=10, help="Number of neighbors to consider in PaCMAP")
-        parser.add_argument(
-            "--max_memory_gb", type=int, default=8, help="Maximum memory in GB to use for embeddings processing"
-        )
-        parser.add_argument(
-            "--reduce_last_dims",
-            type=int,
-            default=0,
-            help="Number of dimensions to reduce from the end of embeddings (0 means no reduction)",
-        )
+    # Training arguments
+    parser.add_argument("--train_table", help="Training table URL")
+    parser.add_argument("--val_table", help="Validation table URL")
+    parser.add_argument("--train_only", action="store_true", help="Only train the model, don't add metrics")
+    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
 
-        args = parser.parse_args()
+    # Table extension arguments
+    parser.add_argument(
+        "--input_tables", type=parse_table_list, help="Comma-separated list of tables to extend with metrics"
+    )
+    parser.add_argument("--disable_embeddings", action="store_true", help="Disable adding embeddings to tables")
+    parser.add_argument("--disable_metrics", action="store_true", help="Disable adding image metrics to tables")
+    parser.add_argument("--output_suffix", default="_extended", help="Suffix for output table names")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training and embedding collection")
+    parser.add_argument("--num_components", type=int, default=3, help="Number of PaCMAP components")
+    parser.add_argument("--n_neighbors", type=int, default=10, help="Number of neighbors to consider in PaCMAP")
+    parser.add_argument(
+        "--max_memory_gb", type=int, default=8, help="Maximum memory in GB to use for embeddings processing"
+    )
+    parser.add_argument(
+        "--reduce_last_dims",
+        type=int,
+        default=0,
+        help="Number of dimensions to reduce from the end of embeddings (0 means no reduction)",
+    )
+
+    args = parser.parse_args(args)
 
     # Check if we're in training mode
     training_mode = args.train_table is not None and args.val_table is not None
@@ -137,4 +134,4 @@ def main(args=None):
 
 
 if __name__ == "__main__":
-    main()
+    cli_main()

@@ -21,6 +21,9 @@ keywords = [
     "3lc",
 ]
 
+[project.scripts]
+3lc-tools = "tlc_tools.cli.main:main"
+
 [project.optional-dependencies]
 sam = [
     "segment-anything @ git+https://github.com/facebookresearch/segment-anything",
@@ -74,7 +77,6 @@ allow-direct-references = true
 
 [tool.ruff]
 include = [
-    "experimental/**/*.py",
     "pyproject.toml",
     "src/tlc_tools/**/*.py",
     "tests/**/*.py",
