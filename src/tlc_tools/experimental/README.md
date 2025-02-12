@@ -6,7 +6,7 @@ Please note that code in this directory is subject to change without notice. We 
 
 ## Adding a new experimental tool
 
-When adding a new experimental tool, please add a `README.md` file in the directory to describe the tool and how to use it. If it has a CLI interface, please decorate it with the `@register_tool` decorator
+When adding a new experimental tool, please add a `README.md` file in the directory to describe the tool and how to use it. If it has a command line interface, please decorate it with the `@register_tool` decorator
 with `experimental=True`:
 
 ```python

@@ -95,7 +95,7 @@ Follow these steps to set up the repository and environment for running the note
 
 ## CLI
 
-The `tlc_tools` package includes a CLI interface for running some tools directly. To see the available tools, run:
+The `tlc_tools` package includes a CLI for running some tools directly from the command line. To see the available tools, run:
 
 ```bash
 3lc-tools list
