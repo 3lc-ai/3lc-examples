@@ -17,7 +17,7 @@ def parse_table_list(table_string):
 
 
 @register_tool(experimental=True, description="Augment tables with bounding box embeddings and image metrics")
-def main(args: list[str] | None = None, prog: str | None = None) -> None:
+def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     """
     Main function to process tables
 
@@ -65,7 +65,7 @@ def main(args: list[str] | None = None, prog: str | None = None) -> None:
         help="Number of dimensions to reduce from the end of embeddings (0 means no reduction)",
     )
 
-    args = parser.parse_args(args)
+    args = parser.parse_args(tool_args)
 
     # Check if we're in training mode
     training_mode = args.train_table is not None and args.val_table is not None
