@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 from copy import deepcopy
 from io import BytesIO
@@ -33,43 +31,26 @@ def calculate_bb_metrics(image, bb, bb_schema):
 
 
 def extend_table_with_metrics(
-    input_table: tlc.Table,
-    output_table_name: str,
-    add_embeddings: bool = False,
-    add_image_metrics: bool = False,
-    model_checkpoint: str | None = None,
-    model_name: str = "efficientnet_b0",
-    batch_size: int = 32,
-    num_components: int = 3,
-    pacmap_reducer: pacmap.PaCMAP | None = None,
-    fit_embeddings: np.ndarray | None = None,
-    n_neighbors: int = 10,
-    device: torch.device | None = None,
-    reduce_last_dims: int = 0,  # Number of dimensions to reduce from the end (0 means no reduction)
-    max_memory_gb: int = 64,
-) -> tuple[tlc.Url, pacmap.PaCMAP | None, np.ndarray | None]:
-    """Extend table with embeddings and/or image metrics in a single pass.
-
-    :param input_table_url: URL of the Table to extend.
-    :param output_table_name: Name of the output Table.
-    :param add_embeddings: Whether to add embeddings to the Table.
-    :param add_image_metrics: Whether to add image metrics to the Table.
-    :param model_checkpoint: Path to the model checkpoint. Required if add_embeddings is True.
-    :param model_name: Name of the model to use from timm.
-    :param batch_size: Batch size for processing.
-    :param num_components: Number of components for PaCMAP.
-    :param pacmap_reducer: PaCMAP reducer to use.
-    :param fit_embeddings: Embeddings to use for fitting PaCMAP.
-    :param n_neighbors: Number of neighbors for PaCMAP.
-    :param device: Device to use for processing.
-    :param reduce_last_dims: Number of dimensions to reduce from the end (0 means no reduction).
-    :param max_memory_gb: Maximum memory in GB to use for embeddings processing.
-    :returns: Tuple of the output table URL, the PaCMAP reducer, and the fit embeddings.
-    """
+    input_table,
+    output_table_name,
+    add_embeddings=False,
+    add_image_metrics=False,
+    model_checkpoint=None,
+    model_name="efficientnet_b0",
+    batch_size=32,
+    num_components=3,
+    pacmap_reducer=None,
+    fit_embeddings=None,
+    n_neighbors=10,
+    device=None,
+    reduce_last_dims=0,  # Number of dimensions to reduce from the end (0 means no reduction)
+    max_memory_gb=64,  # Added parameter for max_memory_gb
+):
+    """Extend table with embeddings and/or image metrics in a single pass"""
     if not (add_embeddings or add_image_metrics):
         raise ValueError("Must specify at least one type of metrics to add")
 
-    if add_embeddings and model_checkpoint is None:
+    if add_embeddings and not model_checkpoint:
         raise ValueError("Model checkpoint required for embeddings")
 
     # Get total BB count for progress bar
@@ -79,8 +60,8 @@ def extend_table_with_metrics(
     bb_schema = input_table.rows_schema.values["bbs"].values["bb_list"]
 
     # Collect embeddings if needed
-    labels: list[int] = []
-    confidences_list: list[float] = []
+    labels = []
+    confidences_list = []
     if add_embeddings:
         # Load model
         if device is None:
@@ -89,7 +70,6 @@ def extend_table_with_metrics(
         print("Device: ", device)
 
         # Load checkpoint first to get number of classes
-        assert isinstance(model_checkpoint, str)
         checkpoint = torch.load(model_checkpoint, map_location=device, weights_only=True)
         num_classes = checkpoint["classifier.bias"].shape[0]
 

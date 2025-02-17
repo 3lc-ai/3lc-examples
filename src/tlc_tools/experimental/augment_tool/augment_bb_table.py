@@ -1,11 +1,12 @@
-from __future__ import annotations
-
 import argparse
 import os
 
 import tlc
 
-from tlc_tools.cli.registry import register_tool
+from tlc_tools.cli import register_tool
+
+from .extend_table_with_metrics import extend_table_with_metrics
+from .finetune_on_crops import train_model
 
 
 def parse_table_list(table_string):
@@ -15,13 +16,14 @@ def parse_table_list(table_string):
     return None
 
 
-@register_tool(experimental=True, description="train a model and extend tables with embeddings and image metrics")
-def cli_main(args=None, prog=None):
-    """Train a model and extend tables with embeddings and image metrics"""
+@register_tool(experimental=True, description="Augment tables with bounding box embeddings and image metrics")
+def main(args: list[str] | None = None, prog: str | None = None) -> None:
+    """
+    Main function to process tables
 
-    from tlc_tools.experimental.finetune_on_crops.extend_table_with_metrics import extend_table_with_metrics
-    from tlc_tools.experimental.finetune_on_crops.finetune_on_crops import train_model
-
+    :param args: List of arguments. If None, will parse from command line.
+    :param prog: Program name. If None, will use the tool name.
+    """
     parser = argparse.ArgumentParser(prog=prog, description="Extend tables with embeddings and image metrics")
 
     # General arguments
@@ -36,6 +38,12 @@ def cli_main(args=None, prog=None):
     parser.add_argument("--val_table", help="Validation table URL")
     parser.add_argument("--train_only", action="store_true", help="Only train the model, don't add metrics")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+    parser.add_argument(
+        "--include_background",
+        action="store_true",
+        default=False,
+        help="Whether to train with creating background Bounding boxes",
+    )
 
     # Table extension arguments
     parser.add_argument(
@@ -83,18 +91,22 @@ def cli_main(args=None, prog=None):
     # Training phase if needed
     if training_mode:
         print("=== Training Model ===")
-        train_model(
+        _, best_checkpoint_path = train_model(
             train_table_url=args.train_table,
             val_table_url=args.val_table,
             model_name=args.model_name,
             model_checkpoint=args.model_checkpoint,
             epochs=args.epochs,
             batch_size=args.batch_size,
+            include_background=args.include_background,
         )
 
         if args.train_only:
             print("Training complete. Exiting as --train_only was specified.")
             return
+
+        # Update model_checkpoint to use the best checkpoint path
+        args.model_checkpoint = best_checkpoint_path
 
     # If no input_tables specified, use train and val tables if available
     tables_to_process = args.input_tables
@@ -135,4 +147,4 @@ def cli_main(args=None, prog=None):
 
 
 if __name__ == "__main__":
-    cli_main()
+    main()
