@@ -33,22 +33,38 @@ def calculate_bb_metrics(image, bb, bb_schema):
 
 
 def extend_table_with_metrics(
-    input_table,
-    output_table_name,
-    add_embeddings=False,
-    add_image_metrics=False,
-    model_checkpoint=None,
-    model_name="efficientnet_b0",
-    batch_size=32,
-    num_components=3,
-    pacmap_reducer=None,
-    fit_embeddings=None,
-    n_neighbors=10,
-    device=None,
-    reduce_last_dims=0,  # Number of dimensions to reduce from the end (0 means no reduction)
-    max_memory_gb=64,  # Added parameter for max_memory_gb
+    input_table: tlc.Table,
+    output_table_name: str,
+    add_embeddings: bool = False,
+    add_image_metrics: bool = False,
+    model_checkpoint: str | None = None,
+    model_name: str = "efficientnet_b0",
+    batch_size: int = 32,
+    num_components: int = 3,
+    pacmap_reducer: pacmap.PaCMAP | None = None,
+    fit_embeddings: np.ndarray | None = None,
+    n_neighbors: int = 10,
+    device: torch.device | None = None,
+    reduce_last_dims: int = 0,
+    max_memory_gb: int = 64,
 ):
-    """Extend table with embeddings and/or image metrics in a single pass"""
+    """Extend table with embeddings and/or image metrics in a single pass.
+
+    :param input_table: Input table to extend.
+    :param output_table_name: Name of the output table.
+    :param add_embeddings: Whether to add embeddings.
+    :param add_image_metrics: Whether to add image metrics.
+    :param model_checkpoint: Path to the model checkpoint to load.
+    :param model_name: Name of the model to use.
+    :param batch_size: Batch size for processing.
+    :param num_components: Number of components for PaCMAP.
+    :param pacmap_reducer: PaCMAP reducer to use.
+    :param fit_embeddings: Fit embeddings to use.
+    :param n_neighbors: Number of neighbors for PaCMAP.
+    :param device: Device to use.
+    :param reduce_last_dims: Number of dimensions to reduce from the end (0 means no reduction).
+    :param max_memory_gb: Maximum memory to use in GB.
+    """
     if not (add_embeddings or add_image_metrics):
         raise ValueError("Must specify at least one type of metrics to add")
 
@@ -62,8 +78,8 @@ def extend_table_with_metrics(
     bb_schema = input_table.rows_schema.values["bbs"].values["bb_list"]
 
     # Collect embeddings if needed
-    labels = []
-    confidences_list = []
+    labels: list[int] = []
+    confidences_list: list[float] = []
     if add_embeddings:
         # Load model
         if device is None:

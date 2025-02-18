@@ -16,19 +16,32 @@ from .bb_crop_dataset import BBCropDataset
 
 
 def train_model(
-    train_table_url,
-    val_table_url,
-    model_name="efficientnet_b0",
-    model_checkpoint="./bb_classifier.pth",
-    epochs=20,
-    batch_size=32,
-    include_background=False,
-    x_max_offset=0.03,
-    y_max_offset=0.03,
-    x_scale_range=(0.95, 1.05),
-    y_scale_range=(0.95, 1.05),
+    train_table_url: str,
+    val_table_url: str,
+    model_name: str = "efficientnet_b0",
+    model_checkpoint: str = "./bb_classifier.pth",
+    epochs: int = 20,
+    batch_size: int = 32,
+    include_background: bool = False,
+    x_max_offset: float = 0.03,
+    y_max_offset: float = 0.03,
+    x_scale_range: tuple[float, float] = (0.95, 1.05),
+    y_scale_range: tuple[float, float] = (0.95, 1.05),
 ):
-    """Train a model on bounding box crops from the given tables."""
+    """Train a model on bounding box crops from the given tables.
+
+    :param train_table_url: URL of the table to train on.
+    :param val_table_url: URL of the table to validate on.
+    :param model_name: Name of the model to train.
+    :param model_checkpoint: Path to the model checkpoint to load.
+    :param epochs: Number of epochs to train.
+    :param batch_size: Batch size for training.
+    :param include_background: Whether to include the background class in the training.
+    :param x_max_offset: Maximum offset in the x direction.
+    :param y_max_offset: Maximum offset in the y direction.
+    :param x_scale_range: Range of x scale factors.
+    :param y_scale_range: Range of y scale factors.
+    """
 
     if torch.cuda.is_available():
         device = torch.device("cuda")
