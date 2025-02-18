@@ -14,8 +14,6 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from .bb_crop_dataset import BBCropDataset
 
-# tlc.register_url_alias("WAYLENS_DATA_ROOT", "/home/ubuntu/PaulsDisk/datasets")
-
 
 def train_model(
     train_table_url,
