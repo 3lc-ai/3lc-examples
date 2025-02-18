@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from copy import deepcopy
 from io import BytesIO
+from typing import cast
 
 import cv2
 import numpy as np
@@ -68,7 +69,7 @@ def extend_table_with_metrics(
     if not (add_embeddings or add_image_metrics):
         raise ValueError("Must specify at least one type of metrics to add")
 
-    if add_embeddings and not model_checkpoint:
+    if add_embeddings and model_checkpoint is None:
         raise ValueError("Model checkpoint required for embeddings")
 
     # Get total BB count for progress bar
@@ -88,7 +89,7 @@ def extend_table_with_metrics(
         print("Device: ", device)
 
         # Load checkpoint first to get number of classes
-        checkpoint = torch.load(model_checkpoint, map_location=device, weights_only=True)
+        checkpoint = torch.load(cast(str, model_checkpoint), map_location=device, weights_only=True)
         num_classes = checkpoint["classifier.bias"].shape[0]
 
         model = timm.create_model(model_name, pretrained=False, num_classes=num_classes)

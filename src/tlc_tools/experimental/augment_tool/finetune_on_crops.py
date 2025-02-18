@@ -104,7 +104,7 @@ def train_model(
     )
 
     # Calculate class frequencies across all bounding boxes
-    class_counts = {}
+    class_counts: dict[int, int] = {}
     total_bbs = 0  # Add counter for total bounding boxes
     for row in train_table.table_rows:
         for bb in row["bbs"]["bb_list"]:
@@ -135,7 +135,7 @@ def train_model(
     # Print Number of weights
     print(f"Number of weights: {len(bb_weights)}")
 
-    sampler = WeightedRandomSampler(weights=bb_weights, num_samples=min(len(bb_weights), len(train_table)))
+    sampler = WeightedRandomSampler(weights=bb_weights, num_samples=min(len(bb_weights), len(train_table)))  # type: ignore[arg-type]
 
     # print all unique weights
     print(f"Unique weights: {list(set(bb_weights))}")
@@ -245,8 +245,8 @@ def train_model(
             val_max_class_acc = val_class_acc[valid_acc_mask].max().item() if valid_acc_mask.any() else 0
 
             # Find class names for min and max accuracies
-            min_class_idx = val_class_acc[valid_acc_mask].argmin().item() if valid_acc_mask.any() else -1
-            max_class_idx = val_class_acc[valid_acc_mask].argmax().item() if valid_acc_mask.any() else -1
+            min_class_idx = int(val_class_acc[valid_acc_mask].argmin().item()) if valid_acc_mask.any() else -1
+            max_class_idx = int(val_class_acc[valid_acc_mask].argmax().item()) if valid_acc_mask.any() else -1
 
             # Get actual indices (not mask indices)
             min_class_actual_idx = torch.nonzero(valid_acc_mask)[min_class_idx].item() if min_class_idx != -1 else -1
