@@ -1,5 +1,7 @@
 """Tools for working with the 3lc package."""
 
+import tlc_tools.experimental  # noqa: F401
+
 from .add_columns_to_table import add_columns_to_table, add_image_metrics_to_table
 from .common import check_package_version
 from .split import split_table

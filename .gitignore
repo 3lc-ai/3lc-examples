@@ -7,3 +7,4 @@ dist/
 *.pth
 *.npy
 **/lightning_logs/
+.DS_Store
