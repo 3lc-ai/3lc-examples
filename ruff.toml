@@ -1,0 +1,18 @@
+include = [
+    "pyproject.toml",
+    "src/tlc_tools/**/*.py",
+    "tests/**/*.py",
+]
+line-length = 120
+indent-width = 4
+target-version = "py39"
+
+[lint]
+select = [
+    "B",
+    "E",
+    "F",
+    "UP",
+    "SIM",
+    "I",
+]
