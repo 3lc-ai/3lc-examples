@@ -147,8 +147,14 @@ def handle_pa_table(
     rewrite: list[tuple[str, str]],
     inplace: bool,
     output_url: Url | None,
+    create_alias: bool = False,
+    apply_alias: bool = False,
+    persist_config: bool = False,
+    config_scope: str = "project",
 ) -> None:
     import io
+
+    import tlc
 
     if selected_column_name:
         if selected_column_name not in pa_table.column_names:
@@ -161,6 +167,17 @@ def handle_pa_table(
 
     found_aliases: set[tuple[str, str]] = set()
     new_columns: dict[str, pa.Array] = {}
+
+    # Handle alias application
+    if apply_alias and rewrite:
+        alias_name = rewrite[0][0]
+        # Look up the alias value
+        registered_aliases = tlc.get_registered_url_aliases()
+        if alias_name not in registered_aliases:
+            raise ValueError(f"Alias '{alias_name}' not found in registered aliases")
+        alias_value = registered_aliases[alias_name]
+        rewrite = [(alias_value, f"<{alias_name}>")]
+
     for col_name in pa_table.column_names:
         col_alias, col = handle_parquet_column(
             [col_name],
@@ -168,16 +185,16 @@ def handle_pa_table(
             rewrite,
         )
         found_aliases.update(col_alias)
-        if col_alias and rewrite:
+        if col_alias and (rewrite or create_alias):
             new_columns[col_name] = col
 
-    if found_aliases and not rewrite:
+    if found_aliases and not (rewrite or create_alias):
         print(
             f"{_format_paths_and_columns(input_path, columns=[selected_column_name])}"
             f" contains the following aliases: {found_aliases}"
         )
 
-    if not rewrite:
+    if not (rewrite or create_alias):
         return
 
     if not output_url:
@@ -186,6 +203,17 @@ def handle_pa_table(
     if not new_columns:
         print("No aliases to rewrite.")
         return
+
+    # Handle alias creation and persistence
+    if create_alias and persist_config:
+        alias_name = rewrite[0][1].strip("<>")  # Remove < > from alias name
+        alias_value = rewrite[0][0]
+        if config_scope == "project":
+            tlc.register_project_url_alias(alias_name, alias_value)
+            print(f"Registered project alias '{alias_name}' with value '{alias_value}'")
+        else:
+            tlc.register_url_alias(alias_name, alias_value)
+            print(f"Registered global alias '{alias_name}' with value '{alias_value}'")
 
     if not selected_column_name:
         output_pa_table = pa.table(new_columns)
@@ -212,6 +240,10 @@ def handle_run(
     rewrite: list[tuple[str, str]],
     inplace: bool,
     output_url: Url | None,
+    create_alias: bool = False,
+    apply_alias: bool = False,
+    persist_config: bool = False,
+    config_scope: str = "project",
 ) -> None:
     if not inplace and rewrite:
         raise ValueError("Runs can only be modified inplace.")
@@ -222,7 +254,18 @@ def handle_run(
             input_table_url = Url(input_table_info["input_table_url"]).to_absolute(run.url)
             input_table = Table.from_url(input_table_url)
 
-            handle_object(input_path + [input_table_url], input_table, column, rewrite, inplace, output_url)
+            handle_object(
+                input_path + [input_table_url],
+                input_table,
+                column,
+                rewrite,
+                inplace,
+                output_url,
+                create_alias,
+                apply_alias,
+                persist_config,
+                config_scope,
+            )
         except Exception as e:
             print(f"Error: {e}")
 
@@ -234,6 +277,10 @@ def handle_table(
     rewrite: list[tuple[str, str]],
     inplace: bool,
     output_url: Url | None,
+    create_alias: bool = False,
+    apply_alias: bool = False,
+    persist_config: bool = False,
+    config_scope: str = "project",
 ) -> None:
     if table.row_cache_populated and table.row_cache_url:
         pq_url = table.row_cache_url.to_absolute(table.url)
@@ -243,7 +290,18 @@ def handle_table(
             raise ValueError("Tables can only be modified inplace.")
 
         try:
-            handle_object(input_path + [pq_url], object, column, rewrite, inplace, pq_url if inplace else output_url)
+            handle_object(
+                input_path + [pq_url],
+                object,
+                column,
+                rewrite,
+                inplace,
+                pq_url if inplace else output_url,
+                create_alias,
+                apply_alias,
+                persist_config,
+                config_scope,
+            )
         except Exception as e:
             print(f"Error: {e}")
 
@@ -257,7 +315,18 @@ def handle_table(
 
     for input_table in parents(table):
         try:
-            handle_object(input_path + [input_table.url], input_table, column, rewrite, inplace, output_url)
+            handle_object(
+                input_path + [input_table.url],
+                input_table,
+                column,
+                rewrite,
+                inplace,
+                output_url,
+                create_alias,
+                apply_alias,
+                persist_config,
+                config_scope,
+            )
         except Exception as e:
             print(f"Error: {e}")
 
@@ -269,18 +338,55 @@ def handle_object(
     rewrite: list[tuple[str, str]],
     inplace: bool,
     output_url: Url | None,
+    create_alias: bool = False,
+    apply_alias: bool = False,
+    persist_config: bool = False,
+    config_scope: str = "project",
 ) -> None:
     if isinstance(obj, Table):
-        return handle_table(input_path, obj, column, rewrite, inplace, output_url)
+        return handle_table(
+            input_path,
+            obj,
+            column,
+            rewrite,
+            inplace,
+            output_url,
+            create_alias,
+            apply_alias,
+            persist_config,
+            config_scope,
+        )
     elif isinstance(obj, Run):
-        return handle_run(input_path, obj, column, rewrite, inplace, output_url)
+        return handle_run(
+            input_path,
+            obj,
+            column,
+            rewrite,
+            inplace,
+            output_url,
+            create_alias,
+            apply_alias,
+            persist_config,
+            config_scope,
+        )
     elif isinstance(obj, pa.Table):
-        return handle_pa_table(input_path, obj, column, rewrite, inplace, output_url)
+        return handle_pa_table(
+            input_path,
+            obj,
+            column,
+            rewrite,
+            inplace,
+            output_url,
+            create_alias,
+            apply_alias,
+            persist_config,
+            config_scope,
+        )
     else:
         raise ValueError("Input is not a valid 3LC object.")
 
 
-@register_tool(experimental=True, description="List and rewrite URL aliases in 3LC objects")
+@register_tool(experimental=True, description="List, rewrite, and create URL aliases in 3LC objects")
 def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     """
     Main function to process aliases in 3LC objects
@@ -288,39 +394,59 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     :param tool_args: List of arguments. If None, will parse from command line.
     :param prog: Program name. If None, will use the tool name.
     """
-    parser = argparse.ArgumentParser(prog=prog, description="List and rewrite URL aliases in 3LC objects")
+    parser = argparse.ArgumentParser(prog=prog, description="List, rewrite, and create URL aliases in 3LC objects")
 
     # Positional argument for input-file
     parser.add_argument("input-path", help="The input object to investigate", type=str)
 
-    parser.add_argument(
+    # Operation selection group
+    operation_group = parser.add_mutually_exclusive_group()
+    operation_group.add_argument(
         "--list", action="store_true", default=True, help="List all aliases in the input (default behavior)"
     )
-
-    # How to separator the alias pairs in input
-    parser.add_argument(
-        "--separator",
-        action="store",
-        type=str,
-        help="Separator to use for rewrite pairs",
-        default=_DEFAULT_SEPARATOR,
-        metavar="<ALIAS>" + _DEFAULT_SEPARATOR + "<NEW_ALIAS>",
-    )
-
-    # Whether to rewrite aliases in input, and if so which ones
-    parser.add_argument(
+    operation_group.add_argument(
         "--rewrite",
         action="append",
         help="Rewrite aliases in input",
         metavar="<ALIAS>" + _DEFAULT_SEPARATOR + "<NEW_ALIAS>",
     )
+    operation_group.add_argument(
+        "--create-alias",
+        type=str,
+        help="Create new alias and replace matching paths (format: <ALIAS_NAME>::/path/to/value)",
+        metavar="<ALIAS_NAME>" + _DEFAULT_SEPARATOR + "/path/to/value",
+    )
+    operation_group.add_argument(
+        "--apply-alias",
+        type=str,
+        help="Apply existing alias to matching paths",
+        metavar="ALIAS_NAME",
+    )
 
+    # Common arguments
+    parser.add_argument(
+        "--separator",
+        action="store",
+        type=str,
+        help="Separator to use for alias pairs",
+        default=_DEFAULT_SEPARATOR,
+        metavar="<ALIAS>" + _DEFAULT_SEPARATOR + "<NEW_ALIAS>",
+    )
     parser.add_argument("--column", type=str, default="", help="Select a specific column of input to work on")
+    parser.add_argument(
+        "--persist-config",
+        action="store_true",
+        help="Persist new aliases in project/global config",
+    )
+    parser.add_argument(
+        "--config-scope",
+        choices=["project", "global"],
+        default="project",
+        help="Scope for persisting alias config",
+    )
 
-    # Mutually exclusive group for specifying output behavior
+    # Output behavior group
     output_group = parser.add_mutually_exclusive_group()
-
-    # Optional argument for specifying output file to store changes
     output_group.add_argument(
         "-o",
         "--output-path",
@@ -328,8 +454,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         type=str,
         help="The path to which the modified object will be written",
     )
-
-    # Optional --inplace flag to use input file as output file
     output_group.add_argument(
         "-i",
         "--inplace",
@@ -344,20 +468,29 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     if not input_url.is_absolute():
         input_url = input_url.to_absolute(os.getcwd())
 
+    # Parse operation-specific arguments
     separator = args.separator
-    aliases = [parse_alias_pair_string(alias_pair, separator=separator) for alias_pair in (args.rewrite or [])]
+    if args.rewrite:
+        aliases = [parse_alias_pair_string(alias_pair, separator=separator) for alias_pair in args.rewrite]
+    elif args.create_alias:
+        alias_name, alias_value = parse_alias_pair_string(args.create_alias, separator=separator)
+        aliases = [(alias_value, f"<{alias_name}>")]  # We'll replace the value with the alias
+    elif args.apply_alias:
+        alias_name = args.apply_alias
+        # We'll look up the alias value later
+        aliases = [(alias_name, "")]  # Empty string as placeholder, will be replaced with actual value
+    else:
+        aliases = []
 
+    # Handle output path
     inplace = args.inplace
     output_path = getattr(args, "output-path", "")
     output_url = Url(output_path) if output_path else None
     if output_url and not output_url.is_absolute():
         output_url = output_url.to_absolute(os.getcwd())
 
-    if inplace and output_url is None:
-        output_url = input_url
-
-    if aliases and not output_url:
-        raise ValueError("Output path (--output/-o) or inplace (--inplace/-i) is required for rewriting aliases.")
+    if (args.rewrite or args.create_alias or args.apply_alias) and not output_url:
+        raise ValueError("Output path (--output/-o) or inplace (--inplace/-i) is required for modifying aliases.")
 
     object = get_input_object(input_url)
 
@@ -369,6 +502,10 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             rewrite=aliases,
             inplace=inplace,
             output_url=output_url,
+            create_alias=bool(args.create_alias),
+            apply_alias=bool(args.apply_alias),
+            persist_config=args.persist_config,
+            config_scope=args.config_scope,
         )
     except Exception as e:
         print(f"Error: {e}")
