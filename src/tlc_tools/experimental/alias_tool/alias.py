@@ -1,17 +1,10 @@
-# =============================================================================
-# <copyright>
-# Copyright (c) 2023 3LC Inc. All rights reserved.
-#
-# All rights are reserved. Reproduction or transmission in whole or in part, in
-# any form or by any means, electronic, mechanical or otherwise, is prohibited
-# without the prior written permission of the copyright owner.
-# </copyright>
-# =============================================================================
 from __future__ import annotations
 
 import argparse
 import os
 from typing import TYPE_CHECKING
+import re
+from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -44,10 +37,43 @@ def _format_paths_and_columns(paths: list[Url], columns: list[str] | None = None
     return _format_paths(paths, columns) + _format_columns(columns)
 
 
+def validate_alias_name(alias_name: str) -> bool:
+    """
+    Validate that an alias name follows the required format:
+    - Must be wrapped in < >
+    - Must start with a capital letter
+    - Can only contain capital letters, numbers, and underscores
+    """
+    pattern = re.compile(_ALIAS_PATTERN)
+    return bool(pattern.match(alias_name))
+
+
+def validate_path_exists(path: str) -> bool:
+    """
+    Validate that a path exists on the filesystem.
+    For URLs, we only validate the scheme and basic format.
+    """
+    if path.startswith(("http://", "https://", "s3://")):
+        # For URLs, just validate basic format
+        return bool(re.match(r'^[a-zA-Z]+://[^/\s]+(/[^/\s]*)*$', path))
+    return Path(path).exists()
+
+
 def parse_alias_pair_string(alias_pair: str, separator: str) -> tuple[str, str]:
+    """Parse and validate an alias pair string."""
     if separator not in alias_pair:
         raise ValueError(f"Invalid alias pair ({alias_pair}) missing separator: {separator}")
+    
     cur, replace = tuple(alias_pair.split(separator, 1))
+    
+    # Validate alias format when creating new aliases
+    if cur.startswith("<") and not validate_alias_name(cur):
+        raise ValueError(
+            f"Invalid alias name format: {cur}. "
+            "Aliases must be wrapped in <>, start with a capital letter, "
+            "and contain only capital letters, numbers, and underscores."
+        )
+    
     return cur, replace
 
 
@@ -98,8 +124,6 @@ def handle_parquet_column(
     column: pa.Array,
     rewrite: list[tuple[str, str]],
 ) -> tuple[set[tuple[str, str]], pa.Array]:
-    import re
-
     alias_pattern = re.compile(_ALIAS_PATTERN)
     col_aliases: set[tuple[str, str]] = set()
     if isinstance(column, pa.ChunkedArray):
@@ -140,6 +164,20 @@ def handle_parquet_column(
     return col_aliases, column
 
 
+def handle_missing_alias(alias_name: str) -> None:
+    """Handle case where an alias is not found in registry."""
+    import tlc
+    registered_aliases = tlc.get_registered_url_aliases()
+    similar_aliases = [a for a in registered_aliases.keys() if a.startswith(alias_name[:2])]
+    
+    msg = f"Alias '{alias_name}' not found in registered aliases."
+    if similar_aliases:
+        msg += f"\nDid you mean one of these? {', '.join(similar_aliases)}"
+    msg += "\nUse tlc.register_project_url_alias() to register new aliases."
+    
+    raise ValueError(msg)
+
+
 def handle_pa_table(
     input_path: list[Url],
     pa_table: pa.Table,
@@ -152,8 +190,24 @@ def handle_pa_table(
     persist_config: bool = False,
     config_scope: str = "project",
 ) -> None:
+    """Handle operations on a pyarrow Table directly.
+    
+    This function works at the pa.Table level, which is the underlying data structure.
+    Changes to the pa.Table are immediate and don't require object recreation.
+    
+    Args:
+        input_path: List of URLs representing the path to this table
+        pa_table: The pyarrow Table to process
+        selected_column_name: Optional column to process
+        rewrite: List of (old, new) pairs to rewrite
+        inplace: Whether to modify the input file
+        output_url: Where to write the output (required if modifying)
+        create_alias: Whether to create new aliases
+        apply_alias: Whether to apply existing aliases
+        persist_config: Whether to persist aliases to config
+        config_scope: Scope for config persistence ("project" or "global")
+    """
     import io
-
     import tlc
 
     if selected_column_name:
@@ -165,43 +219,91 @@ def handle_pa_table(
         # select a single column to work on
         pa_table = pa_table.select([selected_column_name])
 
-    found_aliases: set[tuple[str, str]] = set()
-    new_columns: dict[str, pa.Array] = {}
-
     # Handle alias application
     if apply_alias and rewrite:
         alias_name = rewrite[0][0]
         # Look up the alias value
         registered_aliases = tlc.get_registered_url_aliases()
         if alias_name not in registered_aliases:
-            raise ValueError(f"Alias '{alias_name}' not found in registered aliases")
+            handle_missing_alias(alias_name)
         alias_value = registered_aliases[alias_name]
+        
+        # Validate the path exists when applying aliases
+        if not validate_path_exists(alias_value):
+            raise ValueError(
+                f"Path '{alias_value}' referenced by alias '{alias_name}' does not exist. "
+                "Please ensure the path is valid before applying the alias."
+            )
+            
         rewrite = [(alias_value, f"<{alias_name}>")]
 
+    new_columns: dict[str, pa.Array] = {}
+
+    # Process each column
     for col_name in pa_table.column_names:
-        col_alias, col = handle_parquet_column(
-            [col_name],
-            pa_table.column(col_name),
-            rewrite,
-        )
-        found_aliases.update(col_alias)
-        if col_alias and (rewrite or create_alias):
-            new_columns[col_name] = col
+        column = pa_table.column(col_name)
+        if pa.types.is_string(column.type):
+            # For string columns, apply the rewrites
+            modified_column = column
+            for old, new in rewrite:
+                modified_column = pc.replace_substring(modified_column, old, new)
+            
+            # Only store if changes were made
+            # For ChunkedArrays, we need to check each chunk
+            if isinstance(modified_column, pa.ChunkedArray):
+                has_changes = False
+                chunks = []
+                for i, chunk in enumerate(modified_column.iterchunks()):
+                    # Get the corresponding chunk from the original column
+                    orig_chunk = column.chunk(i) if isinstance(column, pa.ChunkedArray) else column
+                    if not pc.all(pc.equal(chunk, orig_chunk)).as_py():
+                        has_changes = True
+                    chunks.append(chunk)
+                if has_changes:
+                    new_columns[col_name] = pa.chunked_array(chunks, column.type)
+            else:
+                if not pc.all(pc.equal(modified_column, column)).as_py():
+                    new_columns[col_name] = modified_column
+        elif pa.types.is_struct(column.type):
+            # For struct columns, process each field
+            sub_cols: list[pa.Array] = []
+            for field in column.type:
+                sub_col = column.field(field.name)
+                if pa.types.is_string(sub_col.type):
+                    modified_sub_col = sub_col
+                    for old, new in rewrite:
+                        modified_sub_col = pc.replace_substring(modified_sub_col, old, new)
+                    # Handle ChunkedArrays in struct fields
+                    if isinstance(modified_sub_col, pa.ChunkedArray):
+                        has_changes = False
+                        chunks = []
+                        for i, chunk in enumerate(modified_sub_col.iterchunks()):
+                            # Get the corresponding chunk from the original column
+                            orig_chunk = sub_col.chunk(i) if isinstance(sub_col, pa.ChunkedArray) else sub_col
+                            if not pc.all(pc.equal(chunk, orig_chunk)).as_py():
+                                has_changes = True
+                            chunks.append(chunk)
+                        if has_changes:
+                            sub_cols.append(pa.chunked_array(chunks, sub_col.type))
+                        else:
+                            sub_cols.append(sub_col)
+                    else:
+                        if not pc.all(pc.equal(modified_sub_col, sub_col)).as_py():
+                            sub_cols.append(modified_sub_col)
+                        else:
+                            sub_cols.append(sub_col)
+                else:
+                    sub_cols.append(sub_col)
+            new_columns[col_name] = pa.StructArray.from_arrays(sub_cols, fields=column.type)
 
-    if found_aliases and not (rewrite or create_alias):
-        print(
-            f"{_format_paths_and_columns(input_path, columns=[selected_column_name])}"
-            f" contains the following aliases: {found_aliases}"
-        )
-
-    if not (rewrite or create_alias):
+    if not rewrite:
         return
 
     if not output_url:
         raise RuntimeError("Expected output URL")
 
     if not new_columns:
-        print("No aliases to rewrite.")
+        print("No changes to apply.")
         return
 
     # Handle alias creation and persistence
@@ -220,7 +322,7 @@ def handle_pa_table(
     else:
         # insert the selected rewritten column back into the original table
         columns = {name: pa_table.column(name) for name in pa_table.column_names if name != selected_column_name}
-        columns[selected_column_name] = new_columns
+        columns[selected_column_name] = new_columns[selected_column_name]
         output_pa_table = pa.table(columns)
 
     # write the output table to the output path
@@ -228,9 +330,9 @@ def handle_pa_table(
         pq_writer.write_table(output_pa_table)
         pq_writer.close()
         buffer.seek(0)
-        UrlAdapterRegistry.write_binary_content_to_url(output_url, buffer.read())
+        UrlAdapterRegistry.write_binary_content_to_url(Url(output_url), buffer.read())
 
-    print(f"Aliases written to '{output_url}'")
+    print(f"Changes written to '{output_url}'")
 
 
 def handle_run(
@@ -282,53 +384,62 @@ def handle_table(
     persist_config: bool = False,
     config_scope: str = "project",
 ) -> None:
-    if table.row_cache_populated and table.row_cache_url:
-        pq_url = table.row_cache_url.to_absolute(table.url)
-        object = get_input_object(pq_url)
-
-        if not inplace and rewrite:
-            raise ValueError("Tables can only be modified inplace.")
-
-        try:
-            handle_object(
-                input_path + [pq_url],
-                object,
-                column,
-                rewrite,
-                inplace,
-                pq_url if inplace else output_url,
-                create_alias,
-                apply_alias,
-                persist_config,
-                config_scope,
-            )
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def parents(_table: Table) -> list[Table]:
-        """Return a list of parent tables of the given table."""
-        input_tables = [
-            Table.from_url(input_url.to_absolute(owner=_table.url))
-            for input_url in SchemaHelper.object_input_urls(_table, table.schema)
-        ]
-        return input_tables
-
-    for input_table in parents(table):
-        try:
-            handle_object(
-                input_path + [input_table.url],
-                input_table,
-                column,
-                rewrite,
-                inplace,
-                output_url,
-                create_alias,
-                apply_alias,
-                persist_config,
-                config_scope,
-            )
-        except Exception as e:
-            print(f"Error: {e}")
+    """Handle operations on a tlc.Table object.
+    
+    This function works at the tlc.Table level, which wraps the underlying pa.Table.
+    When modifying the parquet file in-place, the tlc.Table object needs to be
+    recreated to see the changes.
+    
+    Args:
+        input_path: List of URLs representing the path to this table
+        table: The tlc.Table object to process
+        column: Optional column to process
+        rewrite: List of (old, new) pairs to rewrite
+        inplace: Whether to modify the input file
+        output_url: Where to write the output (required if modifying)
+        create_alias: Whether to create new aliases
+        apply_alias: Whether to apply existing aliases
+        persist_config: Whether to persist aliases to config
+        config_scope: Scope for config persistence ("project" or "global")
+    """
+    processed_tables = set()  # Track processed tables to avoid cycles
+    
+    def process_table_recursive(current_table: Table, current_path: list[Url]) -> None:
+        """Recursively process a table and its lineage."""
+        if current_table.url in processed_tables:
+            return
+        processed_tables.add(current_table.url)
+        
+        # Process the current table's parquet cache if it exists
+        if (current_table.row_cache_populated and current_table.row_cache_url) or current_table.input_url.exists():
+            pq_url = current_table.row_cache_url.to_absolute(current_table.url) if current_table.row_cache_populated and current_table.row_cache_url else current_table.input_url
+            try:
+                object = get_input_object(pq_url)
+                handle_object(
+                    current_path + [pq_url],
+                    object,
+                    column,
+                    rewrite,
+                    inplace,
+                    pq_url if inplace else output_url,
+                    create_alias,
+                    apply_alias,
+                    persist_config,
+                    config_scope,
+                )
+            except Exception as e:
+                print(f"Warning: Failed to process cache for table {current_table.url}: {e}")
+        
+        # Process parent tables recursively
+        for parent_url in SchemaHelper.object_input_urls(current_table, current_table.schema):
+            try:
+                parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
+                process_table_recursive(parent_table, current_path + [parent_url])
+            except Exception as e:
+                print(f"Warning: Failed to process parent table {parent_url}: {e}")
+    
+    # Start recursive processing from the input table
+    process_table_recursive(table, input_path)
 
 
 def handle_object(
