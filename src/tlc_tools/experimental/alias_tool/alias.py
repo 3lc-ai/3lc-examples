@@ -417,7 +417,7 @@ def handle_table(
         processed_tables.add(current_table.url)
 
         # Process the current table's parquet cache if it exists
-        if (current_table.row_cache_populated and current_table.row_cache_url) or current_table.input_url.exists():
+        if (current_table.row_cache_populated and current_table.row_cache_url) or (hasattr(current_table, "input_url") and current_table.input_url.exists()):
             pq_url = (
                 current_table.row_cache_url.to_absolute(current_table.url)
                 if current_table.row_cache_populated and current_table.row_cache_url
