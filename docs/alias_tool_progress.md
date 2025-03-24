@@ -3,11 +3,12 @@
 ## Current State
 
 ### Core Functionality
-- Implemented alias detection and listing
-- Implemented alias application
+- Implemented alias detection and listing (only at start of paths)
+- Implemented alias application with path rewrites
 - Simplified to in-place modifications only
 - Added support for multiple column processing
 - Added parent table traversal control
+- Improved logging system with verbosity controls
 
 ### Command Line Interface
 ```bash
@@ -15,22 +16,41 @@
 3lc alias replace path/to/table
 
 # Apply existing alias (in-place)
-3lc alias replace path/to/table --apply DATA_PATH
+3lc alias replace path/to/table --apply ALIAS1,ALIAS2
+
+# Replace specific paths
+3lc alias replace path/to/table --from /old/path --to /new/path
 
 # Process specific columns
 3lc alias replace path/to/table --columns "image_path,mask_path"
 
 # Skip processing parent tables
 3lc alias replace path/to/table --no-process-parents
+
+# Control output verbosity
+3lc alias replace path/to/table -v  # debug output
+3lc alias replace path/to/table -q  # quiet mode
 ```
 
 ### Test Coverage
-- Basic functionality tests for all core components
-- Tests for alias parsing
-- Tests for table handling
-- Tests for parquet operations
+- Comprehensive parameterized tests for all array types:
+  - Basic arrays
+  - Chunked arrays
+  - Struct arrays
+- Clear separation of list mode and rewrite mode tests
 - Tests for column-specific processing
-- Tests for in-place modifications
+- Tests for alias detection at path start only
+- Tests for path rewrites and alias application
+
+### Code Organization
+- Clear separation of column-level operations:
+  - `list_column_aliases`: Finds aliases at start of paths
+  - `rewrite_column_paths`: Applies path rewrites
+- Consistent handling of:
+  - Nested structures
+  - Chunked arrays
+  - Column name paths
+- Improved logging infrastructure
 
 ## Next Steps
 
@@ -91,4 +111,6 @@
 - All modifications are in-place
 - Distinguishes between row cache files (optional) and input parquet files (required)
 - Supports multiple column processing
-- Parent table processing can be controlled 
+- Parent table processing can be controlled
+- Alias detection only at start of paths
+- Comprehensive test coverage across array types 
