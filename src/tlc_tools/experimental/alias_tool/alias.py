@@ -124,8 +124,18 @@ def handle_parquet_column(
     column: pa.Array,
     rewrite: list[tuple[str, str]],
 ) -> tuple[set[tuple[str, str]], pa.Array]:
-    alias_pattern = re.compile(_ALIAS_PATTERN)
+    """Handle operations on a parquet column.
+
+    Args:
+        column_names: List of column names (for nested columns)
+        column: The column to process
+        rewrite: List of (old, new) pairs to rewrite
+
+    Returns:
+        tuple of (set of found aliases, modified column)
+    """
     col_aliases: set[tuple[str, str]] = set()
+
     if isinstance(column, pa.ChunkedArray):
         chunks = []
         for chunk in column.iterchunks():
@@ -136,30 +146,41 @@ def handle_parquet_column(
 
     if pa.types.is_struct(column.type):
         sub_cols: list[pa.Array] = []
-
         for field in column.type:
             sub_aliases, sub_col = handle_parquet_column(column_names + [field.name], column.field(field.name), rewrite)
-            sub_cols.append(sub_col)
             col_aliases.update(sub_aliases)
-
+            sub_cols.append(sub_col)
         return col_aliases, pa.StructArray.from_arrays(sub_cols, fields=column.type)
-    elif pa.types.is_string(column.type):
-        for r in column:
-            matches = alias_pattern.findall(r.as_py())
-            for match in matches:
-                col_aliases.add((".".join(column_names), match))
 
-        if rewrite and col_aliases:
-            for alias, new_alias in rewrite:
-                # Perform search and replace
-                modified_column = pc.replace_substring(column, alias, new_alias)  # Replace the column
+    if pa.types.is_string(column.type):
+        modified_column = column
+        if rewrite:
+            # Apply rewrites
+            for old, new in rewrite:
+                modified_column = pc.replace_substring(modified_column, old, new)
+                # Check if any changes were made
                 num_modified_rows = pc.sum(pc.invert(pc.equal(modified_column, column))).as_py()
                 if num_modified_rows > 0:
-                    column = modified_column
                     print(
-                        f"Rewrote {num_modified_rows} occurrences of '{alias}' to '{new_alias}'"
-                        f" in column '{column_names}'"
+                        f"Rewrote {num_modified_rows} occurrences of '{old}' to '{new}' "
+                        f"in column '{'.'.join(column_names)}'"
                     )
+        else:
+            # In list mode, find any strings matching <UPPERCASE_WITH_NUMBERS>
+            for value in column:
+                if value is not None:
+                    str_val = value.as_py()
+                    if str_val and "<" in str_val and ">" in str_val:
+                        start = str_val.find("<")
+                        end = str_val.find(">", start)
+                        if end > start:
+                            potential_alias = str_val[start : end + 1]
+                            if (
+                                potential_alias.upper() == potential_alias
+                                and potential_alias[1:-1].replace("_", "").isalnum()
+                            ):
+                                col_aliases.add((".".join(column_names), potential_alias))
+        return col_aliases, modified_column
 
     return col_aliases, column
 
@@ -241,80 +262,28 @@ def handle_pa_table(
 
     # Process each column
     for col_name in pa_table.column_names:
-        # Skip columns that aren't selected (if a column is selected)
         if selected_column_name and col_name != selected_column_name:
-            new_columns[col_name] = pa_table.column(col_name)
+            # If a column is selected and this isn't it, skip processing but keep the column
+            new_columns[col_name] = pa_table[col_name]
             continue
 
-        column = pa_table.column(col_name)
-        if pa.types.is_string(column.type):
-            # For string columns, apply the rewrites
-            modified_column = column
-            for old, new in rewrite:
-                modified_column = pc.replace_substring(modified_column, old, new)
+        aliases, new_col = handle_parquet_column([col_name], pa_table[col_name], rewrite)
+        new_columns[col_name] = new_col
 
-            # Only store if changes were made
-            # For ChunkedArrays, we need to check each chunk
-            if isinstance(modified_column, pa.ChunkedArray):
-                has_changes = False
-                chunks = []
-                for i, chunk in enumerate(modified_column.iterchunks()):
-                    # Get the corresponding chunk from the original column
-                    orig_chunk = column.chunk(i) if isinstance(column, pa.ChunkedArray) else column
-                    if not pc.all(pc.equal(chunk, orig_chunk)).as_py():
-                        has_changes = True
-                    chunks.append(chunk)
-                if has_changes:
-                    new_columns[col_name] = pa.chunked_array(chunks, column.type)
-                else:
-                    new_columns[col_name] = column
-            else:
-                if not pc.all(pc.equal(modified_column, column)).as_py():
-                    new_columns[col_name] = modified_column
-                else:
-                    new_columns[col_name] = column
-        elif pa.types.is_struct(column.type):
-            # For struct columns, process each field
-            sub_cols: list[pa.Array] = []
-            for field in column.type:
-                sub_col = column.field(field.name)
-                if pa.types.is_string(sub_col.type):
-                    modified_sub_col = sub_col
-                    for old, new in rewrite:
-                        modified_sub_col = pc.replace_substring(modified_sub_col, old, new)
-                    # Handle ChunkedArrays in struct fields
-                    if isinstance(modified_sub_col, pa.ChunkedArray):
-                        has_changes = False
-                        chunks = []
-                        for i, chunk in enumerate(modified_sub_col.iterchunks()):
-                            # Get the corresponding chunk from the original column
-                            orig_chunk = sub_col.chunk(i) if isinstance(sub_col, pa.ChunkedArray) else sub_col
-                            if not pc.all(pc.equal(chunk, orig_chunk)).as_py():
-                                has_changes = True
-                            chunks.append(chunk)
-                        if has_changes:
-                            sub_cols.append(pa.chunked_array(chunks, sub_col.type))
-                        else:
-                            sub_cols.append(sub_col)
-                    else:
-                        if not pc.all(pc.equal(modified_sub_col, sub_col)).as_py():
-                            sub_cols.append(modified_sub_col)
-                        else:
-                            sub_cols.append(sub_col)
-                else:
-                    sub_cols.append(sub_col)
-            new_columns[col_name] = pa.StructArray.from_arrays(sub_cols, fields=column.type)
-        else:
-            new_columns[col_name] = column
-
-    if not rewrite:
-        return
-
-    if not output_url:
-        raise RuntimeError("Expected output URL")
+        # Print found aliases when in list mode (no rewrites)
+        if not rewrite and aliases:
+            for col_path, alias in sorted(aliases):
+                print(f"Found alias '{alias}' in column '{col_path}'")
 
     if not new_columns:
-        print("No changes to apply.")
+        if not rewrite:
+            print("No aliases found.")
+        else:
+            print("No changes to apply.")
+        return
+
+    # In list mode, we're done after printing aliases
+    if not rewrite:
         return
 
     # Handle alias creation and persistence
@@ -400,22 +369,31 @@ def handle_table(
         """Recursively process a table and its lineage."""
         if current_table.url in processed_tables:
             return
+        current_table.ensure_fully_defined()
         processed_tables.add(current_table.url)
+
+        print(f"\nProcessing table: {current_table.url}")
 
         # Process the current table's parquet cache if it exists
         has_cache = current_table.row_cache_populated and current_table.row_cache_url
         is_table_from_parquet = isinstance(current_table, TableFromParquet)
+        print(f"  Has cache: {has_cache}")
+        print(f"  Is TableFromParquet: {is_table_from_parquet}")
+
         if has_cache or is_table_from_parquet:
             # Get URL of file to process - prefer cache if available
             if has_cache:
                 pq_url = current_table.row_cache_url.to_absolute(current_table.url)
+                print(f"  Using cache URL: {pq_url}")
             else:
                 pq_url = current_table.input_url.to_absolute(current_table.url)
+                print(f"  Using input URL: {pq_url}")
 
             try:
                 # Process the parquet file
                 pa_table = get_input_parquet(pq_url)
                 output = pq_url if inplace else output_url
+                print(f"  Processing parquet with columns: {pa_table.column_names}")
                 handle_pa_table(
                     current_path + [pq_url],
                     pa_table,
@@ -430,8 +408,12 @@ def handle_table(
                 )
             except Exception as e:
                 print(f"Warning: Failed to process cache for table {current_table.url}: {e}")
+
         # Process parent tables recursively
-        for parent_url in SchemaHelper.object_input_urls(current_table, current_table.schema):
+
+        parent_urls = list(SchemaHelper.object_input_urls(current_table, current_table.schema))
+        print(f"  Parent tables: {parent_urls}")
+        for parent_url in parent_urls:
             try:
                 parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
                 process_table_recursive(parent_table, current_path + [parent_url])
@@ -495,7 +477,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     parser = argparse.ArgumentParser(prog=prog, description="List, rewrite, and create URL aliases in 3LC objects")
 
     # Positional argument for input-file
-    parser.add_argument("input-path", help="The input object to investigate", type=str)
+    parser.add_argument("input_path", help="The input object to investigate", type=str)
 
     # Operation selection group
     operation_group = parser.add_mutually_exclusive_group()

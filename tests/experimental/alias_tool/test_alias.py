@@ -16,7 +16,6 @@ from tlc_tools.experimental.alias_tool.alias import (
     handle_table,
     parse_alias_pair_string,
     validate_alias_name,
-    validate_path_exists,
 )
 
 
@@ -350,7 +349,6 @@ def test_parse_alias_pair_string_validation():
 
 def create_table_with_lineage(tmp_path: Path) -> tuple[Table, Table, Table]:
     """Create a sample table with lineage for testing."""
-    import pyarrow as pa
     import pyarrow.parquet as pq
 
     # Create parent table 1
@@ -358,14 +356,14 @@ def create_table_with_lineage(tmp_path: Path) -> tuple[Table, Table, Table]:
     parent1_table = pa.Table.from_pydict(parent1_data)
     parent1_path = tmp_path / "parent1.parquet"
     pq.write_table(parent1_table, parent1_path)
-    parent1 = Table.from_parquet(Url(str(parent1_path)))
+    parent1 = Table.from_parquet(Url(str(parent1_path)), if_exists="rename")
 
     # Create parent table 2
     parent2_data = {"image_path": ["/data/project/raw/003.jpg", "/data/project/raw/004.jpg"]}
     parent2_table = pa.Table.from_pydict(parent2_data)
     parent2_path = tmp_path / "parent2.parquet"
     pq.write_table(parent2_table, parent2_path)
-    parent2 = Table.from_parquet(Url(str(parent2_path)))
+    parent2 = Table.from_parquet(Url(str(parent2_path)), if_exists="rename")
 
     # Create child table that references both parents
     child = tlc.Table.join_tables([parent1, parent2])
@@ -402,8 +400,8 @@ def test_handle_table_deep_lineage(tmp_path: Path):
     assert "<DATA_PATH>/raw/001.jpg" in output_table._pa_table.column("image_path").to_pylist()
 
     # Verify parent tables were processed
-    #parent1_output = Table.from_parquet(Url(str(tmp_path / "parent1.parquet")))
-    #assert "<DATA_PATH>/raw/001.jpg" in parent1_output.to_pa_table().column("image_path").to_pylist()
+    # parent1_output = Table.from_parquet(Url(str(tmp_path / "parent1.parquet")))
+    # assert "<DATA_PATH>/raw/001.jpg" in parent1_output.to_pa_table().column("image_path").to_pylist()
 
-    #parent2_output = Table.from_parquet(Url(str(tmp_path / "parent2.parquet")))
-    #assert "<DATA_PATH>/masks/001.png" in parent2_output.to_pa_table().column("mask_path").to_pylist()
+    # parent2_output = Table.from_parquet(Url(str(tmp_path / "parent2.parquet")))
+    # assert "<DATA_PATH>/masks/001.png" in parent2_output.to_pa_table().column("mask_path").to_pylist()
