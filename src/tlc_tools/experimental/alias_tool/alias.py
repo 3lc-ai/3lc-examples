@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import io
 import logging
-import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -491,14 +490,16 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         metavar="ALIAS[,ALIAS,...]",
         help="Apply existing aliases to matching paths (comma-separated list)",
     )
-    replace_mode.add_argument(
+
+    # From/to path replacement (outside mutually exclusive group)
+    replace_parser.add_argument(
         "--from",
         dest="from_paths",
         metavar="PATH",
         action="append",
         help="Replace occurrences of this path (can be specified multiple times)",
     )
-    replace_mode.add_argument(
+    replace_parser.add_argument(
         "--to",
         dest="to_paths",
         metavar="PATH",
@@ -515,8 +516,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     if args.command == "replace":
         # Handle replace command
         input_url = Url(args.input_path)
-        if not input_url.is_absolute():
-            input_url = input_url.to_absolute(os.getcwd())
 
         # Parse columns if specified
         columns = [col.strip() for col in args.columns.split(",")] if args.columns else []
@@ -553,8 +552,8 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             handle_object(
                 [input_url],
                 object,
-                columns=columns,
-                rewrite=aliases,
+                columns,
+                aliases,
                 process_parents=not args.no_process_parents,
             )
         except Exception as e:
