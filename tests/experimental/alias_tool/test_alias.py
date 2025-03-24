@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,7 @@ from tlc_tools.experimental.alias_tool.alias import (
 
 
 @pytest.fixture
-def sample_table(tmp_path: Path) -> Table:
+def sample_table(tmp_path: Path) -> Generator[Table, None, None]:
     """Create a sample table with some test data.
 
     Note: This creates both a parquet file and a tlc.Table object.
@@ -97,14 +98,9 @@ def test_handle_pa_table_basic(sample_table, tmp_path: Path):
     handle_pa_table(
         input_path=[sample_table.url],
         pa_table=sample_table._pa_table,  # Work directly with the pa.Table
-        selected_column_name="",
+        selected_columns=["image_path"],
         rewrite=[],
-        inplace=False,
         output_url=None,
-        create_alias=False,
-        apply_alias=False,
-        persist_config=False,
-        config_scope="project",
     )
 
     # Test creating alias
@@ -112,14 +108,9 @@ def test_handle_pa_table_basic(sample_table, tmp_path: Path):
     handle_pa_table(
         input_path=[sample_table.url],
         pa_table=sample_table._pa_table,  # Work directly with the pa.Table
-        selected_column_name="",
+        selected_columns=["image_path"],
         rewrite=[("/data/project", "<DATA_PATH>")],
-        inplace=False,
         output_url=output_path,
-        create_alias=True,
-        apply_alias=False,
-        persist_config=False,
-        config_scope="project",
     )
 
     # Verify output - need to read the new parquet file directly
@@ -139,14 +130,8 @@ def test_handle_table_basic(sample_table, tmp_path: Path):
     handle_table(
         input_path=[sample_table.url],
         table=sample_table,
-        column="",
+        columns=["image_path"],
         rewrite=[],
-        inplace=False,
-        output_url=None,
-        create_alias=False,
-        apply_alias=False,
-        persist_config=False,
-        config_scope="project",
     )
 
     # Test creating alias
@@ -154,14 +139,8 @@ def test_handle_table_basic(sample_table, tmp_path: Path):
     handle_table(
         input_path=[sample_table.url],
         table=sample_table,
-        column="",
+        columns=["image_path"],
         rewrite=[("/data/project", "<DATA_PATH>")],
-        inplace=False,
-        output_url=output_path,
-        create_alias=True,
-        apply_alias=False,
-        persist_config=False,
-        config_scope="project",
     )
 
     # Verify output - need to create a new tlc.Table object to see changes
@@ -177,14 +156,9 @@ def test_handle_object_basic(sample_table, tmp_path: Path):
     handle_object(
         input_path=[sample_table.url],
         obj=sample_table,
-        column="",
+        columns=["image_path"],
         rewrite=[],
-        inplace=False,
         output_url=None,
-        create_alias=False,
-        apply_alias=False,
-        persist_config=False,
-        config_scope="project",
     )
 
     # Test creating alias
@@ -192,14 +166,9 @@ def test_handle_object_basic(sample_table, tmp_path: Path):
     handle_object(
         input_path=[sample_table.url],
         obj=sample_table,
-        column="",
+        columns=["image_path"],
         rewrite=[("/data/project", "<DATA_PATH>")],
-        inplace=False,
         output_url=output_path,
-        create_alias=True,
-        apply_alias=False,
-        persist_config=False,
-        config_scope="project",
     )
 
     # Verify output
@@ -214,14 +183,9 @@ def test_column_specific_handling(sample_table, tmp_path: Path):
     handle_object(
         input_path=[sample_table.url],
         obj=sample_table,
-        column="image_path",  # Only process image_path column
+        columns=["image_path"],  # Only process image_path column
         rewrite=[("/data/project", "<DATA_PATH>")],
-        inplace=False,
         output_url=output_path,
-        create_alias=True,
-        apply_alias=False,
-        persist_config=False,
-        config_scope="project",
     )
 
     # Verify output
@@ -246,14 +210,9 @@ def test_inplace_modification(sample_table):
     handle_object(
         input_path=[sample_table.url],
         obj=sample_table,
-        column="",
+        columns=["image_path"],
         rewrite=[("/data/project", "<DATA_PATH>")],
-        inplace=True,
         output_url=sample_table.url,
-        create_alias=True,
-        apply_alias=False,
-        persist_config=False,
-        config_scope="project",
     )
 
     # Need to recreate the tlc.Table object to see changes
@@ -278,14 +237,9 @@ def test_persist_config(sample_table, tmp_path: Path):
     handle_object(
         input_path=[sample_table.url],
         obj=sample_table,
-        column="",
+        columns=[],
         rewrite=[("TEST_DATA", "")],  # Empty string as placeholder
-        inplace=False,
         output_url=output_path,
-        create_alias=False,
-        apply_alias=True,
-        persist_config=False,
-        config_scope="project",
     )
 
     # Verify output
@@ -380,14 +334,9 @@ def test_handle_table_deep_lineage(tmp_path: Path):
     handle_object(
         input_path=[child.url],
         obj=child,
-        column="",
+        columns=["image_path"],
         rewrite=[("/data/project", "<DATA_PATH>")],
-        inplace=True,
         output_url=output_path,
-        create_alias=True,
-        apply_alias=False,
-        persist_config=False,
-        config_scope="project",
     )
 
     # Verify child table output

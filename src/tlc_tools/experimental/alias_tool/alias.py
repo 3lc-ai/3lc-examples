@@ -237,12 +237,7 @@ def handle_pa_table(
     pa_table: pa.Table,
     selected_columns: list[str],
     rewrite: list[tuple[str, str]],
-    inplace: bool,
-    output_url: Url | None,
-    create_alias: bool = False,
-    apply_alias: bool = False,
-    persist_config: bool = False,
-    config_scope: str = "project",
+    output_url: Url,
 ) -> None:
     """Handle operations on a pyarrow Table directly.
 
@@ -254,16 +249,8 @@ def handle_pa_table(
         pa_table: The pyarrow Table to process
         selected_columns: List of columns to process. If empty, process all columns.
         rewrite: List of (old, new) pairs to rewrite
-        inplace: Whether to modify the input file
-        output_url: Where to write the output (required if modifying)
-        create_alias: Whether to create new aliases
-        apply_alias: Whether to apply existing aliases
-        persist_config: Whether to persist aliases to config
-        config_scope: Scope for config persistence ("project" or "global")
+        output_url: Where to write the output
     """
-
-    import tlc
-
     # Validate selected columns exist if specified
     if selected_columns:
         for col_name in selected_columns:
@@ -272,24 +259,6 @@ def handle_pa_table(
                     f"Selected column '{col_name}' not found in the input table's columns"
                     f" ({pa_table.column_names})."
                 )
-
-    # Handle alias application
-    if apply_alias and rewrite:
-        alias_name = rewrite[0][0]
-        # Look up the alias value
-        registered_aliases = tlc.get_registered_url_aliases()
-        if alias_name not in registered_aliases:
-            handle_missing_alias(alias_name)
-        alias_value = registered_aliases[alias_name]
-
-        # Validate the path exists when applying aliases
-        if not validate_path_exists(alias_value):
-            raise ValueError(
-                f"Path '{alias_value}' referenced by alias '{alias_name}' does not exist. "
-                "Please ensure the path is valid before applying the alias."
-            )
-
-        rewrite = [(alias_value, f"<{alias_name}>")]
 
     new_columns: dict[str, pa.Array] = {}
 
@@ -319,17 +288,6 @@ def handle_pa_table(
     if not rewrite:
         return
 
-    # Handle alias creation and persistence
-    if create_alias and persist_config:
-        alias_name = rewrite[0][1].strip("<>")  # Remove < > from alias name
-        alias_value = rewrite[0][0]
-        if config_scope == "project":
-            tlc.register_project_url_alias(alias_name, alias_value)
-            logger.info(f"Registered project alias '{alias_name}' with value '{alias_value}'")
-        else:
-            tlc.register_url_alias(alias_name, alias_value)
-            logger.info(f"Registered global alias '{alias_name}' with value '{alias_value}'")
-
     # Create output table with all columns
     output_pa_table = pa.table(new_columns)
 
@@ -338,7 +296,7 @@ def handle_pa_table(
         pq_writer.write_table(output_pa_table)
         pq_writer.close()
         buffer.seek(0)
-        UrlAdapterRegistry.write_binary_content_to_url(Url(output_url), buffer.read())
+        UrlAdapterRegistry.write_binary_content_to_url(output_url, buffer.read())
 
     logger.info(f"Changes written to '{output_url}'")
 
@@ -371,13 +329,16 @@ def handle_table(
     table: Table,
     columns: list[str],
     rewrite: list[tuple[str, str]],
-    inplace: bool,
-    output_url: Url | None,
-    create_alias: bool = False,
-    apply_alias: bool = False,
-    persist_config: bool = False,
-    config_scope: str = "project",
 ) -> None:
+    """Process a Table object, handling both the table and its lineage.
+
+    Args:
+        input_path: List of URLs representing the path to this table
+        table: The Table object to process
+        columns: List of columns to process. If empty, process all columns.
+        rewrite: List of (old, new) pairs to rewrite
+        output_url: Where to write the output
+    """
     processed_tables = set()  # Track processed tables to avoid cycles
 
     def process_table_recursive(current_table: Table, current_path: list[Url]) -> None:
@@ -408,19 +369,13 @@ def handle_table(
             try:
                 # Process the parquet file
                 pa_table = get_input_parquet(pq_url)
-                output = pq_url if inplace else output_url
                 logger.debug(f"  Processing parquet with columns: {pa_table.column_names}")
                 handle_pa_table(
                     current_path + [pq_url],
                     pa_table,
                     columns,
                     rewrite,
-                    inplace,
-                    output,
-                    create_alias,
-                    apply_alias,
-                    persist_config,
-                    config_scope,
+                    pq_url,
                 )
             except Exception as e:
                 logger.warning(f"Failed to process cache for table {current_table.url}: {e}")
@@ -444,51 +399,33 @@ def handle_object(
     obj: pa.Table | Table | Run,
     columns: list[str],
     rewrite: list[tuple[str, str]],
-    inplace: bool,
-    output_url: Url | None,
-    create_alias: bool = False,
-    apply_alias: bool = False,
-    persist_config: bool = False,
-    config_scope: str = "project",
+    output_url: Url,
 ) -> None:
+    """Process any 3LC object, applying the specified rewrites.
+
+    Args:
+        input_path: List of URLs representing the path to this object
+        obj: The object to process (Table, Run, or pa.Table)
+        columns: List of columns to process. If empty, process all columns.
+        rewrite: List of (old, new) pairs to rewrite
+        output_url: Where to write the output
+    """
     if isinstance(obj, Table):
         return handle_table(
             input_path,
             obj,
             columns,
             rewrite,
-            inplace,
-            output_url,
-            create_alias,
-            apply_alias,
-            persist_config,
-            config_scope,
         )
     elif isinstance(obj, Run):
-        return handle_run(
-            input_path,
-            obj,
-            columns,
-            rewrite,
-            inplace,
-            output_url,
-            create_alias,
-            apply_alias,
-            persist_config,
-            config_scope,
-        )
+        raise NotImplementedError("Runs are not yet supported.")
     elif isinstance(obj, pa.Table):
         return handle_pa_table(
             input_path,
             obj,
             columns,
             rewrite,
-            inplace,
             output_url,
-            create_alias,
-            apply_alias,
-            persist_config,
-            config_scope,
         )
     else:
         raise ValueError("Input is not a valid 3LC object.")
@@ -529,6 +466,11 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     )
     replace_parser.add_argument("input_path", help="The input object to process")
     replace_parser.add_argument("--columns", help="Comma-separated list of columns to process")
+    replace_parser.add_argument(
+        "--no-process-parents",
+        action="store_true",
+        help="Do not process parent tables when handling Table objects",
+    )
 
     # Operation mode for replace command
     replace_mode = replace_parser.add_mutually_exclusive_group()
@@ -542,21 +484,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         "--apply",
         metavar="ALIAS_NAME",
         help="Apply an existing alias to matching paths",
-    )
-
-    # Output behavior for replace command
-    replace_output = replace_parser.add_mutually_exclusive_group()
-    replace_output.add_argument(
-        "-o",
-        "--output-path",
-        dest="output_path",
-        help="The path to which the modified object will be written",
-    )
-    replace_output.add_argument(
-        "-i",
-        "--inplace",
-        action="store_true",
-        help="Overwrite the input file with the new changes",
     )
 
     # Manage command - for creating/updating aliases
@@ -576,20 +503,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         default="project",
         help="Scope for the alias (default: project)",
     )
-    manage_parser.add_argument(
-        "--apply",
-        metavar="FILE",
-        help="Apply the new alias to a file after creating it",
-    )
-    manage_parser.add_argument(
-        "--output-path",
-        help="Output path when applying the new alias (required with --apply unless using --inplace)",
-    )
-    manage_parser.add_argument(
-        "--inplace",
-        action="store_true",
-        help="Modify the input file in place when applying the new alias",
-    )
 
     args = parser.parse_args(tool_args)
 
@@ -606,34 +519,34 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         # Parse columns if specified
         columns = [col.strip() for col in args.columns.split(",")] if args.columns else []
 
-        # Handle output path
-        output_url = None
-        if hasattr(args, "output_path") and args.output_path:
-            output_url = Url(args.output_path)
-            if not output_url.is_absolute():
-                output_url = output_url.to_absolute(os.getcwd())
-
         # Set up aliases based on operation mode
         aliases = []
         if args.apply:
-            aliases = [(args.apply, "")]  # Empty string as placeholder, will be replaced with actual value
+            # Look up the alias value
+            import tlc
 
-        if args.apply and not (args.inplace or output_url):
-            raise ValueError("Output path (--output-path) or --inplace is required when applying aliases.")
+            registered_aliases = tlc.get_registered_url_aliases()
+            if args.apply not in registered_aliases:
+                handle_missing_alias(args.apply)
+            alias_value = registered_aliases[args.apply]
+
+            # Validate the path exists when applying aliases
+            if not validate_path_exists(alias_value):
+                raise ValueError(
+                    f"Path '{alias_value}' referenced by alias '{args.apply}' does not exist. "
+                    "Please ensure the path is valid before applying the alias."
+                )
+
+            aliases = [(alias_value, f"<{args.apply}>")]
 
         object = get_input_object(input_url)
         try:
             handle_object(
                 [input_url],
                 object,
-                columns=columns,  # Pass the full list of columns
+                columns=columns,
                 rewrite=aliases,
-                inplace=args.inplace,
-                output_url=output_url,
-                create_alias=False,
-                apply_alias=bool(args.apply),
-                persist_config=False,
-                config_scope=args.scope,
+                output_url=input_url,
             )
         except Exception as e:
             logger.error(f"Error: {e}")
@@ -652,39 +565,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         else:
             tlc.register_url_alias(alias_name.strip("<>"), alias_value)
             logger.info(f"Registered global alias '{alias_name}' with value '{alias_value}'")
-
-        # Apply the alias if requested
-        if args.apply:
-            input_url = Url(args.apply)
-            if not input_url.is_absolute():
-                input_url = input_url.to_absolute(os.getcwd())
-
-            output_url = None
-            if args.output_path:
-                output_url = Url(args.output_path)
-                if not output_url.is_absolute():
-                    output_url = output_url.to_absolute(os.getcwd())
-
-            if not (args.inplace or output_url):
-                raise ValueError("Output path (--output-path) or --inplace is required when applying aliases.")
-
-            object = get_input_object(input_url)
-            try:
-                handle_object(
-                    [input_url],
-                    object,
-                    columns=[],  # Pass an empty list of columns
-                    rewrite=[(alias_value, alias_name)],
-                    inplace=args.inplace,
-                    output_url=output_url,
-                    create_alias=False,
-                    apply_alias=True,
-                    persist_config=False,
-                    config_scope=args.scope,
-                )
-            except Exception as e:
-                logger.error(f"Error: {e}")
-                raise
 
 
 if __name__ == "__main__":
