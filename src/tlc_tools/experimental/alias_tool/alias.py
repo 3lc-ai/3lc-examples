@@ -198,38 +198,23 @@ def handle_parquet_column(
                         f"in column '{'.'.join(column_names)}'"
                     )
         else:
-            # In list mode, find any strings matching <UPPERCASE_WITH_NUMBERS>
+            # In list mode, find any strings matching <UPPERCASE_WITH_NUMBERS> at the start of paths
             for value in column:
                 if value is not None:
                     str_val = value.as_py()
-                    if str_val and "<" in str_val and ">" in str_val:
-                        start = str_val.find("<")
-                        end = str_val.find(">", start)
-                        if end > start:
-                            potential_alias = str_val[start : end + 1]
+                    if str_val and str_val.startswith("<"):
+                        end = str_val.find(">")
+                        if end > 0:  # Must be at least one character between < and >
+                            potential_alias = str_val[: end + 1]
                             if (
                                 potential_alias.upper() == potential_alias
                                 and potential_alias[1:-1].replace("_", "").isalnum()
+                                and potential_alias[1].isupper()  # First character after < must be uppercase
                             ):
                                 col_aliases.add((".".join(column_names), potential_alias))
         return col_aliases, modified_column
 
     return col_aliases, column
-
-
-def handle_missing_alias(alias_name: str) -> None:
-    """Handle case where an alias is not found in registry."""
-    import tlc
-
-    registered_aliases = tlc.get_registered_url_aliases()
-    similar_aliases = [a for a in registered_aliases if a.startswith(alias_name[:2])]
-
-    msg = f"Alias '{alias_name}' not found in registered aliases."
-    if similar_aliases:
-        msg += f"\nDid you mean one of these? {', '.join(similar_aliases)}"
-    msg += "\nUse tlc.register_project_url_alias() to register new aliases."
-
-    raise ValueError(msg)
 
 
 def handle_pa_table(
@@ -481,8 +466,22 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     )
     replace_mode.add_argument(
         "--apply",
-        metavar="ALIAS_NAME",
-        help="Apply an existing alias to matching paths",
+        metavar="ALIAS[,ALIAS,...]",
+        help="Apply existing aliases to matching paths (comma-separated list)",
+    )
+    replace_mode.add_argument(
+        "--from",
+        dest="from_paths",
+        metavar="PATH",
+        action="append",
+        help="Replace occurrences of this path (can be specified multiple times)",
+    )
+    replace_mode.add_argument(
+        "--to",
+        dest="to_paths",
+        metavar="PATH",
+        action="append",
+        help="Replace with this path (must match number of --from arguments)",
     )
 
     args = parser.parse_args(tool_args)
@@ -503,22 +502,29 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         # Set up aliases based on operation mode
         aliases = []
         if args.apply:
-            # Look up the alias value
+            # Parse comma-separated aliases
+            alias_names = [name.strip() for name in args.apply.split(",")]
+
+            # Look up the alias values
             import tlc
 
             registered_aliases = tlc.get_registered_url_aliases()
-            if args.apply not in registered_aliases:
-                handle_missing_alias(args.apply)
-            alias_value = registered_aliases[args.apply]
 
-            # Validate the path exists when applying aliases
-            if not validate_path_exists(alias_value):
-                raise ValueError(
-                    f"Path '{alias_value}' referenced by alias '{args.apply}' does not exist. "
-                    "Please ensure the path is valid before applying the alias."
-                )
+            for alias_name in alias_names:
+                # Add angle brackets if not present
+                bracketed_name = f"<{alias_name}>" if not alias_name.startswith("<") else alias_name
 
-            aliases = [(alias_value, f"<{args.apply}>")]
+                if bracketed_name not in registered_aliases:
+                    raise ValueError(f"Alias '{alias_name}' not found in registered aliases")
+                alias_value = registered_aliases[bracketed_name]
+
+                aliases.append((alias_value, bracketed_name))
+        elif hasattr(args, "from_paths") and args.from_paths:
+            if not args.to_paths:
+                raise ValueError("--to PATH is required when using --from")
+            if len(args.from_paths) != len(args.to_paths):
+                raise ValueError("Number of --from and --to arguments must match")
+            aliases = list(zip(args.from_paths, args.to_paths))
 
         object = get_input_object(input_url)
         try:
