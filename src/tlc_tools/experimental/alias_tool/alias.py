@@ -151,7 +151,7 @@ def get_input_object(input_url: Url) -> pa.Table | Table | Run:
     raise ValueError(f"Input file '{input_url}' is not a valid 3LC object.")
 
 
-def find_aliases(column_names: list[str], column: pa.Array) -> set[tuple[str, str]]:
+def list_column_aliases(column_names: list[str], column: pa.Array) -> set[tuple[str, str]]:
     """Find aliases at the start of paths in a column.
 
     Args:
@@ -165,13 +165,13 @@ def find_aliases(column_names: list[str], column: pa.Array) -> set[tuple[str, st
 
     if isinstance(column, pa.ChunkedArray):
         for chunk in column.iterchunks():
-            chunk_aliases = find_aliases(column_names, chunk)
+            chunk_aliases = list_column_aliases(column_names, chunk)
             col_aliases.update(chunk_aliases)
         return col_aliases
 
     if pa.types.is_struct(column.type):
         for field in column.type:
-            sub_aliases = find_aliases(column_names + [field.name], column.field(field.name))
+            sub_aliases = list_column_aliases(column_names + [field.name], column.field(field.name))
             col_aliases.update(sub_aliases)
         return col_aliases
 
@@ -193,7 +193,7 @@ def find_aliases(column_names: list[str], column: pa.Array) -> set[tuple[str, st
     return col_aliases
 
 
-def apply_rewrites(column_names: list[str], column: pa.Array, rewrites: list[tuple[str, str]]) -> pa.Array:
+def rewrite_column_paths(column_names: list[str], column: pa.Array, rewrites: list[tuple[str, str]]) -> pa.Array:
     """Apply path rewrites to a column.
 
     Args:
@@ -207,14 +207,14 @@ def apply_rewrites(column_names: list[str], column: pa.Array, rewrites: list[tup
     if isinstance(column, pa.ChunkedArray):
         chunks = []
         for chunk in column.iterchunks():
-            chunk_col = apply_rewrites(column_names, chunk, rewrites)
+            chunk_col = rewrite_column_paths(column_names, chunk, rewrites)
             chunks.append(chunk_col)
         return pa.chunked_array(chunks, column.type)
 
     if pa.types.is_struct(column.type):
         sub_cols: list[pa.Array] = []
         for field in column.type:
-            sub_col = apply_rewrites(column_names + [field.name], column.field(field.name), rewrites)
+            sub_col = rewrite_column_paths(column_names + [field.name], column.field(field.name), rewrites)
             sub_cols.append(sub_col)
         return pa.StructArray.from_arrays(sub_cols, fields=column.type)
 
@@ -271,9 +271,9 @@ def handle_pa_table(
 
         if rewrite:
             aliases = set()
-            new_col = apply_rewrites([col_name], pa_table[col_name], rewrite)
+            new_col = rewrite_column_paths([col_name], pa_table[col_name], rewrite)
         else:
-            aliases = find_aliases([col_name], pa_table[col_name])
+            aliases = list_column_aliases([col_name], pa_table[col_name])
 
         new_columns[col_name] = new_col
 
