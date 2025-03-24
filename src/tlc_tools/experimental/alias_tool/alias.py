@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import io
+import logging
 import os
 import re
 from pathlib import Path
@@ -15,6 +17,38 @@ from tlc_tools.cli import register_tool
 
 if TYPE_CHECKING:
     from tlc.core import Run, Table, Url
+
+# Configure logger
+logger = logging.getLogger(__name__)
+
+
+def setup_logging(verbosity: int = 0, quiet: bool = False) -> None:
+    """Configure logging for the alias tool.
+
+    Args:
+        verbosity: 0 for default (INFO), 1 for DEBUG
+        quiet: If True, only show WARNING and above
+    """
+    # Create console handler
+    console_handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(message)s")  # Simple format, just the message
+    console_handler.setFormatter(formatter)
+
+    # Set log level based on verbosity/quiet
+    if quiet:
+        level = logging.WARNING
+    elif verbosity > 0:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+
+    # Configure root logger for the alias tool
+    logger.setLevel(level)
+    logger.addHandler(console_handler)
+
+    # Prevent duplicate logging
+    logger.propagate = False
+
 
 _DEFAULT_SEPARATOR = "::"
 _ALIAS_PATTERN = r"<[A-Z][A-Z0-9_]*>"
@@ -88,8 +122,6 @@ def get_input_run(input_url: Url) -> Run:
 
 
 def get_input_parquet(input_url: Url) -> pa.Table:
-    import io
-
     parquet_data = UrlAdapterRegistry.read_binary_content_from_url(input_url)
     if parquet_data[:4] != b"PAR1":
         raise ValueError(f"Input file '{input_url}' is not a Parquet. Header is {(parquet_data[:4]).decode()}")
@@ -229,7 +261,6 @@ def handle_pa_table(
         persist_config: Whether to persist aliases to config
         config_scope: Scope for config persistence ("project" or "global")
     """
-    import io
 
     import tlc
 
@@ -273,13 +304,13 @@ def handle_pa_table(
         # Print found aliases when in list mode (no rewrites)
         if not rewrite and aliases:
             for col_path, alias in sorted(aliases):
-                print(f"Found alias '{alias}' in column '{col_path}'")
+                logger.info(f"Found alias '{alias}' in column '{col_path}' in file '{input_path[-1]}'")
 
     if not new_columns:
         if not rewrite:
-            print("No aliases found.")
+            logger.info(f"No aliases found in file '{input_path[-1]}'")
         else:
-            print("No changes to apply.")
+            logger.info("No changes to apply.")
         return
 
     # In list mode, we're done after printing aliases
@@ -292,10 +323,10 @@ def handle_pa_table(
         alias_value = rewrite[0][0]
         if config_scope == "project":
             tlc.register_project_url_alias(alias_name, alias_value)
-            print(f"Registered project alias '{alias_name}' with value '{alias_value}'")
+            logger.info(f"Registered project alias '{alias_name}' with value '{alias_value}'")
         else:
             tlc.register_url_alias(alias_name, alias_value)
-            print(f"Registered global alias '{alias_name}' with value '{alias_value}'")
+            logger.info(f"Registered global alias '{alias_name}' with value '{alias_value}'")
 
     # Create output table with all columns
     output_pa_table = pa.table(new_columns)
@@ -307,7 +338,7 @@ def handle_pa_table(
         buffer.seek(0)
         UrlAdapterRegistry.write_binary_content_to_url(Url(output_url), buffer.read())
 
-    print(f"Changes written to '{output_url}'")
+    logger.info(f"Changes written to '{output_url}'")
 
 
 def handle_run(
@@ -345,24 +376,6 @@ def handle_table(
     persist_config: bool = False,
     config_scope: str = "project",
 ) -> None:
-    """Handle operations on a tlc.Table object.
-
-    This function works at the tlc.Table level, which wraps the underlying pa.Table.
-    When modifying the parquet file in-place, the tlc.Table object needs to be
-    recreated to see the changes.
-
-    Args:
-        input_path: List of URLs representing the path to this table
-        table: The tlc.Table object to process
-        column: Optional column to process
-        rewrite: List of (old, new) pairs to rewrite
-        inplace: Whether to modify the input file
-        output_url: Where to write the output (required if modifying)
-        create_alias: Whether to create new aliases
-        apply_alias: Whether to apply existing aliases
-        persist_config: Whether to persist aliases to config
-        config_scope: Scope for config persistence ("project" or "global")
-    """
     processed_tables = set()  # Track processed tables to avoid cycles
 
     def process_table_recursive(current_table: Table, current_path: list[Url]) -> None:
@@ -370,30 +383,31 @@ def handle_table(
         if current_table.url in processed_tables:
             return
         current_table.ensure_fully_defined()
+
         processed_tables.add(current_table.url)
 
-        print(f"\nProcessing table: {current_table.url}")
+        logger.debug(f"Processing table: {current_table.url}")
 
         # Process the current table's parquet cache if it exists
         has_cache = current_table.row_cache_populated and current_table.row_cache_url
         is_table_from_parquet = isinstance(current_table, TableFromParquet)
-        print(f"  Has cache: {has_cache}")
-        print(f"  Is TableFromParquet: {is_table_from_parquet}")
+        logger.debug(f"  Has cache: {has_cache}")
+        logger.debug(f"  Is TableFromParquet: {is_table_from_parquet}")
 
         if has_cache or is_table_from_parquet:
             # Get URL of file to process - prefer cache if available
             if has_cache:
                 pq_url = current_table.row_cache_url.to_absolute(current_table.url)
-                print(f"  Using cache URL: {pq_url}")
+                logger.debug(f"  Using cache URL: {pq_url}")
             else:
                 pq_url = current_table.input_url.to_absolute(current_table.url)
-                print(f"  Using input URL: {pq_url}")
+                logger.debug(f"  Using input URL: {pq_url}")
 
             try:
                 # Process the parquet file
                 pa_table = get_input_parquet(pq_url)
                 output = pq_url if inplace else output_url
-                print(f"  Processing parquet with columns: {pa_table.column_names}")
+                logger.debug(f"  Processing parquet with columns: {pa_table.column_names}")
                 handle_pa_table(
                     current_path + [pq_url],
                     pa_table,
@@ -407,18 +421,17 @@ def handle_table(
                     config_scope,
                 )
             except Exception as e:
-                print(f"Warning: Failed to process cache for table {current_table.url}: {e}")
+                logger.warning(f"Failed to process cache for table {current_table.url}: {e}")
 
         # Process parent tables recursively
-
         parent_urls = list(SchemaHelper.object_input_urls(current_table, current_table.schema))
-        print(f"  Parent tables: {parent_urls}")
+        logger.debug(f"  Parent tables: {parent_urls}")
         for parent_url in parent_urls:
             try:
                 parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
                 process_table_recursive(parent_table, current_path + [parent_url])
             except Exception as e:
-                print(f"Warning: Failed to process parent table {parent_url}: {e}")
+                logger.warning(f"Failed to process parent table {parent_url}: {e}")
 
     # Start recursive processing from the input table
     process_table_recursive(table, input_path)
@@ -541,7 +554,27 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         help="Overwrite the input file with the new changes",
     )
 
+    # Verbosity control
+    verbosity_group = parser.add_mutually_exclusive_group()
+    verbosity_group.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase output verbosity (use -v for debug output)",
+    )
+    verbosity_group.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Suppress output except for warnings and errors",
+    )
+
     args = parser.parse_args(tool_args)
+
+    # Setup logging based on verbosity flags
+    setup_logging(verbosity=args.verbose, quiet=args.quiet)
+    logger.debug("Debug logging enabled")
 
     input_path = args.input_path
     input_url = Url(input_path)
@@ -588,7 +621,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             config_scope=args.config_scope,
         )
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
         raise
 
 
