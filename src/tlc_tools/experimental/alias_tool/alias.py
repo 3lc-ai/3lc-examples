@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from tlc.core import Run, SchemaHelper, Table, Url, UrlAdapterRegistry
+from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url, UrlAdapterRegistry
 
 from tlc_tools.cli import register_tool
 
@@ -353,29 +353,15 @@ def handle_run(
     persist_config: bool = False,
     config_scope: str = "project",
 ) -> None:
+    """Should apply aliases to the following:
+    - Input table URLs
+    - Input metric tables
+    - Parameters
+    """
     if not inplace and rewrite:
         raise ValueError("Runs can only be modified inplace.")
 
-    # iterate over input tables and rewrite aliases
-    for input_table_info in run.constants.get("inputs") or []:
-        try:
-            input_table_url = Url(input_table_info["input_table_url"]).to_absolute(run.url)
-            input_table = Table.from_url(input_table_url)
-
-            handle_object(
-                input_path + [input_table_url],
-                input_table,
-                column,
-                rewrite,
-                inplace,
-                output_url,
-                create_alias,
-                apply_alias,
-                persist_config,
-                config_scope,
-            )
-        except Exception as e:
-            print(f"Error: {e}")
+    raise NotImplementedError("Runs are not yet supported.")
 
 
 def handle_table(
@@ -417,21 +403,26 @@ def handle_table(
         processed_tables.add(current_table.url)
 
         # Process the current table's parquet cache if it exists
-        if (current_table.row_cache_populated and current_table.row_cache_url) or (hasattr(current_table, "input_url") and current_table.input_url.exists()):
-            pq_url = (
-                current_table.row_cache_url.to_absolute(current_table.url)
-                if current_table.row_cache_populated and current_table.row_cache_url
-                else current_table.input_url
-            )
+        has_cache = current_table.row_cache_populated and current_table.row_cache_url
+        is_table_from_parquet = isinstance(current_table, TableFromParquet)
+        if has_cache or is_table_from_parquet:
+            # Get URL of file to process - prefer cache if available
+            if has_cache:
+                pq_url = current_table.row_cache_url.to_absolute(current_table.url)
+            else:
+                pq_url = current_table.input_url.to_absolute(current_table.url)
+
             try:
-                object = get_input_object(pq_url)
-                handle_object(
+                # Process the parquet file
+                pa_table = get_input_parquet(pq_url)
+                output = pq_url if inplace else output_url
+                handle_pa_table(
                     current_path + [pq_url],
-                    object,
+                    pa_table,
                     column,
                     rewrite,
                     inplace,
-                    pq_url if inplace else output_url,
+                    output,
                     create_alias,
                     apply_alias,
                     persist_config,
@@ -439,7 +430,6 @@ def handle_table(
                 )
             except Exception as e:
                 print(f"Warning: Failed to process cache for table {current_table.url}: {e}")
-
         # Process parent tables recursively
         for parent_url in SchemaHelper.object_input_urls(current_table, current_table.schema):
             try:
@@ -479,19 +469,6 @@ def handle_object(
         )
     elif isinstance(obj, Run):
         return handle_run(
-            input_path,
-            obj,
-            column,
-            rewrite,
-            inplace,
-            output_url,
-            create_alias,
-            apply_alias,
-            persist_config,
-            config_scope,
-        )
-    elif isinstance(obj, pa.Table):
-        return handle_pa_table(
             input_path,
             obj,
             column,
