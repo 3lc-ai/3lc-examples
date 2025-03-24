@@ -151,70 +151,87 @@ def get_input_object(input_url: Url) -> pa.Table | Table | Run:
     raise ValueError(f"Input file '{input_url}' is not a valid 3LC object.")
 
 
-def handle_parquet_column(
-    column_names: list[str],
-    column: pa.Array,
-    rewrite: list[tuple[str, str]],
-) -> tuple[set[tuple[str, str]], pa.Array]:
-    """Handle operations on a parquet column.
+def find_aliases(column_names: list[str], column: pa.Array) -> set[tuple[str, str]]:
+    """Find aliases at the start of paths in a column.
 
     Args:
         column_names: List of column names (for nested columns)
         column: The column to process
-        rewrite: List of (old, new) pairs to rewrite
 
     Returns:
-        tuple of (set of found aliases, modified column)
+        Set of (column_path, alias) tuples found in the column
     """
     col_aliases: set[tuple[str, str]] = set()
 
     if isinstance(column, pa.ChunkedArray):
+        for chunk in column.iterchunks():
+            chunk_aliases = find_aliases(column_names, chunk)
+            col_aliases.update(chunk_aliases)
+        return col_aliases
+
+    if pa.types.is_struct(column.type):
+        for field in column.type:
+            sub_aliases = find_aliases(column_names + [field.name], column.field(field.name))
+            col_aliases.update(sub_aliases)
+        return col_aliases
+
+    if pa.types.is_string(column.type):
+        for value in column:
+            if value is not None:
+                str_val = value.as_py()
+                if str_val and str_val.startswith("<"):
+                    end = str_val.find(">")
+                    if end > 0:  # Must be at least one character between < and >
+                        potential_alias = str_val[: end + 1]
+                        if (
+                            potential_alias.upper() == potential_alias
+                            and potential_alias[1:-1].replace("_", "").isalnum()
+                            and potential_alias[1].isupper()  # First character after < must be uppercase
+                        ):
+                            col_aliases.add((".".join(column_names), potential_alias))
+
+    return col_aliases
+
+
+def apply_rewrites(column_names: list[str], column: pa.Array, rewrites: list[tuple[str, str]]) -> pa.Array:
+    """Apply path rewrites to a column.
+
+    Args:
+        column_names: List of column names (for nested columns)
+        column: The column to process
+        rewrites: List of (old, new) pairs to rewrite
+
+    Returns:
+        Modified column with rewrites applied
+    """
+    if isinstance(column, pa.ChunkedArray):
         chunks = []
         for chunk in column.iterchunks():
-            chunk_aliases, chunk_col = handle_parquet_column(column_names, chunk, rewrite)
-            col_aliases.update(chunk_aliases)
+            chunk_col = apply_rewrites(column_names, chunk, rewrites)
             chunks.append(chunk_col)
-        return col_aliases, pa.chunked_array(chunks, column.type)
+        return pa.chunked_array(chunks, column.type)
 
     if pa.types.is_struct(column.type):
         sub_cols: list[pa.Array] = []
         for field in column.type:
-            sub_aliases, sub_col = handle_parquet_column(column_names + [field.name], column.field(field.name), rewrite)
-            col_aliases.update(sub_aliases)
+            sub_col = apply_rewrites(column_names + [field.name], column.field(field.name), rewrites)
             sub_cols.append(sub_col)
-        return col_aliases, pa.StructArray.from_arrays(sub_cols, fields=column.type)
+        return pa.StructArray.from_arrays(sub_cols, fields=column.type)
 
     if pa.types.is_string(column.type):
         modified_column = column
-        if rewrite:
-            # Apply rewrites
-            for old, new in rewrite:
-                modified_column = pc.replace_substring(modified_column, old, new)
-                # Check if any changes were made
-                num_modified_rows = pc.sum(pc.invert(pc.equal(modified_column, column))).as_py()
-                if num_modified_rows > 0:
-                    print(
-                        f"Rewrote {num_modified_rows} occurrences of '{old}' to '{new}' "
-                        f"in column '{'.'.join(column_names)}'"
-                    )
-        else:
-            # In list mode, find any strings matching <UPPERCASE_WITH_NUMBERS> at the start of paths
-            for value in column:
-                if value is not None:
-                    str_val = value.as_py()
-                    if str_val and str_val.startswith("<"):
-                        end = str_val.find(">")
-                        if end > 0:  # Must be at least one character between < and >
-                            potential_alias = str_val[: end + 1]
-                            if (
-                                potential_alias.upper() == potential_alias
-                                and potential_alias[1:-1].replace("_", "").isalnum()
-                                and potential_alias[1].isupper()  # First character after < must be uppercase
-                            ):
-                                col_aliases.add((".".join(column_names), potential_alias))
-        return col_aliases, modified_column
+        for old, new in rewrites:
+            modified_column = pc.replace_substring(modified_column, old, new)
+            # Check if any changes were made
+            num_modified_rows = pc.sum(pc.invert(pc.equal(modified_column, column))).as_py()
+            if num_modified_rows > 0:
+                logger.info(
+                    f"Rewrote {num_modified_rows} occurrences of '{old}' to '{new}' "
+                    f"in column '{'.'.join(column_names)}'"
+                )
+        return modified_column
 
-    return col_aliases, column
+    return column
 
 
 def handle_pa_table(
@@ -252,7 +269,12 @@ def handle_pa_table(
             new_columns[col_name] = pa_table[col_name]
             continue
 
-        aliases, new_col = handle_parquet_column([col_name], pa_table[col_name], rewrite)
+        if rewrite:
+            aliases = set()
+            new_col = apply_rewrites([col_name], pa_table[col_name], rewrite)
+        else:
+            aliases = find_aliases([col_name], pa_table[col_name])
+
         new_columns[col_name] = new_col
 
         # Print found aliases when in list mode (no rewrites)

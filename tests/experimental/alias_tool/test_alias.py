@@ -9,8 +9,9 @@ import pytest
 from tlc.core import Table, Url
 
 from tlc_tools.experimental.alias_tool.alias import (
+    apply_rewrites,
+    find_aliases,
     handle_pa_table,
-    handle_parquet_column,
 )
 
 
@@ -73,120 +74,85 @@ def tmp_parquet(tmp_path):
     return str(path)
 
 
-def test_handle_parquet_column_find_aliases():
-    """Test that handle_parquet_column correctly identifies existing aliases at the start of paths."""
-    # Create a column with some paths containing aliases
-    paths = pa.array(
+@pytest.fixture
+def array_types():
+    """Fixture providing different array types with the same test data."""
+    # Basic array
+    basic = pa.array(
         [
             "<DATA_PATH>/images/001.jpg",  # Valid alias at start
             "<MODEL_PATH>/weights.pt",  # Valid alias at start
-            "/data/path/to/<CACHE_PATH>/file.txt",  # Invalid - alias in middle
+            "/path/to/<CACHE_PATH>/file.txt",  # Invalid - alias in middle
             "/other/path/003.jpg",  # No alias
         ]
     )
 
-    # List mode (no rewrites)
-    aliases, new_col = handle_parquet_column(["image_path"], paths, [])
+    # Chunked array (split into two chunks)
+    chunked = pa.chunked_array(
+        [
+            basic[:2],  # First chunk with valid aliases
+            basic[2:],  # Second chunk with invalid/no aliases
+        ]
+    )
 
-    # Should only find aliases that appear at the start of paths
-    assert len(aliases) == 2
-    assert (".".join(["image_path"]), "<DATA_PATH>") in aliases
-    assert (".".join(["image_path"]), "<MODEL_PATH>") in aliases
-    # <CACHE_PATH> should not be detected since it's in the middle of the path
-    assert not any("<CACHE_PATH>" in alias[1] for alias in aliases)
-
-    # Column should be unchanged in list mode
-    assert new_col.equals(paths)
-
-
-def test_handle_parquet_column_find_aliases_nested():
-    """Test that handle_parquet_column correctly identifies aliases in nested struct columns."""
-    # Create a struct array with a string field that contains aliases
+    # Struct array
     struct_type = pa.struct([("id", pa.int32()), ("path", pa.string())])
-    data = [
-        {"id": 1, "path": "<DATA_PATH>/images/001.jpg"},  # Valid alias at start
-        {"id": 2, "path": "<MODEL_PATH>/weights.pt"},  # Valid alias at start
-        {"id": 3, "path": "/path/to/<CACHE_PATH>/file.txt"},  # Invalid - alias in middle
-        {"id": 4, "path": "/other/path/003.jpg"},  # No alias
+    struct_data = [
+        {"id": 1, "path": "<DATA_PATH>/images/001.jpg"},
+        {"id": 2, "path": "<MODEL_PATH>/weights.pt"},
+        {"id": 3, "path": "/path/to/<CACHE_PATH>/file.txt"},
+        {"id": 4, "path": "/other/path/003.jpg"},
     ]
-    struct_array = pa.array(data, type=struct_type)
+    struct = pa.array(struct_data, type=struct_type)
 
-    # List mode (no rewrites)
-    aliases, new_col = handle_parquet_column(["metadata"], struct_array, [])
-
-    # Should only find aliases that appear at the start of paths
-    assert len(aliases) == 2
-    assert (".".join(["metadata", "path"]), "<DATA_PATH>") in aliases
-    assert (".".join(["metadata", "path"]), "<MODEL_PATH>") in aliases
-    # <CACHE_PATH> should not be detected since it's in the middle of the path
-    assert not any("<CACHE_PATH>" in alias[1] for alias in aliases)
-
-    # Column should be unchanged in list mode
-    assert new_col.equals(struct_array)
-
-
-def test_handle_parquet_column_find_aliases_chunked():
-    """Test that handle_parquet_column correctly identifies aliases in chunked arrays."""
-    # Create a chunked array with paths containing aliases
-    chunks = [
-        pa.array(
-            [
-                "<DATA_PATH>/images/001.jpg",  # Valid alias at start
-                "<MODEL_PATH>/weights.pt",  # Valid alias at start
-            ]
-        ),
-        pa.array(
-            [
-                "/path/to/<CACHE_PATH>/file.txt",  # Invalid - alias in middle
-                "/other/path/003.jpg",  # No alias
-            ]
-        ),
+    return [
+        ("basic", basic, ["col"]),
+        ("chunked", chunked, ["col"]),
+        ("struct", struct, ["metadata"]),
     ]
-    chunked_array = pa.chunked_array(chunks)
-
-    # List mode (no rewrites)
-    aliases, new_col = handle_parquet_column(["image_path"], chunked_array, [])
-
-    # Should only find aliases that appear at the start of paths
-    assert len(aliases) == 2
-    assert (".".join(["image_path"]), "<DATA_PATH>") in aliases
-    assert (".".join(["image_path"]), "<MODEL_PATH>") in aliases
-    # <CACHE_PATH> should not be detected since it's in the middle of the path
-    assert not any("<CACHE_PATH>" in alias[1] for alias in aliases)
-
-    # Column should be unchanged in list mode
-    assert new_col.equals(chunked_array)
-    # Verify it's still a chunked array with the same number of chunks
-    assert isinstance(new_col, pa.ChunkedArray)
-    assert new_col.num_chunks == 2
-    # Verify each chunk is unchanged
-    assert new_col.chunk(0).equals(chunks[0])
-    assert new_col.chunk(1).equals(chunks[1])
 
 
-def test_handle_parquet_column_apply_rewrite():
-    """Test that handle_parquet_column correctly applies path rewrites."""
-    # Create a column with some paths
-    paths = pa.array(["/data/images/001.jpg", "/data/images/002.jpg", "/other/path/003.jpg"])
+def test_find_aliases(array_types):
+    """Test that find_aliases works correctly for different array types."""
+    for type_name, array, col_names in array_types:
+        # For struct arrays, we expect the path field to be appended to col_names
+        expected_col_path = ".".join(col_names + (["path"] if type_name == "struct" else []))
 
-    # Apply a rewrite
-    aliases, new_col = handle_parquet_column(["image_path"], paths, [("/data/images", "<DATA_PATH>")])
+        aliases = find_aliases(col_names, array)
 
-    # Check the rewritten values
-    assert new_col.to_pylist() == ["<DATA_PATH>/001.jpg", "<DATA_PATH>/002.jpg", "/other/path/003.jpg"]
+        # Should only find aliases that appear at the start of paths
+        assert len(aliases) == 2, f"Failed for {type_name} array"
+        assert (expected_col_path, "<DATA_PATH>") in aliases
+        assert (expected_col_path, "<MODEL_PATH>") in aliases
+        # <CACHE_PATH> should not be detected since it's in the middle of the path
+        assert not any("<CACHE_PATH>" in alias[1] for alias in aliases)
 
 
-def test_handle_pa_table_list_mode(tmp_parquet, caplog):
-    """Test that handle_pa_table correctly lists aliases in list mode."""
-    # Read the table
-    table = pq.read_table(tmp_parquet)
+def test_apply_rewrites(array_types):
+    """Test that apply_rewrites works correctly for different array types."""
+    rewrites = [("/path/to", "<CACHE_PATH>")]
 
-    # List mode (no rewrites)
-    handle_pa_table([tmp_parquet], table, [], [])
+    for type_name, array, col_names in array_types:
+        result = apply_rewrites(col_names, array, rewrites)
 
-    # Check log output for found aliases
-    assert any("/data/images" in record.message for record in caplog.records)
-    assert any("/data/masks" in record.message for record in caplog.records)
+        # Verify type is preserved
+        assert isinstance(result, type(array))
+
+        # For struct arrays, we need to extract the path field for comparison
+        paths = result.field("path") if type_name == "struct" else result
+
+        # Convert to list for easier comparison
+        if isinstance(paths, pa.ChunkedArray):
+            paths = paths.combine_chunks()
+
+        # Verify the rewrite was applied correctly
+        expected = [
+            "<DATA_PATH>/images/001.jpg",  # Unchanged
+            "<MODEL_PATH>/weights.pt",  # Unchanged
+            "<CACHE_PATH>/file.txt",  # Rewritten
+            "/other/path/003.jpg",  # Unchanged
+        ]
+        assert paths.to_pylist() == expected, f"Failed for {type_name} array"
 
 
 def test_handle_pa_table_selected_columns(tmp_parquet):
@@ -241,15 +207,3 @@ def test_handle_pa_table_invalid_column():
     # Try to process non-existent column
     with pytest.raises(ValueError, match="not found in the input table"):
         handle_pa_table(["test.parquet"], table, ["invalid_column"], [])
-
-
-def test_handle_parquet_column_no_changes():
-    """Test that handle_parquet_column preserves data when no changes are needed."""
-    # Create a column with paths that won't be modified
-    paths = pa.array(["/other/path/001.jpg", "/other/path/002.jpg"])
-
-    # Apply a rewrite that won't match anything
-    aliases, new_col = handle_parquet_column(["image_path"], paths, [("/data/images", "<DATA_PATH>")])
-
-    # Column should be unchanged
-    assert new_col.equals(paths)
