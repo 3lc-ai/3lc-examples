@@ -4,27 +4,24 @@
 
 ### Core Functionality
 - Implemented alias detection and listing
-- Implemented alias creation and application
-- Added support for inplace modifications
-- Added column-specific processing
-- Added config persistence (project/global scope)
+- Implemented alias application
+- Simplified to in-place modifications only
+- Added support for multiple column processing
+- Added parent table traversal control
 
 ### Command Line Interface
 ```bash
 # List aliases (default behavior)
-3lc alias path/to/table
+3lc alias replace path/to/table
 
-# Create new alias and replace paths
-3lc alias path/to/table --create-alias "<DATA_PATH>::/data/project" --inplace
+# Apply existing alias (in-place)
+3lc alias replace path/to/table --apply DATA_PATH
 
-# Apply existing alias
-3lc alias path/to/table --apply-alias "DATA_PATH" --inplace
+# Process specific columns
+3lc alias replace path/to/table --columns "image_path,mask_path"
 
-# Process specific column
-3lc alias path/to/table --column "image_path" --create-alias "<DATA_PATH>::/data/project" --inplace
-
-# Persist to config
-3lc alias path/to/table --create-alias "<DATA_PATH>::/data/project" --persist-config
+# Skip processing parent tables
+3lc alias replace path/to/table --no-process-parents
 ```
 
 ### Test Coverage
@@ -32,30 +29,30 @@
 - Tests for alias parsing
 - Tests for table handling
 - Tests for parquet operations
-- Tests for config persistence
 - Tests for column-specific processing
-- Tests for inplace modifications
+- Tests for in-place modifications
 
 ## Next Steps
 
 ### High Priority
-1. Add error handling tests for:
+1. Add backup mechanism for in-place modifications:
+   - Create backups of parquet files before modification
+   - Delete backups only after successful completion
+   - Restore from backup on failure
+
+2. Add error handling tests for:
    - Invalid alias formats
    - Missing files
    - Permission issues
    - Invalid column names
    - Circular dependencies
+   - Deep lineage with mixed cache/input parquets
 
-2. Add CLI tests to verify:
+3. Add CLI tests to verify:
    - Argument parsing
    - Help messages
    - Error messages
    - Output formatting
-
-3. Add run-specific tests for:
-   - Run input table handling
-   - Run output table handling
-   - Run constants handling
 
 ### Medium Priority
 1. Enhance output formatting:
@@ -66,7 +63,7 @@
 2. Add validation:
    - Alias name format validation
    - Path existence checks
-   - Config file validation
+   - Parent table processing controls
 
 3. Add documentation:
    - Usage examples
@@ -76,21 +73,22 @@
 ### Low Priority
 1. Performance optimizations:
    - Batch processing for large tables
-   - Parallel processing for multiple tables
    - Memory usage optimization
 
 2. Additional features:
    - Dry run mode
-   - Backup before modification
    - Alias validation mode
 
 ## Known Issues
-1. Need to handle deep lineage without parquet caches
+1. Need to handle deep lineage with mixed cache/input parquets
 2. Need to improve error messages for missing aliases
-3. Need to handle multiple root tables more efficiently
+3. Need to handle backup/restore for in-place modifications
 
 ## Technical Notes
 - Uses pyarrow for parquet operations
 - Follows 3LC's URL handling patterns
 - Maintains table lineage during modifications
-- Preserves original data structure 
+- All modifications are in-place
+- Distinguishes between row cache files (optional) and input parquet files (required)
+- Supports multiple column processing
+- Parent table processing can be controlled 

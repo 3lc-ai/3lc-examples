@@ -237,7 +237,6 @@ def handle_pa_table(
     pa_table: pa.Table,
     selected_columns: list[str],
     rewrite: list[tuple[str, str]],
-    output_url: Url,
 ) -> None:
     """Handle operations on a pyarrow Table directly.
 
@@ -249,7 +248,6 @@ def handle_pa_table(
         pa_table: The pyarrow Table to process
         selected_columns: List of columns to process. If empty, process all columns.
         rewrite: List of (old, new) pairs to rewrite
-        output_url: Where to write the output
     """
     # Validate selected columns exist if specified
     if selected_columns:
@@ -291,14 +289,14 @@ def handle_pa_table(
     # Create output table with all columns
     output_pa_table = pa.table(new_columns)
 
-    # write the output table to the output path
+    # write the output table back to the input path
     with io.BytesIO() as buffer, pq.ParquetWriter(buffer, output_pa_table.schema) as pq_writer:
         pq_writer.write_table(output_pa_table)
         pq_writer.close()
         buffer.seek(0)
-        UrlAdapterRegistry.write_binary_content_to_url(output_url, buffer.read())
+        UrlAdapterRegistry.write_binary_content_to_url(input_path[-1], buffer.read())
 
-    logger.info(f"Changes written to '{output_url}'")
+    logger.info(f"Changes written to '{input_path[-1]}'")
 
 
 def handle_run(
@@ -329,6 +327,7 @@ def handle_table(
     table: Table,
     columns: list[str],
     rewrite: list[tuple[str, str]],
+    process_parents: bool = True,
 ) -> None:
     """Process a Table object, handling both the table and its lineage.
 
@@ -337,7 +336,7 @@ def handle_table(
         table: The Table object to process
         columns: List of columns to process. If empty, process all columns.
         rewrite: List of (old, new) pairs to rewrite
-        output_url: Where to write the output
+        process_parents: Whether to process parent tables recursively
     """
     processed_tables = set()  # Track processed tables to avoid cycles
 
@@ -375,20 +374,20 @@ def handle_table(
                     pa_table,
                     columns,
                     rewrite,
-                    pq_url,
                 )
             except Exception as e:
                 logger.warning(f"Failed to process cache for table {current_table.url}: {e}")
 
-        # Process parent tables recursively
-        parent_urls = list(SchemaHelper.object_input_urls(current_table, current_table.schema))
-        logger.debug(f"  Parent tables: {parent_urls}")
-        for parent_url in parent_urls:
-            try:
-                parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
-                process_table_recursive(parent_table, current_path + [parent_url])
-            except Exception as e:
-                logger.warning(f"Failed to process parent table {parent_url}: {e}")
+        # Process parent tables recursively if enabled
+        if process_parents:
+            parent_urls = list(SchemaHelper.object_input_urls(current_table, current_table.schema))
+            logger.debug(f"  Parent tables: {parent_urls}")
+            for parent_url in parent_urls:
+                try:
+                    parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
+                    process_table_recursive(parent_table, current_path + [parent_url])
+                except Exception as e:
+                    logger.warning(f"Failed to process parent table {parent_url}: {e}")
 
     # Start recursive processing from the input table
     process_table_recursive(table, input_path)
@@ -399,7 +398,7 @@ def handle_object(
     obj: pa.Table | Table | Run,
     columns: list[str],
     rewrite: list[tuple[str, str]],
-    output_url: Url,
+    process_parents: bool = True,
 ) -> None:
     """Process any 3LC object, applying the specified rewrites.
 
@@ -408,7 +407,7 @@ def handle_object(
         obj: The object to process (Table, Run, or pa.Table)
         columns: List of columns to process. If empty, process all columns.
         rewrite: List of (old, new) pairs to rewrite
-        output_url: Where to write the output
+        process_parents: Whether to process parent tables recursively
     """
     if isinstance(obj, Table):
         return handle_table(
@@ -416,6 +415,7 @@ def handle_object(
             obj,
             columns,
             rewrite,
+            process_parents,
         )
     elif isinstance(obj, Run):
         raise NotImplementedError("Runs are not yet supported.")
@@ -425,7 +425,6 @@ def handle_object(
             obj,
             columns,
             rewrite,
-            output_url,
         )
     else:
         raise ValueError("Input is not a valid 3LC object.")
@@ -486,24 +485,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         help="Apply an existing alias to matching paths",
     )
 
-    # Manage command - for creating/updating aliases
-    manage_parser = subparsers.add_parser("manage", help="Create and manage aliases")
-    manage_parser.add_argument(
-        "alias_def",
-        help=f"Alias definition in format <ALIAS_NAME>{_DEFAULT_SEPARATOR}/path/to/value",
-    )
-    manage_parser.add_argument(
-        "--separator",
-        default=_DEFAULT_SEPARATOR,
-        help=f"Separator to use in alias definition (default: {_DEFAULT_SEPARATOR})",
-    )
-    manage_parser.add_argument(
-        "--scope",
-        choices=["project", "global"],
-        default="project",
-        help="Scope for the alias (default: project)",
-    )
-
     args = parser.parse_args(tool_args)
 
     # Setup logging based on verbosity flags
@@ -546,7 +527,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
                 object,
                 columns=columns,
                 rewrite=aliases,
-                output_url=input_url,
+                process_parents=not args.no_process_parents,
             )
         except Exception as e:
             logger.error(f"Error: {e}")
