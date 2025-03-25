@@ -122,5 +122,5 @@ def test_main_no_process_parents(mock_handle_object, mock_get_input):
 
     # Should call handle_object with process_parents=False
     mock_handle_object.assert_called_once()
-    _, _, _, _, kwargs = mock_handle_object.call_args
+    _, kwargs = mock_handle_object.call_args
     assert kwargs.get("process_parents") is False
