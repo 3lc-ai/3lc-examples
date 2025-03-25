@@ -10,6 +10,7 @@ import pytest
 from tlc.core import EditedTable, ObjectRegistry, Table, TableFromPydict, Url
 
 from tlc_tools.experimental.alias_tool.alias import (
+    handle_list_command,
     handle_pa_table,
     handle_tlc_table,
     list_column_aliases,
@@ -227,8 +228,8 @@ def array_types(request):
     return array_type, array, col_names, get_paths
 
 
-def test_list_column_aliases(array_types):
-    """Test that list_column_aliases works correctly for different array types."""
+def test_list_aliases_in_column(array_types):
+    """Test that list_aliases_in_table works correctly for different array types."""
     array_type, array, col_names, _ = array_types
 
     # For struct arrays, we expect the path field to be appended to col_names
@@ -238,10 +239,102 @@ def test_list_column_aliases(array_types):
 
     # Should only find aliases that appear at the start of paths
     assert len(aliases) == 2, f"Failed for {array_type} array"
-    assert (expected_col_path, "<DATA_PATH>") in aliases
-    assert (expected_col_path, "<MODEL_PATH>") in aliases
+    assert any(alias[0] == expected_col_path and alias[1] == "<DATA_PATH>" for alias in aliases)
+    assert any(alias[0] == expected_col_path and alias[1] == "<MODEL_PATH>" for alias in aliases)
     # <CACHE_PATH> should not be detected since it's in the middle of the path
     assert not any("<CACHE_PATH>" in alias[1] for alias in aliases)
+
+
+def test_handle_list_command(tmp_parquet):
+    """Test that handle_list_command correctly identifies aliases."""
+    # Create a table with some aliases
+    table = pa.table(
+        {
+            "col1": [
+                "<DATA_PATH>/file.txt",
+                "<MODEL_PATH>/model.pt",
+                "<DATA_PATH>/other.txt",  # Added second instance of DATA_PATH
+            ],
+            "col2": [
+                "path/to/<CACHE>/file.txt",  # Invalid - alias in middle
+                "normal/path.txt",
+                "another/path.txt",
+            ],
+            "metadata": pa.array(
+                [
+                    {"id": 1, "path": "<META_PATH>/meta.json"},
+                    {"id": 2, "path": "<META_PATH>/other.json"},  # Added second instance of META_PATH
+                    {"id": 3, "path": "/another/path.json"},
+                ],
+                type=pa.struct([("id", pa.int32()), ("path", pa.string())]),
+            ),
+        }
+    )
+
+    with patch("tlc_tools.experimental.alias_tool.alias.logger") as mock_logger:
+        handle_list_command([Url(tmp_parquet)], table, [])
+
+        # Verify correct aliases were found and logged
+        found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
+        assert any("Found alias '<DATA_PATH>' in column 'col1'" in msg for msg in found_aliases)
+        assert any("Found alias '<MODEL_PATH>' in column 'col1'" in msg for msg in found_aliases)
+        assert any("Found alias '<META_PATH>' in column 'metadata.path'" in msg for msg in found_aliases)
+        assert not any("<CACHE>" in msg for msg in found_aliases)
+
+
+def test_handle_list_command_selected_columns(tmp_parquet):
+    """Test that handle_list_command respects column selection."""
+    table = pa.table(
+        {
+            "col1": ["<DATA_PATH>/file.txt"],
+            "col2": ["<MODEL_PATH>/model.pt"],
+        }
+    )
+
+    with patch("tlc_tools.experimental.alias_tool.alias.logger") as mock_logger:
+        handle_list_command([Url(tmp_parquet)], table, ["col1"])
+
+        # Verify only aliases from selected column were found
+        found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
+        assert any("<DATA_PATH>" in msg for msg in found_aliases)
+        assert not any("<MODEL_PATH>" in msg for msg in found_aliases)
+
+
+def test_handle_list_command_no_aliases(tmp_parquet):
+    """Test that handle_list_command handles case with no aliases."""
+    table = pa.table(
+        {
+            "col1": ["path/to/file.txt"],
+            "col2": ["other/path/file.txt"],
+        }
+    )
+
+    with patch("tlc_tools.experimental.alias_tool.alias.logger") as mock_logger:
+        handle_list_command([Url(tmp_parquet)], table, [])
+
+        # Verify "no aliases found" message was logged
+        mock_logger.info.assert_called_once_with(f"No aliases found in file '{tmp_parquet.replace('\\', '/')}'")
+
+
+def test_handle_pa_table_selected_columns(tmp_parquet):
+    """Test that handle_pa_table respects column selection."""
+    # Read the table
+    table = pq.read_table(tmp_parquet)
+
+    # Process only image_path column
+    handle_pa_table([Url(tmp_parquet)], table, ["image_path"], [("/data/images", "<DATA_PATH>")])
+
+    # Read back and verify
+    result = pq.read_table(tmp_parquet)
+
+    # image_path should be modified
+    assert "<DATA_PATH>" in result.column("image_path")[0].as_py()
+
+    # mask_path should be unchanged
+    assert "/data/masks" in result.column("mask_path")[0].as_py()
+
+    # label should be unchanged
+    assert result.column("label").equals(table.column("label"))
 
 
 def test_rewrite_column_paths(array_types):
@@ -265,27 +358,6 @@ def test_rewrite_column_paths(array_types):
         "/other/path/003.jpg",  # Unchanged
     ]
     assert paths.to_pylist() == expected, f"Failed for {array_type} array"
-
-
-def test_handle_pa_table_selected_columns(tmp_parquet):
-    """Test that handle_pa_table respects column selection."""
-    # Read the table
-    table = pq.read_table(tmp_parquet)
-
-    # Process only image_path column
-    handle_pa_table([Url(tmp_parquet)], table, ["image_path"], [("/data/images", "<DATA_PATH>")])
-
-    # Read back and verify
-    result = pq.read_table(tmp_parquet)
-
-    # image_path should be modified
-    assert "<DATA_PATH>" in result.column("image_path")[0].as_py()
-
-    # mask_path should be unchanged
-    assert "/data/masks" in result.column("mask_path")[0].as_py()
-
-    # label should be unchanged
-    assert result.column("label").equals(table.column("label"))
 
 
 def test_handle_pa_table_multiple_rewrites(tmp_parquet):
