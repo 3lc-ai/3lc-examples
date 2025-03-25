@@ -7,10 +7,11 @@ from unittest.mock import patch
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from tlc.core import Table, Url
+from tlc.core import ObjectRegistry, Table, Url
 
 from tlc_tools.experimental.alias_tool.alias import (
     handle_pa_table,
+    handle_tlc_table,
     list_column_aliases,
     rewrite_column_paths,
 )
@@ -36,13 +37,25 @@ def sample_table(tmp_path: Path) -> Generator[Table, None, None]:
         "image_path": [
             "/data/project/images/001.jpg",
             "/data/project/images/002.jpg",
-            "/data/project/images/003.jpg",
+            "<DATA_PATH>/images/003.jpg",
+            "s3://bucket/images/004.jpg",
         ],
         "mask_path": [
             "/data/project/masks/001.png",
             "/data/project/masks/002.png",
-            "/data/project/masks/003.png",
+            "<MASK_PATH>/003.png",
+            "s3://bucket/masks/004.png",
         ],
+        "metadata": pa.array(
+            [
+                {"id": 1, "path": "/data/project/meta/001.json", "type": "annotation"},
+                {"id": 2, "path": "<META_PATH>/002.json", "type": "annotation"},
+                {"id": 3, "path": "/path/to/<CACHE_PATH>/003.json", "type": "cache"},
+                {"id": 4, "path": "s3://bucket/meta/004.json", "type": "annotation"},
+            ],
+            type=pa.struct([("id", pa.int32()), ("path", pa.string()), ("type", pa.string())]),
+        ),
+        "label": [1, 2, 3, 4],  # Non-string column to ignore
     }
     # Create the underlying pa.Table
     pa_table = pa.Table.from_pydict(data)
@@ -50,7 +63,12 @@ def sample_table(tmp_path: Path) -> Generator[Table, None, None]:
     pq.write_table(pa_table, parquet_path)
 
     # Create a tlc.Table object that wraps the parquet file
-    table = Table.from_parquet(Url(str(parquet_path)), if_exists="raise")
+    table = Table.from_parquet(
+        Url(str(parquet_path)),
+        if_exists="raise",
+        project_name=TEST_ALIAS_PROJECT_NAME,
+        dataset_name=TEST_ALIAS_DATASET_NAME,
+    )
     table.ensure_fully_defined()
     yield table
 
@@ -239,13 +257,55 @@ def test_handle_pa_table_no_rewrites_to_apply():
         mock_write.assert_not_called()
 
 
-def test_handle_tlc_table_basic(sample_table):
+def test_handle_tlc_table_basic(sample_table: Table) -> None:
     """Test basic path rewriting in a TLC table.
     Should verify:
     - Basic path rewriting works on the main table
     - Changes are written to the parquet file
     - The table object can be reloaded with the changes
     """
+    rewrites = [
+        ("/data/project", "<PROJECT_PATH>"),  # Affects basic paths in image_path and mask_path
+        ("s3://bucket", "<BUCKET_PATH>"),  # Affects cloud storage paths in all columns
+        ("<META_PATH>", "/data/metadata"),  # Affects existing alias in metadata.path
+    ]
+
+    handle_tlc_table(
+        [sample_table.url],
+        sample_table,
+        [],
+        rewrites,
+    )
+    ObjectRegistry.drop_cache()
+    reloaded_table = Table.from_url(sample_table.url)
+
+    # Check that the table was modified
+    image_column = reloaded_table.get_column("image_path")
+    assert image_column.to_pylist() == [
+        "<PROJECT_PATH>/images/001.jpg",
+        "<PROJECT_PATH>/images/002.jpg",
+        "<DATA_PATH>/images/003.jpg",
+        "<BUCKET_PATH>/images/004.jpg",
+    ]
+
+    mask_column = reloaded_table.get_column("mask_path")
+    assert mask_column.to_pylist() == [
+        "<PROJECT_PATH>/masks/001.png",
+        "<PROJECT_PATH>/masks/002.png",
+        "<MASK_PATH>/003.png",
+        "<BUCKET_PATH>/masks/004.png",
+    ]
+
+    metadata_column = reloaded_table.get_column("metadata")
+    assert metadata_column.to_pylist() == [
+        {"id": 1, "path": "<PROJECT_PATH>/meta/001.json", "type": "annotation"},
+        {"id": 2, "path": "/data/metadata/002.json", "type": "annotation"},
+        {"id": 3, "path": "/path/to/<CACHE_PATH>/003.json", "type": "cache"},
+        {"id": 4, "path": "<BUCKET_PATH>/meta/004.json", "type": "annotation"},
+    ]
+
+    label_column = reloaded_table.get_column("label")
+    assert label_column.to_pylist() == [1, 2, 3, 4]
 
 
 def test_handle_tlc_table_with_cache(sample_table):
@@ -263,14 +323,6 @@ def test_handle_tlc_table_parent_processing(sample_table_with_parent):
     - Changes are applied to both child and parent tables
     - Parent table changes are visible when reloading
     - With no_process_parents=True, only child table is modified
-    """
-
-
-def test_handle_tlc_table_cycle_prevention():
-    """Test that circular references in table lineage are handled.
-    Should verify:
-    - Tables are only processed once even if referenced multiple times
-    - No infinite recursion occurs with circular references
     """
 
 
