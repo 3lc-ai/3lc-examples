@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from tlc.core import ObjectRegistry, Table, Url
+from tlc.core import EditedTable, ObjectRegistry, Table, TableFromPydict, Url
 
 from tlc_tools.experimental.alias_tool.alias import (
     handle_pa_table,
@@ -77,6 +77,51 @@ def sample_table(tmp_path: Path) -> Generator[Table, None, None]:
 
     # Delete the tlc.Table object
     table.url.delete()
+
+
+@pytest.fixture
+def sample_table_with_parent(tmp_path: Path) -> Generator[Table, None, None]:
+    """Create a sample table with a parent table."""
+    # Create a parent table
+    parent_table = Table.from_dict(
+        {
+            "image_path": ["/data/images/001.jpg", "/data/images/002.jpg", "/other/path/003.jpg"],
+            "mask_path": ["/data/masks/001.png", "/data/masks/002.png", "/data/masks/003.png"],
+            "label": [1, 2, 3],  # Non-string column should be ignored
+        },
+        project_name=TEST_ALIAS_PROJECT_NAME,
+        dataset_name=TEST_ALIAS_DATASET_NAME,
+        table_name="parent_table",
+        if_exists="raise",
+    )
+    parent_table.ensure_fully_defined()
+
+    # Create a child table with a reference to the parent table
+    child_table_url = Url.create_table_url(
+        "child_table",
+        dataset_name=TEST_ALIAS_DATASET_NAME,
+        project_name=TEST_ALIAS_PROJECT_NAME,
+    )
+    assert not child_table_url.exists()
+
+    child_table = EditedTable(
+        url=child_table_url,
+        input_table_url=parent_table.url,
+        edits={
+            "image_path": {
+                "runs_and_values": [[0], "/data/images/007.jpg"],
+            },
+        },
+    )
+    child_table.ensure_fully_defined()
+
+    yield child_table
+
+    # Delete the child table
+    child_table.url.delete()
+
+    # Delete the parent table
+    parent_table.url.delete()
 
 
 @pytest.fixture
@@ -308,16 +353,42 @@ def test_handle_tlc_table_basic(sample_table: Table) -> None:
     assert label_column.to_pylist() == [1, 2, 3, 4]
 
 
-def test_handle_tlc_table_with_cache(sample_table):
-    """Test handling a table with a populated cache.
+def test_handle_tlc_table_selected_columns(sample_table: Table) -> None:
+    """Test processing only specific column.
     Should verify:
-    - Changes are applied to the cache file when it exists
-    - Original parquet file remains unchanged when cache exists
-    - Changes are visible when reloading the table
+    - Only specified column is modified
+    - Other columns remain unchanged
     """
+    rewrites = [("/data/project", "<PROJECT_PATH>")]
+
+    initial_mask_path = sample_table.get_column("mask_path")
+    initial_metadata = sample_table.get_column("metadata")
+    initial_label = sample_table.get_column("label")
+
+    handle_tlc_table(
+        [sample_table.url],
+        sample_table,
+        ["image_path"],
+        rewrites,
+    )
+    ObjectRegistry.drop_cache()
+    reloaded_table = Table.from_url(sample_table.url)
+
+    # Check that only image_path was modified
+    assert reloaded_table.get_column("image_path").to_pylist() == [
+        "<PROJECT_PATH>/images/001.jpg",
+        "<PROJECT_PATH>/images/002.jpg",
+        "<DATA_PATH>/images/003.jpg",
+        "s3://bucket/images/004.jpg",
+    ]
+
+    # Check that mask_path, metadata, and label remain unchanged
+    assert reloaded_table.get_column("mask_path").equals(initial_mask_path)
+    assert reloaded_table.get_column("metadata").equals(initial_metadata)
+    assert reloaded_table.get_column("label").equals(initial_label)
 
 
-def test_handle_tlc_table_parent_processing(sample_table_with_parent):
+def test_handle_tlc_table_parent_processing(sample_table_with_parent: Table) -> None:
     """Test recursive processing of parent tables.
     Should verify:
     - Changes are applied to both child and parent tables
@@ -325,14 +396,26 @@ def test_handle_tlc_table_parent_processing(sample_table_with_parent):
     - With no_process_parents=True, only child table is modified
     """
 
+    handle_tlc_table(
+        [sample_table_with_parent.url],
+        sample_table_with_parent,
+        [],
+        [("/data/images", "<DATA_PATH>"), ("/data/masks", "<MASK_PATH>")],
+    )
 
-def test_handle_tlc_table_selected_columns(sample_table):
-    """Test processing only specific columns.
-    Should verify:
-    - Only specified columns are modified
-    - Other columns remain unchanged
-    - Works with both cache and direct parquet files
-    """
+    ObjectRegistry.drop_cache()
+    reloaded_table = Table.from_url(sample_table_with_parent.url)
+    # Check that both tables were modified
+
+    assert reloaded_table[0]["image_path"] == "/data/images/007.jpg"
+    assert reloaded_table[0]["mask_path"] == "<MASK_PATH>/001.png"
+
+    assert reloaded_table[1]["image_path"] == "<DATA_PATH>/002.jpg"
+    assert reloaded_table[1]["mask_path"] == "<MASK_PATH>/002.png"
+
+    parent_table = reloaded_table.input_table_url.object
+    assert isinstance(parent_table, TableFromPydict)
+    # TODO: continue asserting about parent modifications
 
 
 def test_handle_tlc_table_error_handling():
