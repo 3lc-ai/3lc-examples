@@ -541,3 +541,75 @@ def test_handle_tlc_table_error_handling():
     - Inaccessible parent tables don't break processing
     - Corrupted parquet files are handled gracefully
     """
+
+
+def test_handle_pa_table_no_backup_when_no_changes(mocker):
+    """Test that no backup is created when no changes are made."""
+    table = pa.table(
+        {
+            "col1": ["path/to/file.txt", "other/path/file.txt"],
+        }
+    )
+
+    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.alias.backup_parquet")
+    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
+
+    # Process with rewrites that won't affect anything
+    handle_pa_table([Url("test.parquet")], table, [], [("/nonexistent", "<ALIAS>")])
+
+    # Verify no backup was created and no write attempted
+    mock_backup.assert_not_called()
+    mock_write.assert_not_called()
+
+
+def test_handle_pa_table_backup_and_restore_on_write_error(mocker):
+    """Test that backup is created and restored when write fails."""
+    table = pa.table(
+        {
+            "col1": ["/data/file.txt", "/data/other.txt"],
+        }
+    )
+
+    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.alias.backup_parquet")
+    mock_backup.return_value = Url("test.parquet.backup")
+
+    mock_restore = mocker.patch("tlc_tools.experimental.alias_tool.alias.restore_from_backup")
+
+    # Make write fail
+    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write.side_effect = OSError("Write failed")
+
+    with pytest.raises(OSError, match="Write failed"):
+        handle_pa_table(
+            [Url("test.parquet")],
+            table,
+            [],
+            [("/data", "<DATA>")],  # This will cause changes
+        )
+
+    # Verify backup was created and restore was attempted
+    mock_backup.assert_called_once()
+    mock_restore.assert_called_once_with(Url("test.parquet.backup"), Url("test.parquet"))
+
+
+def test_handle_pa_table_successful_backup_cleanup(mocker):
+    """Test that backup is created and cleaned up after successful write."""
+    table = pa.table(
+        {
+            "col1": ["/data/file.txt", "/data/other.txt"],
+        }
+    )
+
+    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.alias.backup_parquet")
+    mock_backup.return_value = Url("test.parquet.backup")
+
+    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_cleanup = mocker.patch("tlc.core.Url.delete")
+
+    # Process with changes that will require backup
+    handle_pa_table([Url("test.parquet")], table, [], [("/data", "<DATA>")])
+
+    # Verify backup was created, write succeeded, and cleanup was attempted
+    mock_backup.assert_called_once()
+    mock_write.assert_called_once()
+    mock_cleanup.assert_called_once()
