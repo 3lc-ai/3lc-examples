@@ -80,7 +80,7 @@ def sample_table(tmp_path: Path) -> Generator[Table, None, None]:
 
 
 @pytest.fixture
-def sample_table_with_parent(tmp_path: Path) -> Generator[Table, None, None]:
+def sample_table_with_parent() -> Generator[Table, None, None]:
     """Create a sample table with a parent table."""
     # Create a parent table
     parent_table = Table.from_dict(
@@ -122,6 +122,44 @@ def sample_table_with_parent(tmp_path: Path) -> Generator[Table, None, None]:
 
     # Delete the parent table
     parent_table.url.delete()
+
+
+@pytest.fixture
+def sample_table_with_pseudo_parent() -> Generator[Table, None, None]:
+    """Create a sample table with a pseudo parent table."""
+    # Create a pseudo parent table
+    pseudo_parent_table = Table.from_dict(
+        {
+            "image_path": ["/data/images/001.jpg", "/data/images/002.jpg", "/other/path/003.jpg"],
+            "mask_path": ["/data/masks/001.png", "/data/masks/002.png", "/data/masks/003.png"],
+            "label": [1, 2, 3],  # Non-string column should be ignored
+        },
+        project_name=TEST_ALIAS_PROJECT_NAME,
+        dataset_name=TEST_ALIAS_DATASET_NAME,
+        table_name="pseudo_parent_table",
+        if_exists="raise",
+    )
+    pseudo_parent_table.ensure_fully_defined()
+
+    child_table = Table.from_dict(
+        {
+            "other_path": ["/other/path/001.jpg", "/data/images/002.jpg"],
+        },
+        project_name=TEST_ALIAS_PROJECT_NAME,
+        dataset_name=TEST_ALIAS_DATASET_NAME,
+        table_name="child_table",
+        if_exists="raise",
+        input_tables=[pseudo_parent_table.url],
+    )
+    child_table.ensure_fully_defined()
+
+    yield child_table
+
+    # Delete the child table
+    child_table.url.delete()
+
+    # Delete the pseudo parent table
+    pseudo_parent_table.url.delete()
 
 
 @pytest.fixture
@@ -401,21 +439,99 @@ def test_handle_tlc_table_parent_processing(sample_table_with_parent: Table) -> 
         sample_table_with_parent,
         [],
         [("/data/images", "<DATA_PATH>"), ("/data/masks", "<MASK_PATH>")],
+        process_parents=True,  # the default
     )
 
     ObjectRegistry.drop_cache()
-    reloaded_table = Table.from_url(sample_table_with_parent.url)
-    # Check that both tables were modified
 
+    # Check that the child table was modified
+    reloaded_table = Table.from_url(sample_table_with_parent.url)
     assert reloaded_table[0]["image_path"] == "/data/images/007.jpg"
     assert reloaded_table[0]["mask_path"] == "<MASK_PATH>/001.png"
 
     assert reloaded_table[1]["image_path"] == "<DATA_PATH>/002.jpg"
     assert reloaded_table[1]["mask_path"] == "<MASK_PATH>/002.png"
 
+    # Check that the parent table was modified
     parent_table = reloaded_table.input_table_url.object
     assert isinstance(parent_table, TableFromPydict)
-    # TODO: continue asserting about parent modifications
+    assert parent_table.get_column("image_path").to_pylist() == [
+        "<DATA_PATH>/001.jpg",
+        "<DATA_PATH>/002.jpg",
+        "/other/path/003.jpg",
+    ]
+    assert parent_table.get_column("mask_path").to_pylist() == [
+        "<MASK_PATH>/001.png",
+        "<MASK_PATH>/002.png",
+        "<MASK_PATH>/003.png",
+    ]
+
+
+def test_handle_tlc_table_no_process_parents(sample_table_with_parent: Table) -> None:
+    """Test that parent tables are not processed when no_process_parents is True."""
+    handle_tlc_table(
+        [sample_table_with_parent.url],
+        sample_table_with_parent,
+        [],
+        [],
+        process_parents=False,
+    )
+
+    ObjectRegistry.drop_cache()
+
+    # Check that the child table was modified
+    reloaded_table = Table.from_url(sample_table_with_parent.url)
+    assert reloaded_table[0]["image_path"] == "/data/images/007.jpg"
+    assert reloaded_table[0]["mask_path"] == "<MASK_PATH>/001.png"
+
+    # Check that the parent table was not modified
+    parent_table = reloaded_table.input_table_url.object
+    assert isinstance(parent_table, TableFromPydict)
+    assert parent_table.get_column("image_path").to_pylist() == [
+        "/data/images/001.jpg",
+        "/data/images/002.jpg",
+        "/other/path/003.jpg",
+    ]
+    assert parent_table.get_column("mask_path").to_pylist() == [
+        "/data/masks/001.png",
+        "/data/masks/002.png",
+        "/data/masks/003.png",
+    ]
+
+
+def test_handle_tlc_table_pseudo_parent_processing(sample_table_with_pseudo_parent: Table) -> None:
+    """Test that pseudo parent tables are processed correctly."""
+    handle_tlc_table(
+        [sample_table_with_pseudo_parent.url],
+        sample_table_with_pseudo_parent,
+        [],
+        [("/other/path", "<OTHER_PATH>"), ("/data/images", "<DATA_PATH>")],
+        process_parents=True,
+    )
+
+    ObjectRegistry.drop_cache()
+
+    # Check that the child table was modified
+    reloaded_table = Table.from_url(sample_table_with_pseudo_parent.url)
+
+    assert reloaded_table.get_column("other_path").to_pylist() == ["<OTHER_PATH>/001.jpg", "<DATA_PATH>/002.jpg"]
+
+    # Check that the pseudo parent table was modified
+    pseudo_parent_table = Table.from_url(reloaded_table.input_tables[0].to_absolute(reloaded_table.url))
+
+    assert pseudo_parent_table.get_column("image_path").to_pylist() == [
+        "<DATA_PATH>/001.jpg",
+        "<DATA_PATH>/002.jpg",
+        "<OTHER_PATH>/003.jpg",
+    ]
+
+    assert pseudo_parent_table.get_column("mask_path").to_pylist() == [
+        "/data/masks/001.png",
+        "/data/masks/002.png",
+        "/data/masks/003.png",
+    ]
+
+    assert pseudo_parent_table.get_column("label").to_pylist() == [1, 2, 3]
 
 
 def test_handle_tlc_table_error_handling():
