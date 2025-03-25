@@ -473,16 +473,16 @@ def test_handle_tlc_table_no_process_parents(sample_table_with_parent: Table) ->
         [sample_table_with_parent.url],
         sample_table_with_parent,
         [],
-        [],
+        [("/data/images", "<DATA_PATH>"), ("/data/masks", "<MASK_PATH>")],
         process_parents=False,
     )
 
     ObjectRegistry.drop_cache()
 
-    # Check that the child table was modified
+    # Check that the child table was not modified
     reloaded_table = Table.from_url(sample_table_with_parent.url)
     assert reloaded_table[0]["image_path"] == "/data/images/007.jpg"
-    assert reloaded_table[0]["mask_path"] == "<MASK_PATH>/001.png"
+    assert reloaded_table[0]["mask_path"] == "/data/masks/001.png"
 
     # Check that the parent table was not modified
     parent_table = reloaded_table.input_table_url.object

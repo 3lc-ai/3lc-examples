@@ -233,6 +233,32 @@ def rewrite_column_paths(column_names: list[str], column: pa.Array, rewrites: li
     return column
 
 
+def backup_parquet(input_path: Url) -> Url:
+    """Create a backup of a parquet file before modification.
+
+    Args:
+        input_path: URL of the parquet file to backup
+
+    Returns:
+        URL of the backup file
+    """
+    backup_url = Url(str(input_path) + ".backup")
+    UrlAdapterRegistry.copy_url(input_path, backup_url)
+    logger.debug(f"Created backup at {backup_url}")
+    return backup_url
+
+
+def restore_from_backup(backup_url: Url, original_url: Url) -> None:
+    """Restore a parquet file from its backup.
+
+    Args:
+        backup_url: URL of the backup file
+        original_url: URL of the file to restore
+    """
+    UrlAdapterRegistry.copy_url(backup_url, original_url)
+    logger.debug(f"Restored {original_url} from backup {backup_url}")
+
+
 def handle_pa_table(
     input_path: list[Url],
     pa_table: pa.Table,
@@ -250,6 +276,8 @@ def handle_pa_table(
         selected_columns: List of columns to process. If empty, process all columns.
         rewrite: List of (old, new) pairs to rewrite
     """
+    target_url = input_path[-1]  # The file we're actually modifying
+
     # Validate selected columns exist if specified
     if selected_columns:
         for col_name in selected_columns:
@@ -285,26 +313,42 @@ def handle_pa_table(
         # Print found aliases when in list mode (no rewrites)
         if not rewrite and aliases:
             for col_path, alias in sorted(aliases):
-                logger.info(f"Found alias '{alias}' in column '{col_path}' in file '{input_path[-1]}'")
+                logger.info(f"Found alias '{alias}' in column '{col_path}' in file '{target_url}'")
 
     if not changes_made:
         if not rewrite:
-            logger.info(f"No aliases found in file '{input_path[-1]}'")
+            logger.info(f"No aliases found in file '{target_url}'")
         else:
             logger.info("No changes to apply.")
         return
 
-    # Create output table with all columns
-    output_pa_table = pa.table(new_columns)
+    # Create backup only if we're actually going to make changes
+    backup_url = None
+    if rewrite:
+        backup_url = backup_parquet(target_url)
 
-    # write the output table back to the input path
-    with io.BytesIO() as buffer, pq.ParquetWriter(buffer, output_pa_table.schema) as pq_writer:
-        pq_writer.write_table(output_pa_table)
-        pq_writer.close()
-        buffer.seek(0)
-        UrlAdapterRegistry.write_binary_content_to_url(input_path[-1], buffer.read())
+    try:
+        # Create output table with all columns
+        output_pa_table = pa.table(new_columns)
 
-    logger.info(f"Changes written to '{input_path[-1]}'")
+        # Write the output table back to the input path
+        with io.BytesIO() as buffer, pq.ParquetWriter(buffer, output_pa_table.schema) as pq_writer:
+            pq_writer.write_table(output_pa_table)
+            pq_writer.close()
+            buffer.seek(0)
+            UrlAdapterRegistry.write_binary_content_to_url(target_url, buffer.read())
+        logger.info(f"Changes written to '{target_url}'")
+
+    except Exception as e:
+        if backup_url:
+            logger.warning(f"Failed to write changes: {e}. Restoring from backup...")
+            restore_from_backup(backup_url, target_url)
+        raise
+
+    finally:
+        # Clean up backup if it exists
+        if backup_url:
+            backup_url.delete()
 
 
 def handle_run(
