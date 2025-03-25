@@ -260,6 +260,7 @@ def handle_pa_table(
                 )
 
     new_columns: dict[str, pa.Array] = {}
+    changes_made = False
 
     # Process each column
     for col_name in pa_table.column_names:
@@ -269,10 +270,15 @@ def handle_pa_table(
             continue
 
         if rewrite:
-            aliases = set()
             new_col = rewrite_column_paths([col_name], pa_table[col_name], rewrite)
+            # Check if column was actually modified
+            if not pa_table[col_name].equals(new_col):
+                changes_made = True
         else:
             aliases = list_column_aliases([col_name], pa_table[col_name])
+            new_col = pa_table[col_name]
+            if aliases:
+                changes_made = True  # In list mode, finding aliases counts as a "change"
 
         new_columns[col_name] = new_col
 
@@ -281,15 +287,11 @@ def handle_pa_table(
             for col_path, alias in sorted(aliases):
                 logger.info(f"Found alias '{alias}' in column '{col_path}' in file '{input_path[-1]}'")
 
-    if not new_columns:
+    if not changes_made:
         if not rewrite:
             logger.info(f"No aliases found in file '{input_path[-1]}'")
         else:
             logger.info("No changes to apply.")
-        return
-
-    # In list mode, we're done after printing aliases
-    if not rewrite:
         return
 
     # Create output table with all columns
@@ -328,7 +330,7 @@ def handle_run(
     raise NotImplementedError("Runs are not yet supported.")
 
 
-def handle_table(
+def handle_tlc_table(
     input_path: list[Url],
     table: Table,
     columns: list[str],
@@ -416,7 +418,7 @@ def handle_object(
         process_parents: Whether to process parent tables recursively
     """
     if isinstance(obj, Table):
-        return handle_table(
+        return handle_tlc_table(
             input_path,
             obj,
             columns,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from pathlib import Path
+from unittest.mock import patch
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -13,6 +14,9 @@ from tlc_tools.experimental.alias_tool.alias import (
     list_column_aliases,
     rewrite_column_paths,
 )
+
+TEST_ALIAS_PROJECT_NAME = "test_alias"
+TEST_ALIAS_DATASET_NAME = "test_alias_dataset"
 
 
 @pytest.fixture
@@ -46,7 +50,7 @@ def sample_table(tmp_path: Path) -> Generator[Table, None, None]:
     pq.write_table(pa_table, parquet_path)
 
     # Create a tlc.Table object that wraps the parquet file
-    table = Table.from_parquet(Url(str(parquet_path)), if_exists="overwrite")
+    table = Table.from_parquet(Url(str(parquet_path)), if_exists="raise")
     table.ensure_fully_defined()
     yield table
 
@@ -214,3 +218,75 @@ def test_handle_pa_table_invalid_column():
     # Try to process non-existent column
     with pytest.raises(ValueError, match="not found in the input table"):
         handle_pa_table([Url("test.parquet")], table, ["invalid_column"], [])
+
+
+def test_handle_pa_table_no_rewrites_to_apply():
+    """Test that handle_pa_table works when rewrites are supplied but no rewrites take place."""
+    # Create a simple table
+    table = pa.table(
+        {
+            "col1": ["<DATA_PATH>/images/001.jpg", "<DATA_PATH>/images/002.jpg"],
+            "col2": ["path/to/images/003.jpg", "path/to/images/004.jpg"],
+        }
+    )
+
+    # Mock the write function and verify it's not called
+    with patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url") as mock_write:
+        # Process with rewrites that would apply to col1 but not col2 - should be a no-op
+        handle_pa_table([Url("test.parquet")], table, ["col2"], [("<DATA_PATH>", "/path/to")])
+
+        # Verify write was not called since no changes were made
+        mock_write.assert_not_called()
+
+
+def test_handle_tlc_table_basic(sample_table):
+    """Test basic path rewriting in a TLC table.
+    Should verify:
+    - Basic path rewriting works on the main table
+    - Changes are written to the parquet file
+    - The table object can be reloaded with the changes
+    """
+
+
+def test_handle_tlc_table_with_cache(sample_table):
+    """Test handling a table with a populated cache.
+    Should verify:
+    - Changes are applied to the cache file when it exists
+    - Original parquet file remains unchanged when cache exists
+    - Changes are visible when reloading the table
+    """
+
+
+def test_handle_tlc_table_parent_processing(sample_table_with_parent):
+    """Test recursive processing of parent tables.
+    Should verify:
+    - Changes are applied to both child and parent tables
+    - Parent table changes are visible when reloading
+    - With no_process_parents=True, only child table is modified
+    """
+
+
+def test_handle_tlc_table_cycle_prevention():
+    """Test that circular references in table lineage are handled.
+    Should verify:
+    - Tables are only processed once even if referenced multiple times
+    - No infinite recursion occurs with circular references
+    """
+
+
+def test_handle_tlc_table_selected_columns(sample_table):
+    """Test processing only specific columns.
+    Should verify:
+    - Only specified columns are modified
+    - Other columns remain unchanged
+    - Works with both cache and direct parquet files
+    """
+
+
+def test_handle_tlc_table_error_handling():
+    """Test error handling during table processing.
+    Should verify:
+    - Invalid column names are reported properly
+    - Inaccessible parent tables don't break processing
+    - Corrupted parquet files are handled gracefully
+    """
