@@ -259,94 +259,102 @@ def restore_from_backup(backup_url: Url, original_url: Url) -> None:
     logger.debug(f"Restored {original_url} from backup {backup_url}")
 
 
+def list_aliases_in_table(pa_table: pa.Table, columns: list[str]) -> list[tuple[str, str, str]]:
+    """Extract aliases from a table's columns.
+
+    Args:
+        pa_table: The table to process
+        columns: List of columns to process. If empty, process all columns.
+
+    Returns:
+        List of (column_name, alias, example_path) tuples found in the table
+    """
+    found_aliases = []
+
+    # Validate selected columns exist if specified
+    if columns:
+        for col_name in columns:
+            if col_name not in pa_table.column_names:
+                raise ValueError(
+                    f"Selected column '{col_name}' not found in the input table's columns ({pa_table.column_names})."
+                )
+
+    # Process each column
+    for col_name in pa_table.column_names:
+        if columns and col_name not in columns:
+            continue
+
+        aliases = list_column_aliases([col_name], pa_table[col_name])
+        if aliases:
+            # Find an example path for each alias
+            for col_path, alias in sorted(aliases):
+                # Get first path containing this alias as an example
+                example = next(
+                    path.as_py() for path in pa_table[col_name] if path is not None and alias in path.as_py()
+                )
+                found_aliases.append((col_path, alias, example))
+
+    return found_aliases
+
+
 def handle_pa_table(
     input_path: list[Url],
     pa_table: pa.Table,
     selected_columns: list[str],
     rewrite: list[tuple[str, str]],
 ) -> None:
-    """Handle operations on a pyarrow Table directly.
+    target_url = input_path[-1]
+    backup_url = None
 
-    This function works at the pa.Table level, which is the underlying data structure.
-    Changes to the pa.Table are immediate and don't require object recreation.
-
-    Args:
-        input_path: List of URLs representing the path to this table
-        pa_table: The pyarrow Table to process
-        selected_columns: List of columns to process. If empty, process all columns.
-        rewrite: List of (old, new) pairs to rewrite
-    """
-    target_url = input_path[-1]  # The file we're actually modifying
-
-    # Validate selected columns exist if specified
-    if selected_columns:
-        for col_name in selected_columns:
-            if col_name not in pa_table.column_names:
-                raise ValueError(
-                    f"Selected column '{col_name}' not found in the input table's columns"
-                    f" ({pa_table.column_names})."
-                )
-
-    new_columns: dict[str, pa.Array] = {}
-    changes_made = False
-
-    # Process each column
-    for col_name in pa_table.column_names:
-        if selected_columns and col_name not in selected_columns:
-            # If columns are selected and this isn't one of them, skip processing but keep the column
-            new_columns[col_name] = pa_table[col_name]
-            continue
-
-        if rewrite:
-            new_col = rewrite_column_paths([col_name], pa_table[col_name], rewrite)
-            # Check if column was actually modified
-            if not pa_table[col_name].equals(new_col):
-                changes_made = True
-        else:
-            aliases = list_column_aliases([col_name], pa_table[col_name])
-            new_col = pa_table[col_name]
-            if aliases:
-                changes_made = True  # In list mode, finding aliases counts as a "change"
-
-        new_columns[col_name] = new_col
-
-        # Print found aliases when in list mode (no rewrites)
-        if not rewrite and aliases:
-            for col_path, alias in sorted(aliases):
-                logger.info(f"Found alias '{alias}' in column '{col_path}' in file '{target_url}'")
-
-    if not changes_made:
-        if not rewrite:
+    # Use the new function for listing mode
+    if not rewrite:
+        aliases = list_aliases_in_table(pa_table, selected_columns)
+        for col_path, alias, _ in aliases:
+            logger.info(f"Found alias '{alias}' in column '{col_path}' in file '{target_url}'")
+        if not aliases:
             logger.info(f"No aliases found in file '{target_url}'")
-        else:
-            logger.info("No changes to apply.")
         return
 
-    # Create backup only if we're actually going to make changes
-    backup_url = None
-    if rewrite:
+    try:
+        new_columns: dict[str, pa.Array] = {}
+        changes_made = False
+
+        # Process each column
+        for col_name in pa_table.column_names:
+            if selected_columns and col_name not in selected_columns:
+                new_columns[col_name] = pa_table[col_name]
+                continue
+
+            new_col = rewrite_column_paths([col_name], pa_table[col_name], rewrite)
+            if not pa_table[col_name].equals(new_col):
+                changes_made = True
+            new_columns[col_name] = new_col
+
+        if not changes_made:
+            logger.info("No changes to apply.")
+            return
+
+        # Create backup before any modifications
         backup_url = backup_parquet(target_url)
 
-    try:
         # Create output table with all columns
         output_pa_table = pa.table(new_columns)
 
         # Write the output table back to the input path
-        with io.BytesIO() as buffer, pq.ParquetWriter(buffer, output_pa_table.schema) as pq_writer:
-            pq_writer.write_table(output_pa_table)
-            pq_writer.close()
-            buffer.seek(0)
-            UrlAdapterRegistry.write_binary_content_to_url(target_url, buffer.read())
-        logger.info(f"Changes written to '{target_url}'")
-
-    except Exception as e:
-        if backup_url:
-            logger.warning(f"Failed to write changes: {e}. Restoring from backup...")
-            restore_from_backup(backup_url, target_url)
-        raise
+        try:
+            with io.BytesIO() as buffer, pq.ParquetWriter(buffer, output_pa_table.schema) as pq_writer:
+                pq_writer.write_table(output_pa_table)
+                pq_writer.close()
+                buffer.seek(0)
+                UrlAdapterRegistry.write_binary_content_to_url(target_url, buffer.read())
+            logger.info(f"Changes written to '{target_url}'")
+        except Exception as e:
+            if backup_url:
+                logger.warning(f"Failed to write changes: {e}. Restoring from backup...")
+                restore_from_backup(backup_url, target_url)
+            raise
 
     finally:
-        # Clean up backup if it exists
         if backup_url:
             backup_url.delete()
 
@@ -482,6 +490,28 @@ def handle_object(
         raise ValueError("Input is not a valid 3LC object.")
 
 
+def handle_list_command(input_path: list[Url], obj: pa.Table | Table | Run, columns: list[str]) -> None:
+    """Process any 3LC object, listing all aliases found.
+
+    Args:
+        input_path: List of URLs representing the path to this object
+        obj: The object to process (Table, Run, or pa.Table)
+        columns: List of columns to process. If empty, process all columns.
+    """
+    if isinstance(obj, Table):
+        # For now, reuse existing functionality via handle_object
+        # We'll factor this out in a later step
+        handle_object(input_path, obj, columns, [], process_parents=True)
+    elif isinstance(obj, Run):
+        raise NotImplementedError("Runs are not yet supported.")
+    elif isinstance(obj, pa.Table):
+        # For now, reuse existing functionality via handle_pa_table
+        # We'll factor this out in a later step
+        handle_pa_table(input_path, obj, columns, [])
+    else:
+        raise ValueError("Input is not a valid 3LC object.")
+
+
 @register_tool(experimental=True, description="List, rewrite, and create URL aliases in 3LC objects")
 def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     """
@@ -508,10 +538,15 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         help="Suppress output except for warnings and errors",
     )
 
-    # Create subparsers for replace and manage commands
+    # Create subparsers for commands
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Replace command - for applying/listing aliases in files
+    # List command - for finding aliases in files
+    list_parser = subparsers.add_parser("list", help="List all aliases found in files")
+    list_parser.add_argument("input_path", help="The input object to process")
+    list_parser.add_argument("--columns", help="Comma-separated list of columns to process")
+
+    # Replace command - for applying aliases and path rewrites
     replace_parser = subparsers.add_parser(
         "replace", help="Replace paths with aliases in files or list existing aliases"
     )
@@ -523,7 +558,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         help="Do not process parent tables when handling Table objects",
     )
 
-    # Operation mode for replace command
+    # Operation mode for replace command (keeping list for now, will deprecate later)
     replace_mode = replace_parser.add_mutually_exclusive_group()
     replace_mode.add_argument(
         "--list",
@@ -559,12 +594,22 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     setup_logging(verbosity=args.verbose, quiet=args.quiet)
     logger.debug("Debug logging enabled")
 
-    if args.command == "replace":
-        # Handle replace command
-        input_url = Url(args.input_path)
+    # Parse columns if specified (shared between commands)
+    columns = [col.strip() for col in args.columns.split(",")] if args.columns else []
 
-        # Parse columns if specified
-        columns = [col.strip() for col in args.columns.split(",")] if args.columns else []
+    if args.command == "list":
+        # Handle list command
+        input_url = Url(args.input_path)
+        object = get_input_object(input_url)
+        try:
+            handle_list_command([input_url], object, columns)
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            raise
+
+    elif args.command == "replace":
+        # Handle replace command (existing code)
+        input_url = Url(args.input_path)
 
         # Set up aliases based on operation mode
         aliases = []
@@ -605,20 +650,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         except Exception as e:
             logger.error(f"Error: {e}")
             raise
-
-    else:  # args.command == "manage"
-        # Parse alias definition
-        alias_name, alias_value = parse_alias_pair_string(args.alias_def, separator=args.separator)
-
-        # Register the alias
-        import tlc
-
-        if args.scope == "project":
-            tlc.register_project_url_alias(alias_name.strip("<>"), alias_value)
-            logger.info(f"Registered project alias '{alias_name}' with value '{alias_value}'")
-        else:
-            tlc.register_url_alias(alias_name.strip("<>"), alias_value)
-            logger.info(f"Registered global alias '{alias_name}' with value '{alias_value}'")
 
 
 if __name__ == "__main__":

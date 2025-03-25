@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from tlc.core import Url
 
 from tlc_tools.experimental.alias_tool.alias import main
 
@@ -124,3 +125,45 @@ def test_main_no_process_parents(mock_handle_object, mock_get_input):
     mock_handle_object.assert_called_once()
     _, kwargs = mock_handle_object.call_args
     assert kwargs.get("process_parents") is False
+
+
+def test_list_command_basic(mocker):
+    """Test basic list command functionality."""
+    # Create a mock table with some aliases
+    mock_table = mocker.MagicMock()
+    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
+    mock_get_input.return_value = mock_table
+
+    mock_handle_list = mocker.patch("tlc_tools.experimental.alias_tool.alias.handle_list_command")
+
+    # Run the list command
+    main(["list", "table.parquet"])
+
+    # Verify correct functions were called
+    mock_get_input.assert_called_once()
+    mock_handle_list.assert_called_once_with([Url("table.parquet")], mock_table, [])
+
+
+def test_list_command_with_columns(mocker):
+    """Test list command with specific columns."""
+    mock_table = mocker.MagicMock()
+    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
+    mock_get_input.return_value = mock_table
+
+    mock_handle_list = mocker.patch("tlc_tools.experimental.alias_tool.alias.handle_list_command")
+
+    # Run the list command with columns
+    main(["list", "table.parquet", "--columns", "col1,col2"])
+
+    # Verify columns were parsed correctly
+    mock_handle_list.assert_called_once_with([Url("table.parquet")], mock_table, ["col1", "col2"])
+
+
+def test_list_command_error_handling(mocker):
+    """Test that list command properly handles and reports errors."""
+    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
+    mock_get_input.side_effect = ValueError("Test error")
+
+    # Run the list command and expect it to raise the error
+    with pytest.raises(ValueError, match="Test error"):
+        main(["list", "table.parquet"])
