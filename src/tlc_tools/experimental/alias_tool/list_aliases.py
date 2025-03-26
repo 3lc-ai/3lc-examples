@@ -6,7 +6,7 @@ from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url
 from .common import get_input_parquet, logger
 
 
-def list_aliases_in_column(column_path: str, column: pa.Array) -> list[tuple[str, str, str]]:
+def find_aliases_in_column(column_path: str, column: pa.Array) -> list[tuple[str, str, str]]:
     """List aliases in a single column.
 
     Args:
@@ -20,14 +20,14 @@ def list_aliases_in_column(column_path: str, column: pa.Array) -> list[tuple[str
 
     if isinstance(column, pa.ChunkedArray):
         for chunk in column.iterchunks():
-            found_aliases.extend(list_aliases_in_column(column_path, chunk))
+            found_aliases.extend(find_aliases_in_column(column_path, chunk))
         return found_aliases
 
     if pa.types.is_struct(column.type):
         for field in column.type:
             # Maintain the original behavior by appending .path to struct fields
             nested_path = f"{column_path}.{field.name}"
-            sub_aliases = list_aliases_in_column(nested_path, column.field(field.name))
+            sub_aliases = find_aliases_in_column(nested_path, column.field(field.name))
             found_aliases.extend(sub_aliases)
         return found_aliases
 
@@ -76,7 +76,7 @@ def list_aliases_in_pa_table(input_path: list[Url], pa_table: pa.Table, columns:
         if columns and col_name not in columns:
             continue
 
-        aliases = list_aliases_in_column(col_name, pa_table[col_name])
+        aliases = find_aliases_in_column(col_name, pa_table[col_name])
         if aliases:
             found_any = True
             for found_column, alias, example in aliases:
@@ -87,7 +87,7 @@ def list_aliases_in_pa_table(input_path: list[Url], pa_table: pa.Table, columns:
         logger.info(f"No aliases found in file '{target_url}'")
 
 
-def list_aliases_in_table(input_path: list[Url], table: Table, columns: list[str]) -> None:
+def list_aliases_in_tlc_table(input_path: list[Url], table: Table, columns: list[str]) -> None:
     """List aliases in a TLC Table and its lineage.
 
     Args:
@@ -147,7 +147,7 @@ def list_aliases(input_path: list[Url], obj: pa.Table | Table | Run, columns: li
         columns: List of columns to process. If empty, process all columns.
     """
     if isinstance(obj, Table):
-        list_aliases_in_table(input_path, obj, columns)
+        list_aliases_in_tlc_table(input_path, obj, columns)
     elif isinstance(obj, Run):
         raise NotImplementedError("Listing aliases in Runs is not yet supported.")
     elif isinstance(obj, pa.Table):

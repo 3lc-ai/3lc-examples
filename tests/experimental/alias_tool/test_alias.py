@@ -10,7 +10,7 @@ import pyarrow.parquet as pq
 import pytest
 from tlc.core import EditedTable, ObjectRegistry, Table, TableFromPydict, Url
 
-from tlc_tools.experimental.alias_tool.list_aliases import list_aliases, list_aliases_in_column
+from tlc_tools.experimental.alias_tool.list_aliases import find_aliases_in_column, list_aliases
 from tlc_tools.experimental.alias_tool.replace_aliases import (
     replace_aliases_in_column,
     replace_aliases_in_pa_table,
@@ -233,7 +233,7 @@ def test_list_aliases_in_column(array_types):
     array_type, array, col_names, _ = array_types
 
     expected_col_path = ".".join(col_names + (["path"] if array_type == "struct" else []))
-    aliases = list_aliases_in_column(expected_col_path, array)
+    aliases = find_aliases_in_column(expected_col_path, array)
 
     assert len(aliases) == 2, f"Failed for {array_type} array"
     assert any(alias[1] == "<DATA_PATH>" for alias in aliases)
