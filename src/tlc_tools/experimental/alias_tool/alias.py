@@ -756,41 +756,22 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     # Parse columns if specified (shared between commands)
     columns = [col.strip() for col in args.columns.split(",")] if args.columns else []
 
-    # Get input object
-    input_url = Url(args.input_path)
     try:
-        obj = get_input_object(input_url)
-    except Exception as e:
-        logger.error(f"Failed to load input object: {e}")
-        raise
-
-    try:
-        if args.command == "list":
-            # Simple path - just list aliases
-            list_aliases([input_url], obj, columns)
-
-        elif args.command == "replace":
-            # Build list of rewrites based on command line options
+        if args.command == "replace":
+            # Validate arguments first
             rewrites = []
-
             if args.apply:
                 # Parse comma-separated aliases
                 alias_names = [name.strip() for name in args.apply.split(",")]
-
-                # Look up the alias values
                 import tlc
 
                 registered_aliases = tlc.get_registered_url_aliases()
-
                 for alias_name in alias_names:
-                    # Add angle brackets if not present
                     bracketed_name = f"<{alias_name}>" if not alias_name.startswith("<") else alias_name
-
                     if bracketed_name not in registered_aliases:
                         raise ValueError(f"Alias '{alias_name}' not found in registered aliases")
                     alias_value = registered_aliases[bracketed_name]
                     rewrites.append((alias_value, bracketed_name))
-
             elif args.from_paths:
                 if not args.to_paths:
                     raise ValueError("--to PATH is required when using --from")
@@ -798,7 +779,17 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
                     raise ValueError("Number of --from and --to arguments must match")
                 rewrites = list(zip(args.from_paths, args.to_paths))
 
-            # Apply the rewrites
+        # Only load input object after argument validation
+        input_url = Url(args.input_path)
+        try:
+            obj = get_input_object(input_url)
+        except Exception as e:
+            logger.error(f"Failed to load input object: {e}")
+            raise
+
+        if args.command == "list":
+            list_aliases([input_url], obj, columns)
+        elif args.command == "replace":
             replace_aliases(
                 [input_url],
                 obj,

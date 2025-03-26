@@ -644,12 +644,3 @@ def test_handle_tlc_table_pseudo_parent_processing(sample_table_with_pseudo_pare
     ]
 
     assert pseudo_parent_table.get_column("label").to_pylist() == [1, 2, 3]
-
-
-def test_handle_tlc_table_error_handling():
-    """Test error handling during table processing.
-    Should verify:
-    - Invalid column names are reported properly
-    - Inaccessible parent tables don't break processing
-    - Corrupted parquet files are handled gracefully
-    """
