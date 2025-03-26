@@ -223,8 +223,8 @@ def list_aliases_in_pa_table(input_path: list[Url], pa_table: pa.Table, columns:
         aliases = list_aliases_in_column(col_name, pa_table[col_name])
         if aliases:
             found_any = True
-            for _, alias, example in aliases:
-                logger.info(f"Found alias '{alias}' in column '{col_name}' in file '{target_url}'")
+            for found_column, alias, example in aliases:
+                logger.info(f"Found alias '{alias}' in column '{found_column}' in file '{target_url}'")
                 logger.debug(f"  Example: {example}")
 
     if not found_any:
