@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import io
+import logging
 
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url, UrlAdapterRegistry
 
-from .common import get_input_parquet, logger
+from .common import get_input_parquet
+
+logger = logging.getLogger(__name__)
 
 
 def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tuple[str, str]]) -> tuple[pa.Array, bool]:

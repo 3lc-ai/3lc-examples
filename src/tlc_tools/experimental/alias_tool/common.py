@@ -35,11 +35,12 @@ def setup_logging(verbosity: int = 0, quiet: bool = False) -> None:
         level = logging.INFO
 
     # Configure root logger for the alias tool
-    logger.setLevel(level)
-    logger.addHandler(console_handler)
+    root_logger = logging.getLogger("tlc_tools.experimental.alias_tool")
+    root_logger.setLevel(level)
+    root_logger.addHandler(console_handler)
 
     # Prevent duplicate logging
-    logger.propagate = False
+    root_logger.propagate = False
 
 
 def validate_alias_name(alias_name: str) -> bool:

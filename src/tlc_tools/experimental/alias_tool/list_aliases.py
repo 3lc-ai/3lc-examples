@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 import pyarrow as pa
 from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url
 
-from .common import get_input_parquet, logger
+from .common import get_input_parquet
+
+logger = logging.getLogger(__name__)
 
 
 def find_aliases_in_column(column_path: str, column: pa.Array) -> list[tuple[str, str, str]]:

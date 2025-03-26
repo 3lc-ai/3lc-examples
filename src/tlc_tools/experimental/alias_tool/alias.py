@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import logging
 
 from tlc.core import Url
 
 from tlc_tools.cli import register_tool
 
-from .common import get_input_object, logger, setup_logging
+from .common import get_input_object, setup_logging
 from .list_aliases import list_aliases
 from .replace_aliases import replace_aliases
+
+logger = logging.getLogger(__name__)
 
 
 @register_tool(experimental=True, description="List, rewrite, and create URL aliases in 3LC objects")
