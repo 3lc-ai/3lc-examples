@@ -10,9 +10,7 @@ from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url, UrlAdapter
 from .common import get_input_parquet, logger
 
 
-def replace_aliases_in_column(
-    column_path: str, column: pa.Array, rewrites: list[tuple[str, str]]
-) -> tuple[pa.Array, bool]:
+def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tuple[str, str]]) -> tuple[pa.Array, bool]:
     """Replace aliases in a single column.
 
     Args:
@@ -27,7 +25,7 @@ def replace_aliases_in_column(
         chunks = []
         was_modified = False
         for chunk in column.iterchunks():
-            modified_chunk, chunk_modified = replace_aliases_in_column(column_path, chunk, rewrites)
+            modified_chunk, chunk_modified = rewrite_column_values(column_path, chunk, rewrites)
             chunks.append(modified_chunk)
             was_modified = was_modified or chunk_modified
         return pa.chunked_array(chunks, column.type), was_modified
@@ -37,7 +35,7 @@ def replace_aliases_in_column(
         was_modified = False
         for field in column.type:
             nested_path = f"{column_path}.{field.name}" if column_path else field.name
-            modified_col, col_modified = replace_aliases_in_column(nested_path, column.field(field.name), rewrites)
+            modified_col, col_modified = rewrite_column_values(nested_path, column.field(field.name), rewrites)
             sub_cols.append(modified_col)
             was_modified = was_modified or col_modified
         return pa.StructArray.from_arrays(sub_cols, fields=column.type), was_modified
@@ -108,7 +106,7 @@ def replace_aliases_in_pa_table(
                 new_columns[col_name] = pa_table[col_name]
                 continue
 
-            modified_col, was_modified = replace_aliases_in_column(col_name, pa_table[col_name], rewrites)
+            modified_col, was_modified = rewrite_column_values(col_name, pa_table[col_name], rewrites)
             new_columns[col_name] = modified_col
             changes_made = changes_made or was_modified
 
@@ -141,7 +139,7 @@ def replace_aliases_in_pa_table(
             backup_url.delete()
 
 
-def replace_aliases_in_table(
+def replace_aliases_in_tlc_table(
     input_path: list[Url],
     table: Table,
     columns: list[str],
@@ -218,7 +216,7 @@ def replace_aliases(
         process_parents: Whether to process parent tables recursively
     """
     if isinstance(obj, Table):
-        replace_aliases_in_table(input_path, obj, columns, rewrites, process_parents)
+        replace_aliases_in_tlc_table(input_path, obj, columns, rewrites, process_parents)
     elif isinstance(obj, Run):
         raise NotImplementedError("Replacing aliases in Runs is not yet supported.")
     elif isinstance(obj, pa.Table):

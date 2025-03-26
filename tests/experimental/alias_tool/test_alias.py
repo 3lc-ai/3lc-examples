@@ -12,9 +12,9 @@ from tlc.core import EditedTable, ObjectRegistry, Table, TableFromPydict, Url
 
 from tlc_tools.experimental.alias_tool.list_aliases import find_aliases_in_column, list_aliases
 from tlc_tools.experimental.alias_tool.replace_aliases import (
-    replace_aliases_in_column,
     replace_aliases_in_pa_table,
-    replace_aliases_in_table,
+    replace_aliases_in_tlc_table,
+    rewrite_column_values,
 )
 
 TEST_ALIAS_PROJECT_NAME = "test_alias"
@@ -335,7 +335,7 @@ def test_rewrite_column_paths(array_types):
     array_type, array, col_names, get_paths = array_types
 
     rewrites = [("/path/to", "<CACHE_PATH>")]
-    result, _ = replace_aliases_in_column(".".join(col_names), array, rewrites)
+    result, _ = rewrite_column_values(".".join(col_names), array, rewrites)
 
     # Verify type is preserved
     assert isinstance(result, type(array))
@@ -464,7 +464,7 @@ def test_handle_tlc_table_basic(sample_table: Table) -> None:
         ("<META_PATH>", "/data/metadata"),  # Affects existing alias in metadata.path
     ]
 
-    replace_aliases_in_table(
+    replace_aliases_in_tlc_table(
         [sample_table.url],
         sample_table,
         [],
@@ -514,7 +514,7 @@ def test_handle_tlc_table_selected_columns(sample_table: Table) -> None:
     initial_metadata = sample_table.get_column("metadata")
     initial_label = sample_table.get_column("label")
 
-    replace_aliases_in_table(
+    replace_aliases_in_tlc_table(
         [sample_table.url],
         sample_table,
         ["image_path"],
@@ -545,7 +545,7 @@ def test_handle_tlc_table_parent_processing(sample_table_with_parent: Table) -> 
     - With no_process_parents=True, only child table is modified
     """
 
-    replace_aliases_in_table(
+    replace_aliases_in_tlc_table(
         [sample_table_with_parent.url],
         sample_table_with_parent,
         [],
@@ -580,7 +580,7 @@ def test_handle_tlc_table_parent_processing(sample_table_with_parent: Table) -> 
 
 def test_handle_tlc_table_no_process_parents(sample_table_with_parent: Table) -> None:
     """Test that parent tables are not processed when no_process_parents is True."""
-    replace_aliases_in_table(
+    replace_aliases_in_tlc_table(
         [sample_table_with_parent.url],
         sample_table_with_parent,
         [],
@@ -612,7 +612,7 @@ def test_handle_tlc_table_no_process_parents(sample_table_with_parent: Table) ->
 
 def test_handle_tlc_table_pseudo_parent_processing(sample_table_with_pseudo_parent: Table) -> None:
     """Test that pseudo parent tables are processed correctly."""
-    replace_aliases_in_table(
+    replace_aliases_in_tlc_table(
         [sample_table_with_pseudo_parent.url],
         sample_table_with_pseudo_parent,
         [],
