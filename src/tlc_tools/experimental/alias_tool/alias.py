@@ -150,31 +150,33 @@ def get_input_object(input_url: Url) -> pa.Table | Table | Run:
     raise ValueError(f"Input file '{input_url}' is not a valid 3LC object.")
 
 
-def list_column_aliases(column_names: list[str], column: pa.Array) -> set[tuple[str, str]]:
-    """Find aliases at the start of paths in a column.
+def list_aliases_in_column(column_path: str, column: pa.Array) -> list[tuple[str, str, str]]:
+    """List aliases in a single column.
 
     Args:
-        column_names: List of column names (for nested columns)
+        column_path: Path to the column (dot-separated for nested columns)
         column: The column to process
 
     Returns:
-        Set of (column_path, alias) tuples found in the column
+        List of (column_path, alias, example) tuples found in the column
     """
-    col_aliases: set[tuple[str, str]] = set()
+    found_aliases = []
 
     if isinstance(column, pa.ChunkedArray):
         for chunk in column.iterchunks():
-            chunk_aliases = list_column_aliases(column_names, chunk)
-            col_aliases.update(chunk_aliases)
-        return col_aliases
+            found_aliases.extend(list_aliases_in_column(column_path, chunk))
+        return found_aliases
 
     if pa.types.is_struct(column.type):
         for field in column.type:
-            sub_aliases = list_column_aliases(column_names + [field.name], column.field(field.name))
-            col_aliases.update(sub_aliases)
-        return col_aliases
+            # Maintain the original behavior by appending .path to struct fields
+            nested_path = f"{column_path}.{field.name}"
+            sub_aliases = list_aliases_in_column(nested_path, column.field(field.name))
+            found_aliases.extend(sub_aliases)
+        return found_aliases
 
     if pa.types.is_string(column.type):
+        seen_aliases = set()
         for value in column:
             if value is not None:
                 str_val = value.as_py()
@@ -186,90 +188,24 @@ def list_column_aliases(column_names: list[str], column: pa.Array) -> set[tuple[
                             potential_alias.upper() == potential_alias
                             and potential_alias[1:-1].replace("_", "").isalnum()
                             and potential_alias[1].isupper()  # First character after < must be uppercase
+                            and potential_alias not in seen_aliases
                         ):
-                            col_aliases.add((".".join(column_names), potential_alias))
+                            seen_aliases.add(potential_alias)
+                            found_aliases.append((column_path, potential_alias, str_val))
 
-    return col_aliases
-
-
-def rewrite_column_paths(column_names: list[str], column: pa.Array, rewrites: list[tuple[str, str]]) -> pa.Array:
-    """Apply path rewrites to a column.
-
-    Args:
-        column_names: List of column names (for nested columns)
-        column: The column to process
-        rewrites: List of (old, new) pairs to rewrite
-
-    Returns:
-        Modified column with rewrites applied
-    """
-    if isinstance(column, pa.ChunkedArray):
-        chunks = []
-        for chunk in column.iterchunks():
-            chunk_col = rewrite_column_paths(column_names, chunk, rewrites)
-            chunks.append(chunk_col)
-        return pa.chunked_array(chunks, column.type)
-
-    if pa.types.is_struct(column.type):
-        sub_cols: list[pa.Array] = []
-        for field in column.type:
-            sub_col = rewrite_column_paths(column_names + [field.name], column.field(field.name), rewrites)
-            sub_cols.append(sub_col)
-        return pa.StructArray.from_arrays(sub_cols, fields=column.type)
-
-    if pa.types.is_string(column.type):
-        modified_column = column
-        for old, new in rewrites:
-            modified_column = pc.replace_substring(modified_column, old, new)
-            # Check if any changes were made
-            num_modified_rows = pc.sum(pc.invert(pc.equal(modified_column, column))).as_py()
-            if num_modified_rows > 0:
-                logger.info(
-                    f"Rewrote {num_modified_rows} occurrences of '{old}' to '{new}' "
-                    f"in column '{'.'.join(column_names)}'"
-                )
-        return modified_column
-
-    return column
+    return found_aliases
 
 
-def backup_parquet(input_path: Url) -> Url:
-    """Create a backup of a parquet file before modification.
+def list_aliases_in_pa_table(input_path: list[Url], pa_table: pa.Table, columns: list[str]) -> None:
+    """List aliases in a PyArrow table.
 
     Args:
-        input_path: URL of the parquet file to backup
-
-    Returns:
-        URL of the backup file
-    """
-    backup_url = Url(str(input_path) + ".backup")
-    UrlAdapterRegistry.copy_url(input_path, backup_url)
-    logger.debug(f"Created backup at {backup_url}")
-    return backup_url
-
-
-def restore_from_backup(backup_url: Url, original_url: Url) -> None:
-    """Restore a parquet file from its backup.
-
-    Args:
-        backup_url: URL of the backup file
-        original_url: URL of the file to restore
-    """
-    UrlAdapterRegistry.copy_url(backup_url, original_url)
-    logger.debug(f"Restored {original_url} from backup {backup_url}")
-
-
-def list_aliases_in_table(pa_table: pa.Table, columns: list[str]) -> list[tuple[str, str, str]]:
-    """Extract aliases from a table's columns.
-
-    Args:
+        input_path: List of URLs representing the path to this table
         pa_table: The table to process
         columns: List of columns to process. If empty, process all columns.
-
-    Returns:
-        List of (column_name, alias, example_path) tuples found in the table
     """
-    found_aliases = []
+    target_url = input_path[-1]
+    found_any = False
 
     # Validate selected columns exist if specified
     if columns:
@@ -284,17 +220,84 @@ def list_aliases_in_table(pa_table: pa.Table, columns: list[str]) -> list[tuple[
         if columns and col_name not in columns:
             continue
 
-        aliases = list_column_aliases([col_name], pa_table[col_name])
+        aliases = list_aliases_in_column(col_name, pa_table[col_name])
         if aliases:
-            # Find an example path for each alias
-            for col_path, alias in sorted(aliases):
-                # Get first path containing this alias as an example
-                example = next(
-                    path.as_py() for path in pa_table[col_name] if path is not None and alias in path.as_py()
-                )
-                found_aliases.append((col_path, alias, example))
+            found_any = True
+            for _, alias, example in aliases:
+                logger.info(f"Found alias '{alias}' in column '{col_name}' in file '{target_url}'")
+                logger.debug(f"  Example: {example}")
 
-    return found_aliases
+    if not found_any:
+        logger.info(f"No aliases found in file '{target_url}'")
+
+
+def list_aliases_in_table(input_path: list[Url], table: Table, columns: list[str]) -> None:
+    """List aliases in a TLC Table and its lineage.
+
+    Args:
+        input_path: List of URLs representing the path to this table
+        table: The Table object to process
+        columns: List of columns to process. If empty, process all columns.
+    """
+    processed_tables = set()  # Track processed tables to avoid cycles
+
+    def process_table_recursive(current_table: Table, current_path: list[Url]) -> None:
+        if current_table.url in processed_tables:
+            return
+        current_table.ensure_fully_defined()
+        processed_tables.add(current_table.url)
+
+        logger.debug(f"Processing table: {current_table.url}")
+
+        # Process the current table's parquet cache if it exists
+        has_cache = current_table.row_cache_populated and current_table.row_cache_url
+        is_table_from_parquet = isinstance(current_table, TableFromParquet)
+
+        if has_cache or is_table_from_parquet:
+            # Get URL of file to process - prefer cache if available
+            if has_cache:
+                pq_url = current_table.row_cache_url.to_absolute(current_table.url)
+                logger.debug(f"  Using cache URL: {pq_url}")
+            else:
+                pq_url = current_table.input_url.to_absolute(current_table.url)
+                logger.debug(f"  Using input URL: {pq_url}")
+
+            try:
+                pa_table = get_input_parquet(pq_url)
+                list_aliases_in_pa_table(current_path + [pq_url], pa_table, columns)
+            except Exception as e:
+                logger.warning(f"Failed to process cache for table {current_table.url}: {e}")
+
+        # Process parent tables recursively
+        parent_urls = list(SchemaHelper.object_input_urls(current_table, current_table.schema))
+        logger.debug(f"  Parent tables: {parent_urls}")
+        for parent_url in parent_urls:
+            try:
+                parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
+                process_table_recursive(parent_table, current_path + [parent_url])
+            except Exception as e:
+                logger.warning(f"Failed to process parent table {parent_url}: {e}")
+
+    # Start recursive processing from the input table
+    process_table_recursive(table, input_path)
+
+
+def list_aliases(input_path: list[Url], obj: pa.Table | Table | Run, columns: list[str]) -> None:
+    """List all aliases found in a 3LC object.
+
+    Args:
+        input_path: List of URLs representing the path to this object
+        obj: The object to process (Table, Run, or pa.Table)
+        columns: List of columns to process. If empty, process all columns.
+    """
+    if isinstance(obj, Table):
+        list_aliases_in_table(input_path, obj, columns)
+    elif isinstance(obj, Run):
+        raise NotImplementedError("Listing aliases in Runs is not yet supported.")
+    elif isinstance(obj, pa.Table):
+        list_aliases_in_pa_table(input_path, obj, columns)
+    else:
+        raise ValueError("Input is not a valid 3LC object.")
 
 
 def handle_pa_table(
@@ -303,60 +306,11 @@ def handle_pa_table(
     selected_columns: list[str],
     rewrite: list[tuple[str, str]],
 ) -> None:
-    target_url = input_path[-1]
-    backup_url = None
-
-    # Use the new function for listing mode
+    """Process a PyArrow table, either listing aliases or applying rewrites."""
     if not rewrite:
-        aliases = list_aliases_in_table(pa_table, selected_columns)
-        for col_path, alias, _ in aliases:
-            logger.info(f"Found alias '{alias}' in column '{col_path}' in file '{target_url}'")
-        if not aliases:
-            logger.info(f"No aliases found in file '{target_url}'")
-        return
-
-    try:
-        new_columns: dict[str, pa.Array] = {}
-        changes_made = False
-
-        # Process each column
-        for col_name in pa_table.column_names:
-            if selected_columns and col_name not in selected_columns:
-                new_columns[col_name] = pa_table[col_name]
-                continue
-
-            new_col = rewrite_column_paths([col_name], pa_table[col_name], rewrite)
-            if not pa_table[col_name].equals(new_col):
-                changes_made = True
-            new_columns[col_name] = new_col
-
-        if not changes_made:
-            logger.info("No changes to apply.")
-            return
-
-        # Create backup before any modifications
-        backup_url = backup_parquet(target_url)
-
-        # Create output table with all columns
-        output_pa_table = pa.table(new_columns)
-
-        # Write the output table back to the input path
-        try:
-            with io.BytesIO() as buffer, pq.ParquetWriter(buffer, output_pa_table.schema) as pq_writer:
-                pq_writer.write_table(output_pa_table)
-                pq_writer.close()
-                buffer.seek(0)
-                UrlAdapterRegistry.write_binary_content_to_url(target_url, buffer.read())
-            logger.info(f"Changes written to '{target_url}'")
-        except Exception as e:
-            if backup_url:
-                logger.warning(f"Failed to write changes: {e}. Restoring from backup...")
-                restore_from_backup(backup_url, target_url)
-            raise
-
-    finally:
-        if backup_url:
-            backup_url.delete()
+        list_aliases_in_pa_table(input_path, pa_table, selected_columns)
+    else:
+        replace_aliases_in_pa_table(input_path, pa_table, selected_columns, rewrite)
 
 
 def handle_run(
@@ -499,26 +453,239 @@ def handle_list_command(input_path: list[Url], obj: pa.Table | Table | Run, colu
         columns: List of columns to process. If empty, process all columns.
     """
     if isinstance(obj, Table):
-        # For now, reuse existing functionality via handle_object
-        # We'll factor this out in a later step
-        handle_object(input_path, obj, columns, [], process_parents=True)
+        list_aliases_in_table(input_path, obj, columns)
     elif isinstance(obj, Run):
         raise NotImplementedError("Runs are not yet supported.")
     elif isinstance(obj, pa.Table):
-        # For now, reuse existing functionality via handle_pa_table
-        # We'll factor this out in a later step
-        handle_pa_table(input_path, obj, columns, [])
+        list_aliases_in_pa_table(input_path, obj, columns)
     else:
         raise ValueError("Input is not a valid 3LC object.")
 
 
+def replace_aliases_in_column(
+    column_path: str, column: pa.Array, rewrites: list[tuple[str, str]]
+) -> tuple[pa.Array, bool]:
+    """Replace aliases in a single column.
+
+    Args:
+        column_path: Path to the column (dot-separated for nested columns)
+        column: The column to process
+        rewrites: List of (old_path, new_path) pairs to rewrite
+
+    Returns:
+        Tuple of (modified_column, was_modified)
+    """
+    if isinstance(column, pa.ChunkedArray):
+        chunks = []
+        was_modified = False
+        for chunk in column.iterchunks():
+            modified_chunk, chunk_modified = replace_aliases_in_column(column_path, chunk, rewrites)
+            chunks.append(modified_chunk)
+            was_modified = was_modified or chunk_modified
+        return pa.chunked_array(chunks, column.type), was_modified
+
+    if pa.types.is_struct(column.type):
+        sub_cols = []
+        was_modified = False
+        for field in column.type:
+            nested_path = f"{column_path}.{field.name}" if column_path else field.name
+            modified_col, col_modified = replace_aliases_in_column(nested_path, column.field(field.name), rewrites)
+            sub_cols.append(modified_col)
+            was_modified = was_modified or col_modified
+        return pa.StructArray.from_arrays(sub_cols, fields=column.type), was_modified
+
+    if pa.types.is_string(column.type):
+        modified_column = column
+        was_modified = False
+        for old, new in rewrites:
+            new_column = pc.replace_substring(modified_column, old, new)
+            # Check if any changes were made
+            num_modified_rows = pc.sum(pc.invert(pc.equal(new_column, modified_column))).as_py()
+            if num_modified_rows > 0:
+                logger.info(f"Rewrote {num_modified_rows} occurrences of '{old}' to '{new}' in column '{column_path}'")
+                was_modified = True
+            modified_column = new_column
+        return modified_column, was_modified
+
+    return column, False
+
+
+def replace_aliases_in_pa_table(
+    input_path: list[Url], pa_table: pa.Table, columns: list[str], rewrites: list[tuple[str, str]]
+) -> None:
+    """Replace aliases in a PyArrow table."""
+    target_url = input_path[-1]
+    backup_url = None
+
+    try:
+        new_columns: dict[str, pa.Array] = {}
+        changes_made = False
+
+        # Validate selected columns exist if specified
+        if columns:
+            for col_name in columns:
+                if col_name not in pa_table.column_names:
+                    cols = pa_table.column_names
+                    raise ValueError(f"Selected column '{col_name}' not found in columns: {cols}")
+
+        # Process each column
+        for col_name in pa_table.column_names:
+            if columns and col_name not in columns:
+                new_columns[col_name] = pa_table[col_name]
+                continue
+
+            modified_col, was_modified = replace_aliases_in_column(col_name, pa_table[col_name], rewrites)
+            new_columns[col_name] = modified_col
+            changes_made = changes_made or was_modified
+
+        if not changes_made:
+            logger.info("No changes to apply.")
+            return
+
+        # Create backup before any modifications
+        backup_url = backup_parquet(target_url)
+
+        # Create output table with all columns
+        output_pa_table = pa.table(new_columns)
+
+        # Write the output table back to the input path
+        try:
+            with io.BytesIO() as buffer, pq.ParquetWriter(buffer, output_pa_table.schema) as pq_writer:
+                pq_writer.write_table(output_pa_table)
+                pq_writer.close()
+                buffer.seek(0)
+                UrlAdapterRegistry.write_binary_content_to_url(target_url, buffer.read())
+            logger.info(f"Changes written to '{target_url}'")
+        except Exception as e:
+            if backup_url:
+                logger.warning(f"Failed to write changes: {e}. Restoring from backup...")
+                restore_from_backup(backup_url, target_url)
+            raise
+
+    finally:
+        if backup_url:
+            backup_url.delete()
+
+
+def replace_aliases_in_table(
+    input_path: list[Url],
+    table: Table,
+    columns: list[str],
+    rewrites: list[tuple[str, str]],
+    process_parents: bool = True,
+) -> None:
+    """Replace aliases in a TLC Table and its lineage.
+
+    Args:
+        input_path: List of URLs representing the path to this table
+        table: The Table object to process
+        columns: List of columns to process. If empty, process all columns.
+        rewrites: List of (old_path, new_path) pairs to rewrite
+        process_parents: Whether to process parent tables recursively
+    """
+    processed_tables = set()  # Track processed tables to avoid cycles
+
+    def process_table_recursive(current_table: Table, current_path: list[Url]) -> None:
+        if current_table.url in processed_tables:
+            return
+        current_table.ensure_fully_defined()
+        processed_tables.add(current_table.url)
+
+        logger.debug(f"Processing table: {current_table.url}")
+
+        # Process the current table's parquet cache if it exists
+        has_cache = current_table.row_cache_populated and current_table.row_cache_url
+        is_table_from_parquet = isinstance(current_table, TableFromParquet)
+
+        if has_cache or is_table_from_parquet:
+            # Get URL of file to process - prefer cache if available
+            if has_cache:
+                pq_url = current_table.row_cache_url.to_absolute(current_table.url)
+                logger.debug(f"  Using cache URL: {pq_url}")
+            else:
+                pq_url = current_table.input_url.to_absolute(current_table.url)
+                logger.debug(f"  Using input URL: {pq_url}")
+
+            try:
+                pa_table = get_input_parquet(pq_url)
+                replace_aliases_in_pa_table(current_path + [pq_url], pa_table, columns, rewrites)
+            except Exception as e:
+                logger.warning(f"Failed to process cache for table {current_table.url}: {e}")
+
+        # Process parent tables recursively if enabled
+        if process_parents:
+            parent_urls = list(SchemaHelper.object_input_urls(current_table, current_table.schema))
+            logger.debug(f"  Parent tables: {parent_urls}")
+            for parent_url in parent_urls:
+                try:
+                    parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
+                    process_table_recursive(parent_table, current_path + [parent_url])
+                except Exception as e:
+                    logger.warning(f"Failed to process parent table {parent_url}: {e}")
+
+    # Start recursive processing from the input table
+    process_table_recursive(table, input_path)
+
+
+def replace_aliases(
+    input_path: list[Url],
+    obj: pa.Table | Table | Run,
+    columns: list[str],
+    rewrites: list[tuple[str, str]],
+    process_parents: bool = True,
+) -> None:
+    """Replace paths with aliases in a 3LC object.
+
+    Args:
+        input_path: List of URLs representing the path to this object
+        obj: The object to process (Table, Run, or pa.Table)
+        columns: List of columns to process. If empty, process all columns.
+        rewrites: List of (old_path, new_path) pairs to rewrite
+        process_parents: Whether to process parent tables recursively
+    """
+    if isinstance(obj, Table):
+        replace_aliases_in_table(input_path, obj, columns, rewrites, process_parents)
+    elif isinstance(obj, Run):
+        raise NotImplementedError("Replacing aliases in Runs is not yet supported.")
+    elif isinstance(obj, pa.Table):
+        replace_aliases_in_pa_table(input_path, obj, columns, rewrites)
+    else:
+        raise ValueError("Input is not a valid 3LC object.")
+
+
+def backup_parquet(input_path: Url) -> Url:
+    """Create a backup of a parquet file before modification.
+
+    Args:
+        input_path: URL of the parquet file to backup
+
+    Returns:
+        URL of the backup file
+    """
+    backup_url = Url(str(input_path) + ".backup")
+    UrlAdapterRegistry.copy_url(input_path, backup_url)
+    logger.debug(f"Created backup at {backup_url}")
+    return backup_url
+
+
+def restore_from_backup(backup_url: Url, original_url: Url) -> None:
+    """Restore a parquet file from its backup.
+
+    Args:
+        backup_url: URL of the backup file
+        original_url: URL of the file to restore
+    """
+    UrlAdapterRegistry.copy_url(backup_url, original_url)
+    logger.debug(f"Restored {original_url} from backup {backup_url}")
+
+
 @register_tool(experimental=True, description="List, rewrite, and create URL aliases in 3LC objects")
 def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
-    """
-    Main function to process aliases in 3LC objects
+    """Main function to process aliases in 3LC objects.
 
-    :param tool_args: List of arguments. If None, will parse from command line.
-    :param prog: Program name. If None, will use the tool name.
+    Args:
+        tool_args: List of arguments. If None, will parse from command line.
+        prog: Program name. If None, will use the tool name.
     """
     parser = argparse.ArgumentParser(prog=prog, description="List, rewrite, and create URL aliases in 3LC objects")
 
@@ -547,9 +714,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     list_parser.add_argument("--columns", help="Comma-separated list of columns to process")
 
     # Replace command - for applying aliases and path rewrites
-    replace_parser = subparsers.add_parser(
-        "replace", help="Replace paths with aliases in files or list existing aliases"
-    )
+    replace_parser = subparsers.add_parser("replace", help="Replace paths with aliases in files")
     replace_parser.add_argument("input_path", help="The input object to process")
     replace_parser.add_argument("--columns", help="Comma-separated list of columns to process")
     replace_parser.add_argument(
@@ -558,28 +723,22 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         help="Do not process parent tables when handling Table objects",
     )
 
-    # Operation mode for replace command (keeping list for now, will deprecate later)
-    replace_mode = replace_parser.add_mutually_exclusive_group()
-    replace_mode.add_argument(
-        "--list",
-        action="store_true",
-        default=True,
-        help="List all aliases in the input (default behavior)",
-    )
+    # Replacement specification options
+    replace_mode = replace_parser.add_mutually_exclusive_group(required=True)
     replace_mode.add_argument(
         "--apply",
         metavar="ALIAS[,ALIAS,...]",
         help="Apply existing aliases to matching paths (comma-separated list)",
     )
-
-    # From/to path replacement (outside mutually exclusive group)
-    replace_parser.add_argument(
+    replace_mode.add_argument(
         "--from",
         dest="from_paths",
         metavar="PATH",
         action="append",
         help="Replace occurrences of this path (can be specified multiple times)",
     )
+
+    # Required when using --from
     replace_parser.add_argument(
         "--to",
         dest="to_paths",
@@ -597,59 +756,60 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     # Parse columns if specified (shared between commands)
     columns = [col.strip() for col in args.columns.split(",")] if args.columns else []
 
-    if args.command == "list":
-        # Handle list command
-        input_url = Url(args.input_path)
-        object = get_input_object(input_url)
-        try:
-            handle_list_command([input_url], object, columns)
-        except Exception as e:
-            logger.error(f"Error: {e}")
-            raise
+    # Get input object
+    input_url = Url(args.input_path)
+    try:
+        obj = get_input_object(input_url)
+    except Exception as e:
+        logger.error(f"Failed to load input object: {e}")
+        raise
 
-    elif args.command == "replace":
-        # Handle replace command (existing code)
-        input_url = Url(args.input_path)
+    try:
+        if args.command == "list":
+            # Simple path - just list aliases
+            list_aliases([input_url], obj, columns)
 
-        # Set up aliases based on operation mode
-        aliases = []
-        if args.apply:
-            # Parse comma-separated aliases
-            alias_names = [name.strip() for name in args.apply.split(",")]
+        elif args.command == "replace":
+            # Build list of rewrites based on command line options
+            rewrites = []
 
-            # Look up the alias values
-            import tlc
+            if args.apply:
+                # Parse comma-separated aliases
+                alias_names = [name.strip() for name in args.apply.split(",")]
 
-            registered_aliases = tlc.get_registered_url_aliases()
+                # Look up the alias values
+                import tlc
 
-            for alias_name in alias_names:
-                # Add angle brackets if not present
-                bracketed_name = f"<{alias_name}>" if not alias_name.startswith("<") else alias_name
+                registered_aliases = tlc.get_registered_url_aliases()
 
-                if bracketed_name not in registered_aliases:
-                    raise ValueError(f"Alias '{alias_name}' not found in registered aliases")
-                alias_value = registered_aliases[bracketed_name]
+                for alias_name in alias_names:
+                    # Add angle brackets if not present
+                    bracketed_name = f"<{alias_name}>" if not alias_name.startswith("<") else alias_name
 
-                aliases.append((alias_value, bracketed_name))
-        elif hasattr(args, "from_paths") and args.from_paths:
-            if not args.to_paths:
-                raise ValueError("--to PATH is required when using --from")
-            if len(args.from_paths) != len(args.to_paths):
-                raise ValueError("Number of --from and --to arguments must match")
-            aliases = list(zip(args.from_paths, args.to_paths))
+                    if bracketed_name not in registered_aliases:
+                        raise ValueError(f"Alias '{alias_name}' not found in registered aliases")
+                    alias_value = registered_aliases[bracketed_name]
+                    rewrites.append((alias_value, bracketed_name))
 
-        object = get_input_object(input_url)
-        try:
-            handle_object(
+            elif args.from_paths:
+                if not args.to_paths:
+                    raise ValueError("--to PATH is required when using --from")
+                if len(args.from_paths) != len(args.to_paths):
+                    raise ValueError("Number of --from and --to arguments must match")
+                rewrites = list(zip(args.from_paths, args.to_paths))
+
+            # Apply the rewrites
+            replace_aliases(
                 [input_url],
-                object,
+                obj,
                 columns,
-                aliases,
+                rewrites,
                 process_parents=not args.no_process_parents,
             )
-        except Exception as e:
-            logger.error(f"Error: {e}")
-            raise
+
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        raise
 
 
 if __name__ == "__main__":
