@@ -3,11 +3,11 @@ from unittest.mock import patch
 import pytest
 from tlc.core import Url
 
-from tlc_tools.experimental.alias_tool.alias import main
+from tlc_tools.experimental.alias_tool.main import main
 
 
-@patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
-@patch("tlc_tools.experimental.alias_tool.alias.replace_aliases")
+@patch("tlc_tools.experimental.alias_tool.main.get_input_object")
+@patch("tlc_tools.experimental.alias_tool.main.replace_aliases")
 def test_main_basic_replace(mock_replace_aliases, mock_get_input):
     """Test basic replace command with minimal arguments."""
     with patch("tlc.get_registered_url_aliases") as mock_get_aliases:
@@ -22,8 +22,8 @@ def test_main_basic_replace(mock_replace_aliases, mock_get_input):
     assert args[3] == [("/data/path", "<DATA_PATH>")]  # rewrite from apply
 
 
-@patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
-@patch("tlc_tools.experimental.alias_tool.alias.replace_aliases")
+@patch("tlc_tools.experimental.alias_tool.main.get_input_object")
+@patch("tlc_tools.experimental.alias_tool.main.replace_aliases")
 def test_main_apply_single_alias(mock_replace_aliases, mock_get_input):
     """Test applying a single alias."""
     with patch("tlc.get_registered_url_aliases") as mock_get_aliases:
@@ -36,8 +36,8 @@ def test_main_apply_single_alias(mock_replace_aliases, mock_get_input):
         assert args[3] == [("/data/path", "<DATA_PATH>")]
 
 
-@patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
-@patch("tlc_tools.experimental.alias_tool.alias.replace_aliases")
+@patch("tlc_tools.experimental.alias_tool.main.get_input_object")
+@patch("tlc_tools.experimental.alias_tool.main.replace_aliases")
 def test_main_apply_multiple_aliases(mock_replace_aliases, mock_get_input):
     """Test applying multiple aliases."""
     with patch("tlc.get_registered_url_aliases") as mock_get_aliases:
@@ -52,8 +52,8 @@ def test_main_apply_multiple_aliases(mock_replace_aliases, mock_get_input):
         assert ("/cache/path", "<CACHE>") in args[3]
 
 
-@patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
-@patch("tlc_tools.experimental.alias_tool.alias.replace_aliases")
+@patch("tlc_tools.experimental.alias_tool.main.get_input_object")
+@patch("tlc_tools.experimental.alias_tool.main.replace_aliases")
 def test_main_from_to_single(mock_replace_aliases, mock_get_input):
     """Test replacing a single path."""
     main(["replace", "table.parquet", "--from", "/old/path", "--to", "/new/path"])
@@ -64,8 +64,8 @@ def test_main_from_to_single(mock_replace_aliases, mock_get_input):
     assert args[3] == [("/old/path", "/new/path")]
 
 
-@patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
-@patch("tlc_tools.experimental.alias_tool.alias.replace_aliases")
+@patch("tlc_tools.experimental.alias_tool.main.get_input_object")
+@patch("tlc_tools.experimental.alias_tool.main.replace_aliases")
 def test_main_from_to_multiple(mock_replace_aliases, mock_get_input):
     """Test replacing multiple paths."""
     main(
@@ -91,8 +91,8 @@ def test_main_from_to_multiple(mock_replace_aliases, mock_get_input):
     assert ("/old/path2", "/new/path2") in args[3]
 
 
-@patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
-@patch("tlc_tools.experimental.alias_tool.alias.replace_aliases")
+@patch("tlc_tools.experimental.alias_tool.main.get_input_object")
+@patch("tlc_tools.experimental.alias_tool.main.replace_aliases")
 def test_main_columns(mock_replace_aliases, mock_get_input):
     """Test processing specific columns."""
     with patch("tlc.get_registered_url_aliases") as mock_get_aliases:
@@ -104,7 +104,7 @@ def test_main_columns(mock_replace_aliases, mock_get_input):
     assert args[2] == ["col1", "col2"]
 
 
-@patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
+@patch("tlc_tools.experimental.alias_tool.main.get_input_object")
 def test_main_missing_to(mock_get_input):
     """Test that --from without --to raises an error."""
     # The error should be raised before get_input_object is called
@@ -115,7 +115,7 @@ def test_main_missing_to(mock_get_input):
     mock_get_input.assert_not_called()
 
 
-@patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
+@patch("tlc_tools.experimental.alias_tool.main.get_input_object")
 def test_main_mismatched_from_to(mock_get_input):
     """Test that unequal numbers of --from and --to raise an error."""
     # The error should be raised before get_input_object is called
@@ -126,8 +126,8 @@ def test_main_mismatched_from_to(mock_get_input):
     mock_get_input.assert_not_called()
 
 
-@patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
-@patch("tlc_tools.experimental.alias_tool.alias.replace_aliases")
+@patch("tlc_tools.experimental.alias_tool.main.get_input_object")
+@patch("tlc_tools.experimental.alias_tool.main.replace_aliases")
 def test_main_no_process_parents(mock_replace_aliases, mock_get_input):
     """Test that --no-process-parents flag is respected."""
     with patch("tlc.get_registered_url_aliases") as mock_get_aliases:
@@ -142,10 +142,10 @@ def test_main_no_process_parents(mock_replace_aliases, mock_get_input):
 def test_list_command_basic(mocker):
     """Test basic list command functionality."""
     mock_table = mocker.MagicMock()
-    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
+    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.main.get_input_object")
     mock_get_input.return_value = mock_table
 
-    mock_list_aliases = mocker.patch("tlc_tools.experimental.alias_tool.alias.list_aliases")
+    mock_list_aliases = mocker.patch("tlc_tools.experimental.alias_tool.main.list_aliases")
 
     # Run the list command
     main(["list", "table.parquet"])
@@ -158,10 +158,10 @@ def test_list_command_basic(mocker):
 def test_list_command_with_columns(mocker):
     """Test list command with specific columns."""
     mock_table = mocker.MagicMock()
-    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
+    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.main.get_input_object")
     mock_get_input.return_value = mock_table
 
-    mock_list_aliases = mocker.patch("tlc_tools.experimental.alias_tool.alias.list_aliases")
+    mock_list_aliases = mocker.patch("tlc_tools.experimental.alias_tool.main.list_aliases")
 
     # Run the list command with columns
     main(["list", "table.parquet", "--columns", "col1,col2"])
@@ -172,9 +172,9 @@ def test_list_command_with_columns(mocker):
 
 def test_list_command_error_handling(mocker):
     """Test that list command properly handles and reports errors."""
-    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.alias.get_input_object")
-    mock_get_input.side_effect = ValueError("Test error")
+    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.main.get_input_object")
+    mock_get_input.side_effect = ValueError("Expected test error - this is normal test behavior")
 
     # Run the list command and expect it to raise the error
-    with pytest.raises(ValueError, match="Test error"):
+    with pytest.raises(ValueError, match="Expected test error - this is normal test behavior"):
         main(["list", "table.parquet"])

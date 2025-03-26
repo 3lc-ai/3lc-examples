@@ -308,7 +308,7 @@ def test_handle_list_command_no_aliases(tmp_parquet):
         list_aliases([Url(tmp_parquet)], table, [])
 
         # Verify "no aliases found" message was logged
-        mock_logger.info.assert_called_once_with(f"No aliases found in file '{tmp_parquet.replace('\\', '/')}'")
+        mock_logger.info.assert_called_once_with(f"No aliases found in file '{Path(tmp_parquet).as_posix()}'")
 
 
 def test_handle_pa_table_selected_columns(tmp_parquet):
