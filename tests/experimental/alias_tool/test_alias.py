@@ -10,9 +10,8 @@ import pyarrow.parquet as pq
 import pytest
 from tlc.core import EditedTable, ObjectRegistry, Table, TableFromPydict, Url
 
-from tlc_tools.experimental.alias_tool.alias import (
-    list_aliases,
-    list_aliases_in_column,
+from tlc_tools.experimental.alias_tool.list_aliases import list_aliases, list_aliases_in_column
+from tlc_tools.experimental.alias_tool.replace_aliases import (
     replace_aliases_in_column,
     replace_aliases_in_pa_table,
     replace_aliases_in_table,
@@ -267,7 +266,7 @@ def test_handle_list_command(tmp_parquet):
         }
     )
 
-    with patch("tlc_tools.experimental.alias_tool.alias.logger") as mock_logger:
+    with patch("tlc_tools.experimental.alias_tool.list_aliases.logger") as mock_logger:
         list_aliases([Url(tmp_parquet)], table, [])
 
         # Verify correct aliases were found and logged
@@ -287,7 +286,7 @@ def test_handle_list_command_selected_columns(tmp_parquet):
         }
     )
 
-    with patch("tlc_tools.experimental.alias_tool.alias.logger") as mock_logger:
+    with patch("tlc_tools.experimental.alias_tool.list_aliases.logger") as mock_logger:
         list_aliases([Url(tmp_parquet)], table, ["col1"])
 
         # Verify only aliases from selected column were found
@@ -305,7 +304,7 @@ def test_handle_list_command_no_aliases(tmp_parquet):
         }
     )
 
-    with patch("tlc_tools.experimental.alias_tool.alias.logger") as mock_logger:
+    with patch("tlc_tools.experimental.alias_tool.list_aliases.logger") as mock_logger:
         list_aliases([Url(tmp_parquet)], table, [])
 
         # Verify "no aliases found" message was logged
@@ -388,7 +387,7 @@ def test_handle_pa_table_no_backup_when_no_changes(mocker):
         }
     )
 
-    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.alias.backup_parquet")
+    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.backup_parquet")
     mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
 
     # Process with rewrites that won't affect anything
@@ -407,10 +406,10 @@ def test_handle_pa_table_backup_and_restore_on_write_error(mocker):
         }
     )
 
-    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.alias.backup_parquet")
+    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.backup_parquet")
     mock_backup.return_value = Url("test.parquet.backup")
 
-    mock_restore = mocker.patch("tlc_tools.experimental.alias_tool.alias.restore_from_backup")
+    mock_restore = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.restore_from_backup")
 
     # Make write fail
     mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
@@ -437,7 +436,7 @@ def test_handle_pa_table_successful_backup_cleanup(mocker):
         }
     )
 
-    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.alias.backup_parquet")
+    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.backup_parquet")
     mock_backup.return_value = Url("test.parquet.backup")
 
     mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
