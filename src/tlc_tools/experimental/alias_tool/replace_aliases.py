@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -11,6 +12,9 @@ from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url, UrlAdapter
 from .common import get_input_parquet
 
 logger = logging.getLogger(__name__)
+
+# Number of sample rewrites to show in debug logs
+SAMPLE_REWRITES_COUNT = 3
 
 
 def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tuple[str, str]]) -> tuple[pa.Array, bool]:
@@ -44,16 +48,39 @@ def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tup
         return pa.StructArray.from_arrays(sub_cols, fields=column.type), was_modified
 
     if pa.types.is_string(column.type):
+        # Skip processing if no rewrites to apply
+        if not rewrites:
+            return column, False
+
+        # Process each rewrite sequentially
         modified_column = column
         was_modified = False
+        change_count = 0
+        sample_rewrites: list[tuple[str, str]] = []  # Only store first N changes for logging
+
         for old, new in rewrites:
-            new_column = pc.replace_substring(modified_column, old, new)
-            # Check if any changes were made
-            num_modified_rows = pc.sum(pc.invert(pc.equal(new_column, modified_column))).as_py()
-            if num_modified_rows > 0:
-                logger.info(f"Rewrote {num_modified_rows} occurrences of '{old}' to '{new}' in column '{column_path}'")
+            # Escape special characters in the old path
+            old_pattern = re.escape(old)
+            new_column = pc.replace_substring_regex(modified_column, old_pattern, new)
+
+            # Check if any changes were made using pc.all()
+            if not pc.all(pc.equal(new_column, modified_column)).as_py():
                 was_modified = True
+                change_count += 1
+                # Only store first N changes for logging
+                if len(sample_rewrites) < SAMPLE_REWRITES_COUNT:
+                    sample_rewrites.append((old, new))
+
             modified_column = new_column
+
+        if was_modified:
+            if sample_rewrites:
+                sample_text = ", ".join(f"'{old}'→'{new}'" for old, new in sample_rewrites)
+                if change_count > len(sample_rewrites):
+                    sample_text += f" (and {change_count - len(sample_rewrites)} more)"
+                logger.debug(f"Column '{column_path}': {sample_text}")
+            logger.info(f"Applied {change_count} rewrites in column '{column_path}'")
+
         return modified_column, was_modified
 
     return column, False
