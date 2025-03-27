@@ -15,18 +15,18 @@ class ToolInfo(NamedTuple):
 _TOOLS: dict[str, ToolInfo] = {}
 
 
-def register_tool(*, experimental: bool = False, description: str = ""):
+def register_tool(*, name: str | None = None, experimental: bool = False, description: str = ""):
     """Decorator to register a CLI tool, making it available through the 3lc-tools CLI.
 
     Args:
+        name: Optional custom name for the tool. If not provided, defaults to the module name.
         experimental: Whether this is an experimental tool.
         description: A description of the tool, displayed when listing tools.
     """
 
     def decorator(func: Callable) -> Callable:
-        tool_name = func.__module__.split(".")[-1]
-        if experimental:
-            # Remove experimental prefix from module path for tool name
+        tool_name = name if name is not None else func.__module__.split(".")[-1]
+        if experimental and name is None:
             tool_name = tool_name.replace("experimental.", "")
 
         # Don't set prog when script is run directly

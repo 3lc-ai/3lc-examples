@@ -175,7 +175,7 @@ def handle_replace_command(
     replace_aliases([input_url], obj, columns, rewrites, process_parents=process_parents)
 
 
-@register_tool(experimental=True, description="List, rewrite, and create URL aliases in 3LC objects")
+@register_tool(name="alias", experimental=True, description="List, rewrite, and create URL aliases in 3LC objects")
 def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     """Main function to process aliases in 3LC objects.
 
