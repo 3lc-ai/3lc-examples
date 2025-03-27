@@ -246,7 +246,7 @@ def handle_replace_command(
         process_parents: Whether to process parent tables.
     """
     obj = get_input_object(input_url)
-    replace_aliases([input_url], obj, columns, rewrites, process_parents=process_parents)
+    replace_aliases(obj, columns, rewrites, process_parents=process_parents, input_url=input_url)
 
 
 @register_tool(name="alias", experimental=True, description="List, rewrite, and create URL aliases in 3LC objects")

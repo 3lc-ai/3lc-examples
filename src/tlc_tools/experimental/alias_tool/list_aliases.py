@@ -56,52 +56,44 @@ def find_aliases_in_column(column_path: str, column: pa.Array) -> list[tuple[str
     return found_aliases
 
 
-def list_aliases_in_pa_table(input_path: list[Url], pa_table: pa.Table, columns: list[str]) -> None:
+def list_aliases_in_pa_table(pa_table: pa.Table, columns: list[str], input_url: Url | None = None) -> None:
     """List aliases in a PyArrow table.
 
     Args:
-        input_path: List of URLs representing the path to this table
-        pa_table: The table to process
+        pa_table: The PyArrow table to process
         columns: List of columns to process. If empty, process all columns.
+        input_url: Optional URL of the parquet file (for logging purposes)
     """
-    target_url = input_path[-1]
-    found_any = False
-
     # Validate selected columns exist if specified
     if columns:
         for col_name in columns:
             if col_name not in pa_table.column_names:
-                raise ValueError(
-                    f"Selected column '{col_name}' not found in the input table's columns ({pa_table.column_names})."
-                )
+                cols = pa_table.column_names
+                raise ValueError(f"Selected column '{col_name}' not found in columns: {cols}")
 
     # Process each column
     for col_name in pa_table.column_names:
         if columns and col_name not in columns:
             continue
 
-        aliases = find_aliases_in_column(col_name, pa_table[col_name])
-        if aliases:
-            found_any = True
-            for found_column, alias, example in aliases:
-                logger.info(f"Found alias '{alias}' in column '{found_column}' in file '{target_url}'")
-                logger.debug(f"  Example: {example}")
-
-    if not found_any:
-        logger.info(f"No aliases found in file '{target_url}'")
+        found_aliases = find_aliases_in_column(col_name, pa_table[col_name])
+        if found_aliases:
+            logger.info(f"Found aliases in column '{col_name}' of table '{input_url or 'unknown'}'")
+            for _column_path, alias, value in found_aliases:
+                logger.info(f"  {alias} ({value})")
 
 
-def list_aliases_in_tlc_table(input_path: list[Url], table: Table, columns: list[str]) -> None:
+def list_aliases_in_tlc_table(table: Table, columns: list[str], process_parents: bool = True) -> None:
     """List aliases in a TLC Table and its lineage.
 
     Args:
-        input_path: List of URLs representing the path to this table
         table: The Table object to process
         columns: List of columns to process. If empty, process all columns.
+        process_parents: Whether to process parent tables recursively
     """
     processed_tables = set()  # Track processed tables to avoid cycles
 
-    def process_table_recursive(current_table: Table, current_path: list[Url]) -> None:
+    def process_table_recursive(current_table: Table) -> None:
         if current_table.url in processed_tables:
             return
         current_table.ensure_fully_defined()
@@ -124,37 +116,44 @@ def list_aliases_in_tlc_table(input_path: list[Url], table: Table, columns: list
 
             try:
                 pa_table = get_input_parquet(pq_url)
-                list_aliases_in_pa_table(current_path + [pq_url], pa_table, columns)
+                list_aliases_in_pa_table(pa_table, columns, pq_url)
             except Exception as e:
                 logger.warning(f"Failed to process cache for table {current_table.url}: {e}")
 
-        # Process parent tables recursively
-        parent_urls = list(SchemaHelper.object_input_urls(current_table, current_table.schema))
-        logger.debug(f"  Parent tables: {parent_urls}")
-        for parent_url in parent_urls:
-            try:
-                parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
-                process_table_recursive(parent_table, current_path + [parent_url])
-            except Exception as e:
-                logger.warning(f"Failed to process parent table {parent_url}: {e}")
+        # Process parent tables recursively if enabled
+        if process_parents:
+            parent_urls = list(SchemaHelper.object_input_urls(current_table, current_table.schema))
+            logger.debug(f"  Parent tables: {parent_urls}")
+            for parent_url in parent_urls:
+                try:
+                    parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
+                    process_table_recursive(parent_table)
+                except Exception as e:
+                    logger.warning(f"Failed to process parent table {parent_url}: {e}")
 
     # Start recursive processing from the input table
-    process_table_recursive(table, input_path)
+    process_table_recursive(table)
 
 
-def list_aliases(input_path: list[Url], obj: pa.Table | Table | Run, columns: list[str]) -> None:
-    """List all aliases found in a 3LC object.
+def list_aliases(
+    obj: pa.Table | Table | Run,
+    columns: list[str],
+    process_parents: bool = True,
+    input_url: Url | None = None,
+) -> None:
+    """List aliases in a 3LC object.
 
     Args:
-        input_path: List of URLs representing the path to this object
         obj: The object to process (Table, Run, or pa.Table)
         columns: List of columns to process. If empty, process all columns.
+        process_parents: Whether to process parent tables recursively
+        input_url: Optional URL of the parquet file (for PyArrow tables)
     """
     if isinstance(obj, Table):
-        list_aliases_in_tlc_table(input_path, obj, columns)
+        list_aliases_in_tlc_table(obj, columns, process_parents)
     elif isinstance(obj, Run):
         raise NotImplementedError("Listing aliases in Runs is not yet supported.")
     elif isinstance(obj, pa.Table):
-        list_aliases_in_pa_table(input_path, obj, columns)
+        list_aliases_in_pa_table(obj, columns, input_url)
     else:
         raise ValueError("Input is not a valid 3LC object.")

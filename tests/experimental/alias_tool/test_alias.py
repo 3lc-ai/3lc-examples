@@ -13,12 +13,10 @@ from tlc_tools.experimental.alias_tool.common import get_input_object
 from tlc_tools.experimental.alias_tool.list_aliases import (
     find_aliases_in_column,
     list_aliases,
-    list_aliases_in_tlc_table,
 )
 from tlc_tools.experimental.alias_tool.replace_aliases import (
     replace_aliases_in_pa_table,
     replace_aliases_in_tlc_table,
-    rewrite_column_values,
 )
 
 TEST_ALIAS_PROJECT_NAME = "test_alias"
@@ -272,13 +270,22 @@ def test_list_pa_table_basic(tmp_parquet, mocker):
     )
 
     mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
-    list_aliases([Url(tmp_parquet)], table, [])
+    input_url = Url(tmp_parquet)
+    list_aliases(table, [], input_url=input_url)
 
     # Verify correct aliases were found and logged
     found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
-    assert any("Found alias '<DATA_PATH>' in column 'col1'" in msg for msg in found_aliases)
-    assert any("Found alias '<MODEL_PATH>' in column 'col1'" in msg for msg in found_aliases)
-    assert any("Found alias '<META_PATH>' in column 'metadata.path'" in msg for msg in found_aliases)
+
+    # Check column headers
+    assert any(f"Found aliases in column 'col1' of table '{input_url}'" in msg for msg in found_aliases)
+    assert any(f"Found aliases in column 'metadata' of table '{input_url}'" in msg for msg in found_aliases)
+
+    # Check specific aliases
+    assert any("  <DATA_PATH> (<DATA_PATH>/file.txt)" in msg for msg in found_aliases)
+    assert any("  <MODEL_PATH> (<MODEL_PATH>/model.pt)" in msg for msg in found_aliases)
+    assert any("  <META_PATH> (<META_PATH>/meta.json)" in msg for msg in found_aliases)
+
+    # Verify no invalid aliases were logged
     assert not any("<CACHE>" in msg for msg in found_aliases)
 
 
@@ -292,11 +299,18 @@ def test_list_pa_table_selected_columns(tmp_parquet, mocker):
     )
 
     mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
-    list_aliases([Url(tmp_parquet)], table, ["col1"])
+    list_aliases(table, ["col1"], input_url=Url(tmp_parquet))
 
     # Verify only aliases from selected column were found
     found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
-    assert any("<DATA_PATH>" in msg for msg in found_aliases)
+
+    # Check column headers
+    assert any("Found aliases in column 'col1'" in msg for msg in found_aliases)
+    assert not any("Found aliases in column 'col2'" in msg for msg in found_aliases)
+
+    # Check specific aliases
+    assert len(found_aliases) == 2  # Header + 1 alias
+    assert any("  <DATA_PATH> (<DATA_PATH>/file.txt)" in msg for msg in found_aliases)
     assert not any("<MODEL_PATH>" in msg for msg in found_aliases)
 
 
@@ -310,29 +324,38 @@ def test_list_pa_table_no_aliases(tmp_parquet, mocker):
     )
 
     mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
-    list_aliases([Url(tmp_parquet)], table, [])
+    list_aliases(table, [], input_url=Url(tmp_parquet))
 
-    # Verify "no aliases found" message was logged
-    mock_logger.info.assert_called_once_with(f"No aliases found in file '{Path(tmp_parquet).as_posix()}'")
+    # Verify no aliases were found
+    found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
+    assert not found_aliases, "Should not log any aliases when none are found"
 
 
 def test_list_tlc_table_basic(sample_table: Table, mocker) -> None:
     """Test listing aliases in a TLC table."""
     mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
-    list_aliases_in_tlc_table([sample_table.url], sample_table, [])
+    list_aliases(sample_table, [])
 
     # Verify correct aliases were found and logged
     found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
-    assert any("Found alias '<DATA_PATH>' in column 'image_path'" in msg for msg in found_aliases)
-    assert any("Found alias '<MASK_PATH>' in column 'mask_path'" in msg for msg in found_aliases)
-    assert any("Found alias '<META_PATH>' in column 'metadata.path'" in msg for msg in found_aliases)
+
+    # Check column headers
+    assert any("Found aliases in column 'image_path'" in msg for msg in found_aliases)
+    assert any("Found aliases in column 'mask_path'" in msg for msg in found_aliases)
+    assert any("Found aliases in column 'metadata'" in msg for msg in found_aliases)
+
+    # Check specific aliases
+    assert any("  <DATA_PATH> (<DATA_PATH>/images/003.jpg)" in msg for msg in found_aliases)
+    assert any("  <MASK_PATH> (<MASK_PATH>/003.png)" in msg for msg in found_aliases)
+    assert any("  <META_PATH> (<META_PATH>/002.json)" in msg for msg in found_aliases)
+    assert not any("<CACHE_PATH>" in msg for msg in found_aliases)
 
 
 def test_replace_pa_table_selected_columns(tmp_parquet):
     """Test replacing aliases in a parquet table with column selection."""
     table = pq.read_table(tmp_parquet)
 
-    replace_aliases_in_pa_table([Url(tmp_parquet)], table, ["image_path"], [("/data/images", "<DATA_PATH>")])
+    replace_aliases_in_pa_table(Url(tmp_parquet), table, ["image_path"], [("/data/images", "<DATA_PATH>")])
 
     # Read back and verify
     result = pq.read_table(tmp_parquet)
@@ -347,35 +370,15 @@ def test_replace_pa_table_selected_columns(tmp_parquet):
     assert result.column("label").equals(table.column("label"))
 
 
-def test_replace_column_basic(array_types):
-    """Test replacing aliases in a column for different array types (basic, chunked, struct)."""
-    array_type, array, col_names, get_paths = array_types
-
-    rewrites = [("/path/to", "<CACHE_PATH>")]
-    result, _ = rewrite_column_values(".".join(col_names), array, rewrites)
-
-    # Verify type is preserved
-    assert isinstance(result, type(array))
-
-    # Get the paths for comparison using the provided accessor
-    paths = get_paths(result)
-
-    # Verify the rewrite was applied correctly
-    expected = [
-        "<DATA_PATH>/images/001.jpg",  # Unchanged
-        "<MODEL_PATH>/weights.pt",  # Unchanged
-        "<CACHE_PATH>/<CACHE_PATH>/file.txt",  # Rewritten
-        "/other/path/003.jpg",  # Unchanged
-    ]
-    assert paths.to_pylist() == expected, f"Failed for {array_type} array"
-
-
 def test_replace_pa_table_multiple_rewrites(tmp_parquet):
     """Test replacing multiple aliases in a parquet table."""
     table = pq.read_table(tmp_parquet)
 
     replace_aliases_in_pa_table(
-        [Url(tmp_parquet)], table, [], [("/data/images", "<DATA_PATH>"), ("/data/masks", "<MASK_PATH>")]
+        Url(tmp_parquet),
+        table,
+        [],
+        [("/data/images", "<DATA_PATH>"), ("/data/masks", "<MASK_PATH>")],
     )
 
     # Read back and verify
@@ -393,7 +396,7 @@ def test_replace_pa_table_invalid_column():
     table = pa.table({"col1": [1, 2, 3]})
 
     with pytest.raises(ValueError, match=re.escape("not found in columns: ['col1']")):
-        replace_aliases_in_pa_table([Url("test.parquet")], table, ["invalid_column"], [])
+        replace_aliases_in_pa_table(Url("test.parquet"), table, ["invalid_column"], [])
 
 
 def test_replace_pa_table_backup_none_changed(mocker):
@@ -408,7 +411,7 @@ def test_replace_pa_table_backup_none_changed(mocker):
     mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
 
     # Process with rewrites that won't affect anything
-    replace_aliases_in_pa_table([Url("test.parquet")], table, [], [("/nonexistent", "<ALIAS>")])
+    replace_aliases_in_pa_table(Url("test.parquet"), table, [], [("/nonexistent", "<ALIAS>")])
 
     # Verify no backup was created and no write attempted
     mock_backup.assert_not_called()
@@ -434,7 +437,7 @@ def test_replace_pa_table_backup_on_error(mocker):
 
     with pytest.raises(OSError, match="Write failed"):
         replace_aliases_in_pa_table(
-            [Url("test.parquet")],
+            Url("test.parquet"),
             table,
             [],
             [("/data", "<DATA>")],  # This will cause changes
@@ -465,7 +468,7 @@ def test_replace_pa_table_backup_restore_integration(tmp_path, mocker):
     # Attempt the replacement which should fail
     with pytest.raises(OSError, match="Write failed"):
         replace_aliases_in_pa_table(
-            [Url(str(original_path))],
+            Url(str(original_path)),
             original_table,
             [],
             [("/data", "<DATA>")],
@@ -489,12 +492,7 @@ def test_replace_tlc_table_basic(sample_table: Table) -> None:
         ("<META_PATH>", "/data/metadata"),  # Affects existing alias in metadata.path
     ]
 
-    replace_aliases_in_tlc_table(
-        [sample_table.url],
-        sample_table,
-        [],
-        rewrites,
-    )
+    replace_aliases_in_tlc_table(sample_table, [], rewrites)
     ObjectRegistry.drop_cache()
     reloaded_table = Table.from_url(sample_table.url)
 
@@ -535,12 +533,7 @@ def test_replace_tlc_table_selected_columns(sample_table: Table) -> None:
     initial_metadata = sample_table.get_column("metadata")
     initial_label = sample_table.get_column("label")
 
-    replace_aliases_in_tlc_table(
-        [sample_table.url],
-        sample_table,
-        ["image_path"],
-        rewrites,
-    )
+    replace_aliases_in_tlc_table(sample_table, ["image_path"], rewrites)
     ObjectRegistry.drop_cache()
     reloaded_table = Table.from_url(sample_table.url)
 
@@ -561,7 +554,6 @@ def test_replace_tlc_table_selected_columns(sample_table: Table) -> None:
 def test_replace_tlc_table_parent_basic(sample_table_with_parent: Table) -> None:
     """Test alias replacement in a TLC table with parent table processing."""
     replace_aliases_in_tlc_table(
-        [sample_table_with_parent.url],
         sample_table_with_parent,
         [],
         [("/data/images", "<DATA_PATH>"), ("/data/masks", "<MASK_PATH>")],
@@ -596,7 +588,6 @@ def test_replace_tlc_table_parent_basic(sample_table_with_parent: Table) -> None
 def test_replace_tlc_table_parent_disabled(sample_table_with_parent: Table) -> None:
     """Test alias replacement in a TLC table with parent processing disabled."""
     replace_aliases_in_tlc_table(
-        [sample_table_with_parent.url],
         sample_table_with_parent,
         [],
         [("/data/images", "<DATA_PATH>"), ("/data/masks", "<MASK_PATH>")],
@@ -628,7 +619,6 @@ def test_replace_tlc_table_parent_disabled(sample_table_with_parent: Table) -> N
 def test_replace_tlc_table_pseudo_parent(sample_table_with_pseudo_parent: Table) -> None:
     """Test alias replacement in a TLC table with pseudo parent table processing."""
     replace_aliases_in_tlc_table(
-        [sample_table_with_pseudo_parent.url],
         sample_table_with_pseudo_parent,
         [],
         [("/other/path", "<OTHER_PATH>"), ("/data/images", "<DATA_PATH>")],

@@ -113,10 +113,16 @@ def restore_from_backup(backup_url: Url, original_url: Url) -> None:
 
 
 def replace_aliases_in_pa_table(
-    input_path: list[Url], pa_table: pa.Table, columns: list[str], rewrites: list[tuple[str, str]]
+    target_url: Url, pa_table: pa.Table, columns: list[str], rewrites: list[tuple[str, str]]
 ) -> None:
-    """Replace aliases in a PyArrow table."""
-    target_url = input_path[-1]
+    """Replace aliases in a PyArrow table.
+
+    Args:
+        target_url: URL where the modified table should be written
+        pa_table: The PyArrow table to process
+        columns: List of columns to process. If empty, process all columns.
+        rewrites: List of (old_path, new_path) pairs to rewrite
+    """
     backup_url = None
 
     try:
@@ -170,7 +176,6 @@ def replace_aliases_in_pa_table(
 
 
 def replace_aliases_in_tlc_table(
-    input_path: list[Url],
     table: Table,
     columns: list[str],
     rewrites: list[tuple[str, str]],
@@ -179,7 +184,6 @@ def replace_aliases_in_tlc_table(
     """Replace aliases in a TLC Table and its lineage.
 
     Args:
-        input_path: List of URLs representing the path to this table
         table: The Table object to process
         columns: List of columns to process. If empty, process all columns.
         rewrites: List of (old_path, new_path) pairs to rewrite
@@ -187,7 +191,7 @@ def replace_aliases_in_tlc_table(
     """
     processed_tables = set()  # Track processed tables to avoid cycles
 
-    def process_table_recursive(current_table: Table, current_path: list[Url]) -> None:
+    def process_table_recursive(current_table: Table) -> None:
         if current_table.url in processed_tables:
             return
         current_table.ensure_fully_defined()
@@ -210,7 +214,7 @@ def replace_aliases_in_tlc_table(
 
             try:
                 pa_table = get_input_parquet(pq_url)
-                replace_aliases_in_pa_table(current_path + [pq_url], pa_table, columns, rewrites)
+                replace_aliases_in_pa_table(pq_url, pa_table, columns, rewrites)
             except Exception as e:
                 logger.warning(f"Failed to process cache for table {current_table.url}: {e}")
 
@@ -221,35 +225,34 @@ def replace_aliases_in_tlc_table(
             for parent_url in parent_urls:
                 try:
                     parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
-                    process_table_recursive(parent_table, current_path + [parent_url])
+                    process_table_recursive(parent_table)
                 except Exception as e:
                     logger.warning(f"Failed to process parent table {parent_url}: {e}")
 
     # Start recursive processing from the input table
-    process_table_recursive(table, input_path)
+    process_table_recursive(table)
 
 
 def replace_aliases(
-    input_path: list[Url],
     obj: pa.Table | Table | Run,
     columns: list[str],
     rewrites: list[tuple[str, str]],
     process_parents: bool = True,
+    input_url: Url | None = None,
 ) -> None:
     """Replace paths with aliases in a 3LC object.
 
     Args:
-        input_path: List of URLs representing the path to this object
         obj: The object to process (Table, Run, or pa.Table)
         columns: List of columns to process. If empty, process all columns.
         rewrites: List of (old_path, new_path) pairs to rewrite
         process_parents: Whether to process parent tables recursively
     """
     if isinstance(obj, Table):
-        replace_aliases_in_tlc_table(input_path, obj, columns, rewrites, process_parents)
+        replace_aliases_in_tlc_table(obj, columns, rewrites, process_parents)
     elif isinstance(obj, Run):
         raise NotImplementedError("Replacing aliases in Runs is not yet supported.")
     elif isinstance(obj, pa.Table):
-        replace_aliases_in_pa_table(input_path, obj, columns, rewrites)
+        replace_aliases_in_pa_table(input_url, obj, columns, rewrites)
     else:
         raise ValueError("Input is not a valid 3LC object.")

@@ -16,9 +16,9 @@ def test_main_basic_replace(mocker):
     mock_get_input.assert_called_once()
     mock_replace_aliases.assert_called_once()
     args = mock_replace_aliases.call_args[0]
-    assert len(args) == 4
-    assert args[2] == []  # no columns specified
-    assert args[3] == [("/data/path", "<DATA_PATH>")]  # rewrite from apply
+    assert len(args) == 3
+    assert args[1] == []  # columns
+    assert args[2] == [("/data/path", "<DATA_PATH>")]  # rewrites
 
 
 def test_main_apply_single_alias(mocker):
@@ -33,7 +33,7 @@ def test_main_apply_single_alias(mocker):
     # Should call replace_aliases with the rewrite
     mock_replace_aliases.assert_called_once()
     args = mock_replace_aliases.call_args[0]
-    assert args[3] == [("/data/path", "<DATA_PATH>")]
+    assert args[2] == [("/data/path", "<DATA_PATH>")]
 
 
 def test_main_apply_multiple_aliases(mocker):
@@ -48,9 +48,9 @@ def test_main_apply_multiple_aliases(mocker):
     # Should call replace_aliases with both rewrites
     mock_replace_aliases.assert_called_once()
     args = mock_replace_aliases.call_args[0]
-    assert len(args[3]) == 2
-    assert ("/data/path", "<DATA_PATH>") in args[3]
-    assert ("/cache/path", "<CACHE>") in args[3]
+    assert len(args[2]) == 2
+    assert ("/data/path", "<DATA_PATH>") in args[2]
+    assert ("/cache/path", "<CACHE>") in args[2]
 
 
 def test_main_from_to_single(mocker):
@@ -63,7 +63,7 @@ def test_main_from_to_single(mocker):
     # Should call replace_aliases with the rewrite
     mock_replace_aliases.assert_called_once()
     args = mock_replace_aliases.call_args[0]
-    assert args[3] == [("/old/path", "/new/path")]
+    assert args[2] == [("/old/path", "/new/path")]
 
 
 def test_main_from_to_multiple(mocker):
@@ -89,9 +89,9 @@ def test_main_from_to_multiple(mocker):
     # Should call replace_aliases with both rewrites
     mock_replace_aliases.assert_called_once()
     args = mock_replace_aliases.call_args[0]
-    assert len(args[3]) == 2
-    assert ("/old/path1", "/new/path1") in args[3]
-    assert ("/old/path2", "/new/path2") in args[3]
+    assert len(args[2]) == 2
+    assert ("/old/path1", "/new/path1") in args[2]
+    assert ("/old/path2", "/new/path2") in args[2]
 
 
 def test_main_columns(mocker):
@@ -105,7 +105,8 @@ def test_main_columns(mocker):
 
     mock_replace_aliases.assert_called_once()
     args = mock_replace_aliases.call_args[0]
-    assert args[2] == ["col1", "col2"]
+    assert args[1] == ["col1", "col2"]  # columns
+    assert args[2] == [("/data/path", "<DATA_PATH>")]  # rewrites
 
 
 def test_main_missing_to(mocker):
