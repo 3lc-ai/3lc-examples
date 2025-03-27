@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import logging
-import re
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -10,8 +9,6 @@ from tlc.core import Run, Table, Url, UrlAdapterRegistry
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-_ALIAS_PATTERN = r"<[A-Z][A-Z0-9_]*>"
 
 
 def setup_logging(verbosity: int = 0, quiet: bool = False) -> None:
@@ -41,17 +38,6 @@ def setup_logging(verbosity: int = 0, quiet: bool = False) -> None:
 
     # Prevent duplicate logging
     root_logger.propagate = False
-
-
-def validate_alias_name(alias_name: str) -> bool:
-    """
-    Validate that an alias name follows the required format:
-    - Must be wrapped in < >
-    - Must start with a capital letter
-    - Can only contain capital letters, numbers, and underscores
-    """
-    pattern = re.compile(_ALIAS_PATTERN)
-    return bool(pattern.match(alias_name))
 
 
 def get_input_table(input_url: Url) -> Table:
@@ -91,4 +77,4 @@ def get_input_object(input_url: Url) -> pa.Table | Table | Run:
     except ValueError:
         pass
 
-    raise ValueError(f"Input file '{input_url}' is not a valid 3LC object.")
+    raise ValueError(f"Input file '{input_url}' is not a valid 3LC object or Parquet file.")

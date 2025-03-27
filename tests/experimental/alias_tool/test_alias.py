@@ -8,9 +8,14 @@ from unittest.mock import patch
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from tlc.core import EditedTable, ObjectRegistry, Table, TableFromPydict, Url
+from tlc.core import EditedTable, ObjectRegistry, Table, TableFromParquet, TableFromPydict, Url
 
-from tlc_tools.experimental.alias_tool.list_aliases import find_aliases_in_column, list_aliases
+from tlc_tools.experimental.alias_tool.common import get_input_object
+from tlc_tools.experimental.alias_tool.list_aliases import (
+    find_aliases_in_column,
+    list_aliases,
+    list_aliases_in_tlc_table,
+)
 from tlc_tools.experimental.alias_tool.replace_aliases import (
     replace_aliases_in_pa_table,
     replace_aliases_in_tlc_table,
@@ -69,6 +74,7 @@ def sample_table(tmp_path: Path) -> Generator[Table, None, None]:
         if_exists="raise",
         project_name=TEST_ALIAS_PROJECT_NAME,
         dataset_name=TEST_ALIAS_DATASET_NAME,
+        add_weight_column=False,
     )
     table.ensure_fully_defined()
     yield table
@@ -228,8 +234,8 @@ def array_types(request):
     return array_type, array, col_names, get_paths
 
 
-def test_list_aliases_in_column(array_types):
-    """Test that list_aliases_in_column works correctly for different array types."""
+def test_list_column_basic(array_types):
+    """Test listing aliases in a column for different array types (basic, chunked, struct)."""
     array_type, array, col_names, _ = array_types
 
     expected_col_path = ".".join(col_names + (["path"] if array_type == "struct" else []))
@@ -241,8 +247,8 @@ def test_list_aliases_in_column(array_types):
     assert not any("<CACHE_PATH>" in alias[1] for alias in aliases)
 
 
-def test_handle_list_command(tmp_parquet):
-    """Test that list_aliases correctly identifies aliases."""
+def test_list_pa_table_basic(tmp_parquet):
+    """Test listing aliases in a parquet table with basic string columns."""
     table = pa.table(
         {
             "col1": [
@@ -277,8 +283,8 @@ def test_handle_list_command(tmp_parquet):
         assert not any("<CACHE>" in msg for msg in found_aliases)
 
 
-def test_handle_list_command_selected_columns(tmp_parquet):
-    """Test that list_aliases respects column selection."""
+def test_list_pa_table_selected_columns(tmp_parquet):
+    """Test listing aliases in a parquet table with column selection."""
     table = pa.table(
         {
             "col1": ["<DATA_PATH>/file.txt"],
@@ -295,8 +301,8 @@ def test_handle_list_command_selected_columns(tmp_parquet):
         assert not any("<MODEL_PATH>" in msg for msg in found_aliases)
 
 
-def test_handle_list_command_no_aliases(tmp_parquet):
-    """Test that list_aliases handles case with no aliases."""
+def test_list_pa_table_no_aliases(tmp_parquet):
+    """Test listing aliases in a parquet table that contains no aliases."""
     table = pa.table(
         {
             "col1": ["path/to/file.txt"],
@@ -311,8 +317,20 @@ def test_handle_list_command_no_aliases(tmp_parquet):
         mock_logger.info.assert_called_once_with(f"No aliases found in file '{Path(tmp_parquet).as_posix()}'")
 
 
-def test_handle_pa_table_selected_columns(tmp_parquet):
-    """Test that replace_aliases_in_pa_table respects column selection."""
+def test_list_tlc_table_basic(sample_table: Table) -> None:
+    """Test listing aliases in a TLC table."""
+    with patch("tlc_tools.experimental.alias_tool.list_aliases.logger") as mock_logger:
+        list_aliases_in_tlc_table([sample_table.url], sample_table, [])
+
+        # Verify correct aliases were found and logged
+        found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
+        assert any("Found alias '<DATA_PATH>' in column 'image_path'" in msg for msg in found_aliases)
+        assert any("Found alias '<MASK_PATH>' in column 'mask_path'" in msg for msg in found_aliases)
+        assert any("Found alias '<META_PATH>' in column 'metadata.path'" in msg for msg in found_aliases)
+
+
+def test_replace_pa_table_selected_columns(tmp_parquet):
+    """Test replacing aliases in a parquet table with column selection."""
     table = pq.read_table(tmp_parquet)
 
     replace_aliases_in_pa_table([Url(tmp_parquet)], table, ["image_path"], [("/data/images", "<DATA_PATH>")])
@@ -330,8 +348,8 @@ def test_handle_pa_table_selected_columns(tmp_parquet):
     assert result.column("label").equals(table.column("label"))
 
 
-def test_rewrite_column_paths(array_types):
-    """Test that replace_aliases_in_column works correctly for different array types."""
+def test_replace_column_basic(array_types):
+    """Test replacing aliases in a column for different array types (basic, chunked, struct)."""
     array_type, array, col_names, get_paths = array_types
 
     rewrites = [("/path/to", "<CACHE_PATH>")]
@@ -353,8 +371,8 @@ def test_rewrite_column_paths(array_types):
     assert paths.to_pylist() == expected, f"Failed for {array_type} array"
 
 
-def test_handle_pa_table_multiple_rewrites(tmp_parquet):
-    """Test that replace_aliases_in_pa_table can apply multiple rewrites."""
+def test_replace_pa_table_multiple_rewrites(tmp_parquet):
+    """Test replacing multiple aliases in a parquet table."""
     table = pq.read_table(tmp_parquet)
 
     replace_aliases_in_pa_table(
@@ -371,16 +389,16 @@ def test_handle_pa_table_multiple_rewrites(tmp_parquet):
     assert all("<MASK_PATH>" in path.as_py() for path in result.column("mask_path"))
 
 
-def test_handle_pa_table_invalid_column():
-    """Test that replace_aliases_in_pa_table raises error for invalid column names."""
+def test_replace_pa_table_invalid_column():
+    """Test error handling when replacing aliases in non-existent column."""
     table = pa.table({"col1": [1, 2, 3]})
 
     with pytest.raises(ValueError, match=re.escape("not found in columns: ['col1']")):
         replace_aliases_in_pa_table([Url("test.parquet")], table, ["invalid_column"], [])
 
 
-def test_handle_pa_table_no_backup_when_no_changes(mocker):
-    """Test that no backup is created when no changes are made."""
+def test_replace_pa_table_backup_none_changed(mocker):
+    """Test that no backup is created when no changes are made during replacement."""
     table = pa.table(
         {
             "col1": ["path/to/file.txt", "other/path/file.txt"],
@@ -398,8 +416,8 @@ def test_handle_pa_table_no_backup_when_no_changes(mocker):
     mock_write.assert_not_called()
 
 
-def test_handle_pa_table_backup_and_restore_on_write_error(mocker):
-    """Test that backup is created and restored when write fails."""
+def test_replace_pa_table_backup_on_error(mocker):
+    """Test backup creation and restoration when write fails during replacement."""
     table = pa.table(
         {
             "col1": ["/data/file.txt", "/data/other.txt"],
@@ -428,36 +446,44 @@ def test_handle_pa_table_backup_and_restore_on_write_error(mocker):
     mock_restore.assert_called_once_with(Url("test.parquet.backup"), Url("test.parquet"))
 
 
-def test_handle_pa_table_successful_backup_cleanup(mocker):
-    """Test that backup is created and cleaned up after successful write."""
-    table = pa.table(
-        {
-            "col1": ["/data/file.txt", "/data/other.txt"],
-        }
-    )
-
-    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.backup_parquet")
-    mock_backup.return_value = Url("test.parquet.backup")
-
-    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
-    mock_cleanup = mocker.patch("tlc.core.Url.delete")
-
-    # Process with changes that will require backup
-    replace_aliases_in_pa_table([Url("test.parquet")], table, [], [("/data", "<DATA>")])
-
-    # Verify backup was created, write succeeded, and cleanup was attempted
-    mock_backup.assert_called_once()
-    mock_write.assert_called_once()
-    mock_cleanup.assert_called_once()
-
-
-def test_handle_tlc_table_basic(sample_table: Table) -> None:
-    """Test basic path rewriting in a TLC table.
-    Should verify:
-    - Basic path rewriting works on the main table
-    - Changes are written to the parquet file
-    - The table object can be reloaded with the changes
+def test_replace_pa_table_backup_restore_integration(tmp_path, mocker):
+    """Test actual backup and restore functionality when write fails.
+    This test verifies that:
+    1. Original file is backed up correctly
+    2. Backup file contains the original content
+    3. After write failure, original file is restored from backup
+    4. Backup file is cleaned up
     """
+    # Create original file with test data
+    original_path = tmp_path / "test.parquet"
+    original_table = pa.table({"col1": ["/data/file.txt", "/data/other.txt"]})
+    pq.write_table(original_table, original_path)
+
+    # Mock only the write to fail
+    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write.side_effect = OSError("Write failed")
+
+    # Attempt the replacement which should fail
+    with pytest.raises(OSError, match="Write failed"):
+        replace_aliases_in_pa_table(
+            [Url(str(original_path))],
+            original_table,
+            [],
+            [("/data", "<DATA>")],
+        )
+
+    # Verify original file still exists and contains original content
+    assert original_path.exists()
+    restored_table = pq.read_table(original_path)
+    assert restored_table.equals(original_table)
+
+    # Verify backup file was cleaned up
+    backup_path = original_path.with_suffix(".parquet.backup")
+    assert not backup_path.exists()
+
+
+def test_replace_tlc_table_basic(sample_table: Table) -> None:
+    """Test basic alias replacement in a TLC table including all column types."""
     rewrites = [
         ("/data/project", "<PROJECT_PATH>"),  # Affects basic paths in image_path and mask_path
         ("s3://bucket", "<BUCKET_PATH>"),  # Affects cloud storage paths in all columns
@@ -502,12 +528,8 @@ def test_handle_tlc_table_basic(sample_table: Table) -> None:
     assert label_column.to_pylist() == [1, 2, 3, 4]
 
 
-def test_handle_tlc_table_selected_columns(sample_table: Table) -> None:
-    """Test processing only specific column.
-    Should verify:
-    - Only specified column is modified
-    - Other columns remain unchanged
-    """
+def test_replace_tlc_table_selected_columns(sample_table: Table) -> None:
+    """Test alias replacement in a TLC table with column selection."""
     rewrites = [("/data/project", "<PROJECT_PATH>")]
 
     initial_mask_path = sample_table.get_column("mask_path")
@@ -537,14 +559,8 @@ def test_handle_tlc_table_selected_columns(sample_table: Table) -> None:
     assert reloaded_table.get_column("label").equals(initial_label)
 
 
-def test_handle_tlc_table_parent_processing(sample_table_with_parent: Table) -> None:
-    """Test recursive processing of parent tables.
-    Should verify:
-    - Changes are applied to both child and parent tables
-    - Parent table changes are visible when reloading
-    - With no_process_parents=True, only child table is modified
-    """
-
+def test_replace_tlc_table_parent_basic(sample_table_with_parent: Table) -> None:
+    """Test alias replacement in a TLC table with parent table processing."""
     replace_aliases_in_tlc_table(
         [sample_table_with_parent.url],
         sample_table_with_parent,
@@ -578,8 +594,8 @@ def test_handle_tlc_table_parent_processing(sample_table_with_parent: Table) -> 
     ]
 
 
-def test_handle_tlc_table_no_process_parents(sample_table_with_parent: Table) -> None:
-    """Test that parent tables are not processed when no_process_parents is True."""
+def test_replace_tlc_table_parent_disabled(sample_table_with_parent: Table) -> None:
+    """Test alias replacement in a TLC table with parent processing disabled."""
     replace_aliases_in_tlc_table(
         [sample_table_with_parent.url],
         sample_table_with_parent,
@@ -610,8 +626,8 @@ def test_handle_tlc_table_no_process_parents(sample_table_with_parent: Table) ->
     ]
 
 
-def test_handle_tlc_table_pseudo_parent_processing(sample_table_with_pseudo_parent: Table) -> None:
-    """Test that pseudo parent tables are processed correctly."""
+def test_replace_tlc_table_pseudo_parent(sample_table_with_pseudo_parent: Table) -> None:
+    """Test alias replacement in a TLC table with pseudo parent table processing."""
     replace_aliases_in_tlc_table(
         [sample_table_with_pseudo_parent.url],
         sample_table_with_pseudo_parent,
@@ -643,3 +659,37 @@ def test_handle_tlc_table_pseudo_parent_processing(sample_table_with_pseudo_pare
     ]
 
     assert pseudo_parent_table.get_column("label").to_pylist() == [1, 2, 3]
+
+
+def test_get_input_object(sample_table: Table, tmp_path: Path) -> None:
+    """Test getting input object from a parquet file."""
+
+    assert isinstance(sample_table, TableFromParquet)
+    existing_table_url = sample_table.url
+    existing_parquet_path = sample_table.input_url
+
+    assert existing_table_url.exists()
+    assert existing_parquet_path.exists()
+
+    # Test getting the object from the parquet file
+    pa_table = get_input_object(existing_parquet_path)
+    assert isinstance(pa_table, pa.Table)
+    assert pa_table.equals(sample_table._to_pyarrow_table())
+
+    # Test getting the object from the table URL
+    tlc_table = get_input_object(existing_table_url)
+    assert isinstance(tlc_table, TableFromParquet)
+    assert tlc_table.url == existing_table_url
+    assert tlc_table.input_url == existing_parquet_path
+
+    # Test getting non-existent objects
+    with pytest.raises(FileNotFoundError):
+        get_input_object(Url("non_existent_file.parquet"))
+
+    # Write a invalid parquet file
+    invalid_parquet_path = tmp_path / "invalid.parquet"
+    with invalid_parquet_path.open("wb") as f:
+        f.write(b"invalid")
+
+    with pytest.raises(ValueError, match="Input file '.*invalid.parquet' is not a valid 3LC object or Parquet file."):
+        get_input_object(Url(invalid_parquet_path))
