@@ -87,3 +87,12 @@ By default, the tool processes parent tables when handling Table objects. You ca
 - The replace tool only operates on 3LC Tables with backing Parquet files. This is usually OK, since the tool will recursively process parent tables, leading to down-stream tables being rewritten implicitly. However, this means that any modifications will not be applied to edited rows in `EditedTable`s.
 - The tool currently only supports 3LC Tables and Parquet files. Support for 3LC Runs is planned.
 - The tool currently only handles pyarrow columns contains strings or structs.
+
+## TODO
+
+- [ ] Add support for 3LC Runs
+- [ ] Add support for list-like column values (e.g. lists of URLs)
+- [ ] Add subcommand for setting aliases (3lc-tools alias set ... [--scope=project|global])
+- [ ] Add subcommand for removing aliases (3lc-tools alias remove ... [--scope=project|global])
+- [ ] Add subcommand for listing aliases (3lc-tools alias list ... [--scope=project|global])
+- [ ] Allow supplying empty --apply to apply any relevant registered aliases

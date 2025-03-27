@@ -51,8 +51,8 @@ Examples:
     3lc alias replace path/to/table --from /old/path --to /new/path
 
     # Process specific columns only
-    3lc alias replace path/to/table --columns "image_path" --apply DATA_PATH
-""",
+    3lc alias replace path/to/table --columns "image_path" --apply DATA_PATH""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     # Verbosity control for all commands
@@ -91,8 +91,8 @@ Examples:
     3lc alias list path/to/table --no-process-parents
 
     # Debug output
-    3lc alias list path/to/table -v
-""",
+    3lc alias list path/to/table -v""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     list_parser.add_argument("input_path", help="Path to the input object (Table, Run, Parquet file)")
     list_parser.add_argument(
@@ -129,8 +129,8 @@ Examples:
     3lc alias replace path/to/table --columns "image_path" --apply DATA_PATH
 
     # Skip parent table processing
-    3lc alias replace path/to/table --no-process-parents --apply DATA_PATH
-""",
+    3lc alias replace path/to/table --no-process-parents --apply DATA_PATH""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     replace_parser.add_argument("input_path", help="Path to the input object (Table, Run, Parquet file)")
     replace_parser.add_argument(
