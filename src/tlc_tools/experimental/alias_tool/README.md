@@ -1,103 +1,78 @@
 # Alias Tool
 
-A tool for managing and modifying paths in 3LC objects. It is intended to apply
-and rewrite aliases, but is basically a flexible string-replacement wrapper. The
-tool supports listing existing aliases, applying registered aliases, and
-performing path rewrites.
+A tool for managing and modifying paths in 3LC objects. It provides two main functions:
 
-## Usage
+1. Listing existing aliases in tables
+2. Replacing paths with aliases or new paths
 
-The tool provides a `replace` subcommand with various options for handling aliases and path rewrites:
+## Basic Usage
 
-```bash
-# List all aliases in a table (default behavior)
-3lc alias replace path/to/table
-
-# List aliases in specific columns
-3lc alias replace path/to/table --columns "image_path,mask_path"
-
-# Apply registered aliases
-3lc alias replace path/to/table --apply DATA_PATH          # Single alias
-3lc alias replace path/to/table --apply "DATA_PATH,CACHE"  # Multiple aliases
-
-# Replace specific paths with new paths
-3lc alias replace path/to/table --from /data/path --to /new/path
-3lc alias replace path/to/table \
-    --from /data/path1 --to /new/path1 \
-    --from /data/path2 --to /new/path2
-
-# Control parent table processing
-3lc alias replace path/to/table --no-process-parents  # Skip parent tables
-
-# Control output verbosity
-3lc alias replace path/to/table -v   # Debug output
-3lc alias replace path/to/table -q   # Quiet mode (warnings/errors only)
-```
-
-## Examples
+The tool has two subcommands: `list` and `replace`.
 
 ### Listing Aliases
 
-List all aliases in a table:
 ```bash
-$ 3lc alias replace data/images
+# List all aliases in a table
+3lc-tools run alias list path/to/table
+
+# List aliases in specific columns
+3lc-tools run alias list path/to/table --columns "image_path,mask_path"
+```
+
+Example output:
+
+```bash
+$ 3lc-tools run alias list data/images
 Found alias '<DATA_PATH>' in column 'image_path'
 Found alias '<CACHE_PATH>' in column 'mask_path'
 ```
 
-List aliases in specific columns:
+### Replacing Paths
+
 ```bash
-$ 3lc alias replace data/images --columns "image_path"
-Found alias '<DATA_PATH>' in column 'image_path'
-```
+# Apply registered aliases
+3lc-tools run alias replace path/to/table --apply DATA_PATH          # Single alias
+3lc-tools run alias replace path/to/table --apply "DATA_PATH,CACHE"  # Multiple aliases
 
-### Applying Aliases
-
-Apply a single registered alias:
-```bash
-$ 3lc alias replace data/images --apply DATA_PATH
-Rewrote 5 occurrences of '/data/images' to '<DATA_PATH>' in column 'image_path'
-```
-
-Apply multiple aliases:
-```bash
-$ 3lc alias replace data/images --apply "DATA_PATH,CACHE_PATH"
-Rewrote 5 occurrences of '/data/images' to '<DATA_PATH>' in column 'image_path'
-Rewrote 3 occurrences of '/cache/masks' to '<CACHE_PATH>' in column 'mask_path'
-```
-
-### Path Rewrites
-
-Replace a single path:
-```bash
-$ 3lc alias replace data/images --from /old/path --to /new/path
-Rewrote 2 occurrences of '/old/path' to '/new/path' in column 'image_path'
-```
-
-Replace multiple paths:
-```bash
-$ 3lc alias replace data/images \
+# Replace specific paths
+3lc-tools run alias replace path/to/table --from /old/path --to /new/path
+3lc-tools run alias replace path/to/table \
     --from /old/path1 --to /new/path1 \
     --from /old/path2 --to /new/path2
-Rewrote 2 occurrences of '/old/path1' to '/new/path1' in column 'image_path'
-Rewrote 3 occurrences of '/old/path2' to '/new/path2' in column 'mask_path'
+
+# Process specific columns
+3lc-tools run alias replace path/to/table --columns "image_path,mask_path" --apply DATA_PATH
+
+# Skip processing parent tables
+3lc-tools run alias replace path/to/table --no-process-parents --apply DATA_PATH
 ```
 
-### Advanced Usage
+Example output:
 
-Skip processing parent tables:
 ```bash
-$ 3lc alias replace data/images --no-process-parents --apply DATA_PATH
+$ 3lc-tools run alias replace data/images --apply DATA_PATH
 Rewrote 5 occurrences of '/data/images' to '<DATA_PATH>' in column 'image_path'
 ```
 
-Debug output with verbose mode:
+## Advanced Usage
+
+### Verbosity Control
+
 ```bash
-$ 3lc alias replace data/images -v
-Debug: Processing table: data/images
-Debug: Has cache: True
-Debug: Using cache URL: data/.cache/images
-Found alias '<DATA_PATH>' in column 'image_path'
+# Debug output
+3lc-tools run alias list path/to/table -v
+
+# Quiet mode (warnings/errors only)
+3lc-tools run alias replace path/to/table -q
+```
+
+### Parent Table Processing
+
+By default, the tool processes parent tables when handling Table objects. You can disable this with `--no-process-parents`:
+
+```bash
+# Skip parent table processing
+3lc-tools run alias replace path/to/table --no-process-parents --apply DATA_PATH
 ```
 
 ## Notes
@@ -105,4 +80,10 @@ Found alias '<DATA_PATH>' in column 'image_path'
 - All modifications are performed in-place
 - Aliases are only detected at the start of paths
 - Parent table processing is enabled by default
-- The tool supports basic arrays, chunked arrays, and struct arrays
+- Changes are automatically backed up before modification
+
+## Limitations
+
+- The replace tool only operates on 3LC Tables with backing Parquet files. This is usually OK, since the tool will recursively process parent tables, leading to down-stream tables being rewritten implicitly. However, this means that any modifications will not be applied to edited rows in `EditedTable`s.
+- The tool currently only supports 3LC Tables and Parquet files. Support for 3LC Runs is planned.
+- The tool currently only handles pyarrow columns contains strings or structs.
