@@ -87,6 +87,9 @@ Examples:
     # List aliases in specific columns
     3lc alias list path/to/table --columns "image_path,mask_path"
 
+    # Skip processing parent tables
+    3lc alias list path/to/table --no-process-parents
+
     # Debug output
     3lc alias list path/to/table -v
 """,
@@ -95,6 +98,11 @@ Examples:
     list_parser.add_argument(
         "--columns",
         help="Comma-separated list of columns to process (e.g., 'image_path,mask_path')",
+    )
+    list_parser.add_argument(
+        "--no-process-parents",
+        action="store_true",
+        help="Skip processing parent tables (enabled by default)",
     )
 
     # Replace command - for applying aliases and path rewrites
@@ -220,15 +228,16 @@ def create_rewrites_from_paths(from_paths: Sequence[str], to_paths: Sequence[str
     return list(zip(from_paths, to_paths))
 
 
-def handle_list_command(input_url: tlc.Url, columns: list[str]) -> None:
+def handle_list_command(input_url: tlc.Url, columns: list[str], process_parents: bool) -> None:
     """Handle the list command.
 
     Args:
         input_url: URL of the input object to process.
         columns: List of columns to process.
+        process_parents: Whether to process parent tables.
     """
     obj = get_input_object(input_url)
-    list_aliases([input_url], obj, columns)
+    list_aliases(obj, columns, process_parents=process_parents, input_url=input_url)
 
 
 def handle_replace_command(
@@ -270,7 +279,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         input_url = tlc.Url(args.input_path)
 
         if args.command == "list":
-            handle_list_command(input_url, columns)
+            handle_list_command(input_url, columns, process_parents=not args.no_process_parents)
         elif args.command == "replace":
             # Create rewrites based on command mode
             if args.apply:

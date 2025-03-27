@@ -156,4 +156,4 @@ def list_aliases(
     elif isinstance(obj, pa.Table):
         list_aliases_in_pa_table(obj, columns, input_url)
     else:
-        raise ValueError("Input is not a valid 3LC object.")
+        raise ValueError(f"Input is not a valid 3LC object ({type(obj)}).")

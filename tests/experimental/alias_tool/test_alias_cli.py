@@ -148,34 +148,30 @@ def test_main_no_process_parents(mocker):
 
 
 def test_list_command_basic(mocker):
-    """Test basic list command functionality."""
-    mock_table = mocker.MagicMock()
-    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.main.get_input_object")
-    mock_get_input.return_value = mock_table
-
+    """Test basic list command with minimal arguments."""
     mock_list_aliases = mocker.patch("tlc_tools.experimental.alias_tool.main.list_aliases")
+    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.main.get_input_object")
 
-    # Run the list command
     main(["list", "table.parquet"])
 
-    # Verify correct functions were called
     mock_get_input.assert_called_once()
-    mock_list_aliases.assert_called_once_with([Url("table.parquet")], mock_table, [])
+    mock_list_aliases.assert_called_once_with(
+        mock_get_input.return_value, [], process_parents=True, input_url=Url("table.parquet")
+    )
 
 
 def test_list_command_with_columns(mocker):
     """Test list command with specific columns."""
-    mock_table = mocker.MagicMock()
-    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.main.get_input_object")
-    mock_get_input.return_value = mock_table
-
     mock_list_aliases = mocker.patch("tlc_tools.experimental.alias_tool.main.list_aliases")
+    mock_get_input = mocker.patch("tlc_tools.experimental.alias_tool.main.get_input_object")
 
     # Run the list command with columns
     main(["list", "table.parquet", "--columns", "col1,col2"])
 
     # Verify columns were parsed correctly
-    mock_list_aliases.assert_called_once_with([Url("table.parquet")], mock_table, ["col1", "col2"])
+    mock_list_aliases.assert_called_once_with(
+        mock_get_input.return_value, ["col1", "col2"], process_parents=True, input_url=Url("table.parquet")
+    )
 
 
 def test_list_command_error_handling(mocker):
