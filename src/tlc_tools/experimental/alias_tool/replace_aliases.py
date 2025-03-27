@@ -63,8 +63,8 @@ def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tup
             old_pattern = re.escape(old)
             new_column = pc.replace_substring_regex(modified_column, old_pattern, new)
 
-            # Check if any changes were made using pc.all()
-            if not pc.all(pc.equal(new_column, modified_column)).as_py():
+            # Check if any changes were made using pc.any()
+            if pc.any(pc.not_equal(new_column, modified_column)):
                 was_modified = True
                 change_count += 1
                 # Only store first N changes for logging

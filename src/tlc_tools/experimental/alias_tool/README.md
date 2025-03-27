@@ -96,3 +96,7 @@ By default, the tool processes parent tables when handling Table objects. You ca
 - [ ] Add subcommand for removing aliases (3lc-tools alias remove ... [--scope=project|global])
 - [ ] Add subcommand for listing aliases (3lc-tools alias list ... [--scope=project|global])
 - [ ] Allow supplying empty --apply to apply any relevant registered aliases
+- [ ] Add tooling for inspecting "inputs" to 3LC objects (relative URLs, aliased URLs, bulk data, metric tables, etc.)
+- [ ] Add back full column name when listing/replacing in nested structs
+- [ ] Add --dry-run flag to rewrite mode
+- [ ] Add mypy to pre-commit
