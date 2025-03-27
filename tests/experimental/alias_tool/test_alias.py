@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from collections.abc import Generator
 from pathlib import Path
-from unittest.mock import patch
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -247,7 +246,7 @@ def test_list_column_basic(array_types):
     assert not any("<CACHE_PATH>" in alias[1] for alias in aliases)
 
 
-def test_list_pa_table_basic(tmp_parquet):
+def test_list_pa_table_basic(tmp_parquet, mocker):
     """Test listing aliases in a parquet table with basic string columns."""
     table = pa.table(
         {
@@ -272,18 +271,18 @@ def test_list_pa_table_basic(tmp_parquet):
         }
     )
 
-    with patch("tlc_tools.experimental.alias_tool.list_aliases.logger") as mock_logger:
-        list_aliases([Url(tmp_parquet)], table, [])
+    mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
+    list_aliases([Url(tmp_parquet)], table, [])
 
-        # Verify correct aliases were found and logged
-        found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
-        assert any("Found alias '<DATA_PATH>' in column 'col1'" in msg for msg in found_aliases)
-        assert any("Found alias '<MODEL_PATH>' in column 'col1'" in msg for msg in found_aliases)
-        assert any("Found alias '<META_PATH>' in column 'metadata.path'" in msg for msg in found_aliases)
-        assert not any("<CACHE>" in msg for msg in found_aliases)
+    # Verify correct aliases were found and logged
+    found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
+    assert any("Found alias '<DATA_PATH>' in column 'col1'" in msg for msg in found_aliases)
+    assert any("Found alias '<MODEL_PATH>' in column 'col1'" in msg for msg in found_aliases)
+    assert any("Found alias '<META_PATH>' in column 'metadata.path'" in msg for msg in found_aliases)
+    assert not any("<CACHE>" in msg for msg in found_aliases)
 
 
-def test_list_pa_table_selected_columns(tmp_parquet):
+def test_list_pa_table_selected_columns(tmp_parquet, mocker):
     """Test listing aliases in a parquet table with column selection."""
     table = pa.table(
         {
@@ -292,16 +291,16 @@ def test_list_pa_table_selected_columns(tmp_parquet):
         }
     )
 
-    with patch("tlc_tools.experimental.alias_tool.list_aliases.logger") as mock_logger:
-        list_aliases([Url(tmp_parquet)], table, ["col1"])
+    mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
+    list_aliases([Url(tmp_parquet)], table, ["col1"])
 
-        # Verify only aliases from selected column were found
-        found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
-        assert any("<DATA_PATH>" in msg for msg in found_aliases)
-        assert not any("<MODEL_PATH>" in msg for msg in found_aliases)
+    # Verify only aliases from selected column were found
+    found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
+    assert any("<DATA_PATH>" in msg for msg in found_aliases)
+    assert not any("<MODEL_PATH>" in msg for msg in found_aliases)
 
 
-def test_list_pa_table_no_aliases(tmp_parquet):
+def test_list_pa_table_no_aliases(tmp_parquet, mocker):
     """Test listing aliases in a parquet table that contains no aliases."""
     table = pa.table(
         {
@@ -310,23 +309,23 @@ def test_list_pa_table_no_aliases(tmp_parquet):
         }
     )
 
-    with patch("tlc_tools.experimental.alias_tool.list_aliases.logger") as mock_logger:
-        list_aliases([Url(tmp_parquet)], table, [])
+    mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
+    list_aliases([Url(tmp_parquet)], table, [])
 
-        # Verify "no aliases found" message was logged
-        mock_logger.info.assert_called_once_with(f"No aliases found in file '{Path(tmp_parquet).as_posix()}'")
+    # Verify "no aliases found" message was logged
+    mock_logger.info.assert_called_once_with(f"No aliases found in file '{Path(tmp_parquet).as_posix()}'")
 
 
-def test_list_tlc_table_basic(sample_table: Table) -> None:
+def test_list_tlc_table_basic(sample_table: Table, mocker) -> None:
     """Test listing aliases in a TLC table."""
-    with patch("tlc_tools.experimental.alias_tool.list_aliases.logger") as mock_logger:
-        list_aliases_in_tlc_table([sample_table.url], sample_table, [])
+    mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
+    list_aliases_in_tlc_table([sample_table.url], sample_table, [])
 
-        # Verify correct aliases were found and logged
-        found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
-        assert any("Found alias '<DATA_PATH>' in column 'image_path'" in msg for msg in found_aliases)
-        assert any("Found alias '<MASK_PATH>' in column 'mask_path'" in msg for msg in found_aliases)
-        assert any("Found alias '<META_PATH>' in column 'metadata.path'" in msg for msg in found_aliases)
+    # Verify correct aliases were found and logged
+    found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
+    assert any("Found alias '<DATA_PATH>' in column 'image_path'" in msg for msg in found_aliases)
+    assert any("Found alias '<MASK_PATH>' in column 'mask_path'" in msg for msg in found_aliases)
+    assert any("Found alias '<META_PATH>' in column 'metadata.path'" in msg for msg in found_aliases)
 
 
 def test_replace_pa_table_selected_columns(tmp_parquet):
