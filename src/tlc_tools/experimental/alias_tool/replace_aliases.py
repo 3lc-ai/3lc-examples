@@ -63,8 +63,8 @@ def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tup
             old_pattern = re.escape(old)
             new_column = pc.replace_substring_regex(modified_column, old_pattern, new)
 
-            # Check if any changes were made using pc.any()
-            if pc.any(pc.not_equal(new_column, modified_column)):
+            # Check if any changes were made
+            if pc.any(pc.not_equal(new_column, modified_column)).as_py():
                 was_modified = True
                 change_count += 1
                 # Only store first N changes for logging
@@ -150,7 +150,7 @@ def replace_aliases_in_pa_table(
             logger.info("No changes to apply.")
             return
 
-        # Create backup before any modifications
+        # Create backup only if changes were made
         backup_url = backup_parquet(target_url)
 
         # Create output table with all columns
