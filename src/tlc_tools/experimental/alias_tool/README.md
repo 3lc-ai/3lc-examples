@@ -13,16 +13,16 @@ The tool has two subcommands: `list` and `replace`.
 
 ```bash
 # List all aliases in a table
-3lc-tools run alias list path/to/table
+3lc-tools run --exp list path/to/table
 
 # List aliases in specific columns
-3lc-tools run alias list path/to/table --columns "image_path,mask_path"
+3lc-tools run --exp list path/to/table --columns "image_path,mask_path"
 ```
 
 Example output:
 
 ```bash
-$ 3lc-tools run alias list data/images
+$ 3lc-tools run --exp list data/images
 Found alias '<DATA_PATH>' in column 'image_path'
 Found alias '<CACHE_PATH>' in column 'mask_path'
 ```
@@ -31,26 +31,26 @@ Found alias '<CACHE_PATH>' in column 'mask_path'
 
 ```bash
 # Apply registered aliases
-3lc-tools run alias replace path/to/table --apply DATA_PATH          # Single alias
-3lc-tools run alias replace path/to/table --apply "DATA_PATH,CACHE"  # Multiple aliases
+3lc-tools run --exp replace path/to/table --apply DATA_PATH          # Single alias
+3lc-tools run --exp replace path/to/table --apply "DATA_PATH,CACHE"  # Multiple aliases
 
 # Replace specific paths
-3lc-tools run alias replace path/to/table --from /old/path --to /new/path
-3lc-tools run alias replace path/to/table \
+3lc-tools run --exp replace path/to/table --from /old/path --to /new/path
+3lc-tools run --exp replace path/to/table \
     --from /old/path1 --to /new/path1 \
     --from /old/path2 --to /new/path2
 
 # Process specific columns
-3lc-tools run alias replace path/to/table --columns "image_path,mask_path" --apply DATA_PATH
+3lc-tools run --exp replace path/to/table --columns "image_path,mask_path" --apply DATA_PATH
 
 # Skip processing parent tables
-3lc-tools run alias replace path/to/table --no-process-parents --apply DATA_PATH
+3lc-tools run --exp replace path/to/table --no-process-parents --apply DATA_PATH
 ```
 
 Example output:
 
 ```bash
-$ 3lc-tools run alias replace data/images --apply DATA_PATH
+$ 3lc-tools run --exp replace data/images --apply DATA_PATH
 Rewrote 5 occurrences of '/data/images' to '<DATA_PATH>' in column 'image_path'
 ```
 
@@ -60,10 +60,10 @@ Rewrote 5 occurrences of '/data/images' to '<DATA_PATH>' in column 'image_path'
 
 ```bash
 # Debug output
-3lc-tools run alias list path/to/table -v
+3lc-tools run --exp list path/to/table -v
 
 # Quiet mode (warnings/errors only)
-3lc-tools run alias replace path/to/table -q
+3lc-tools run --exp replace path/to/table -q
 ```
 
 ### Parent Table Processing
@@ -72,7 +72,7 @@ By default, the tool processes parent tables when handling Table objects. You ca
 
 ```bash
 # Skip parent table processing
-3lc-tools run alias replace path/to/table --no-process-parents --apply DATA_PATH
+3lc-tools run --exp replace path/to/table --no-process-parents --apply DATA_PATH
 ```
 
 ## Notes

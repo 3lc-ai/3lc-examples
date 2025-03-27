@@ -18,13 +18,42 @@ logger = logging.getLogger(__name__)
 def create_argument_parser(prog: str | None = None) -> argparse.ArgumentParser:
     """Create and configure the argument parser for the alias tool.
 
+    This parser handles two main commands:
+    - list: Find and display existing aliases in files
+    - replace: Apply aliases or perform path rewrites
+
     Args:
         prog: Optional program name to use in help text.
 
     Returns:
-        Configured argument parser.
+        Configured argument parser with subcommands and options.
     """
-    parser = argparse.ArgumentParser(prog=prog, description="List, rewrite, and create URL aliases in 3LC objects")
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description="""Tool for managing URL aliases in 3LC objects.
+
+This tool helps you:
+1. Find existing aliases in your tables
+2. Apply registered aliases to paths
+3. Replace specific paths with new ones
+
+Examples:
+    # List all aliases in a table
+    3lc alias list path/to/table
+
+    # List aliases in specific columns
+    3lc alias list path/to/table --columns "image_path,mask_path"
+
+    # Apply a registered alias
+    3lc alias replace path/to/table --apply DATA_PATH
+
+    # Replace specific paths
+    3lc alias replace path/to/table --from /old/path --to /new/path
+
+    # Process specific columns only
+    3lc alias replace path/to/table --columns "image_path" --apply DATA_PATH
+""",
+    )
 
     # Verbosity control for all commands
     verbosity_group = parser.add_mutually_exclusive_group()
@@ -46,18 +75,64 @@ def create_argument_parser(prog: str | None = None) -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # List command - for finding aliases in files
-    list_parser = subparsers.add_parser("list", help="List all aliases found in files")
-    list_parser.add_argument("input_path", help="The input object to process")
-    list_parser.add_argument("--columns", help="Comma-separated list of columns to process")
+    list_parser = subparsers.add_parser(
+        "list",
+        help="Find and display existing aliases in files",
+        description="""List all URL aliases found in the specified object.
+
+Examples:
+    # List all aliases
+    3lc alias list path/to/table
+
+    # List aliases in specific columns
+    3lc alias list path/to/table --columns "image_path,mask_path"
+
+    # Debug output
+    3lc alias list path/to/table -v
+""",
+    )
+    list_parser.add_argument("input_path", help="Path to the input object (Table, Run, Parquet file)")
+    list_parser.add_argument(
+        "--columns",
+        help="Comma-separated list of columns to process (e.g., 'image_path,mask_path')",
+    )
 
     # Replace command - for applying aliases and path rewrites
-    replace_parser = subparsers.add_parser("replace", help="Replace paths with aliases in files")
-    replace_parser.add_argument("input_path", help="The input object to process")
-    replace_parser.add_argument("--columns", help="Comma-separated list of columns to process")
+    replace_parser = subparsers.add_parser(
+        "replace",
+        help="Apply aliases or replace paths in files",
+        description="""Replace paths with aliases or new paths in the specified object.
+
+You can either:
+1. Apply registered aliases (e.g., DATA_PATH, CACHE_PATH)
+2. Replace specific paths with new ones
+
+Examples:
+    # Apply a registered alias
+    3lc alias replace path/to/table --apply DATA_PATH
+
+    # Apply multiple aliases
+    3lc alias replace path/to/table --apply "DATA_PATH,CACHE"
+
+    # Replace specific paths
+    3lc alias replace path/to/table --from /old/path --to /new/path
+
+    # Process specific columns only
+    3lc alias replace path/to/table --columns "image_path" --apply DATA_PATH
+
+    # Skip parent table processing
+    3lc alias replace path/to/table --no-process-parents --apply DATA_PATH
+""",
+    )
+    replace_parser.add_argument("input_path", help="Path to the input object (Table, Run, Parquet file)")
+    replace_parser.add_argument(
+        "--columns",
+        help="Comma-separated list of columns to process (e.g., 'image_path,mask_path')",
+    )
     replace_parser.add_argument(
         "--no-process-parents",
         action="store_true",
-        help="Do not process parent tables when handling Table objects",
+        help="Skip processing parent tables (enabled by default)",
     )
 
     # Replacement specification options
@@ -65,14 +140,14 @@ def create_argument_parser(prog: str | None = None) -> argparse.ArgumentParser:
     replace_mode.add_argument(
         "--apply",
         metavar="ALIAS[,ALIAS,...]",
-        help="Apply existing aliases to matching paths (comma-separated list)",
+        help="Apply registered aliases (e.g., 'DATA_PATH' or 'DATA_PATH,CACHE')",
     )
     replace_mode.add_argument(
         "--from",
         dest="from_paths",
         metavar="PATH",
         action="append",
-        help="Replace occurrences of this path (can be specified multiple times)",
+        help="Path to replace (can be specified multiple times)",
     )
 
     # Required when using --from
@@ -81,7 +156,7 @@ def create_argument_parser(prog: str | None = None) -> argparse.ArgumentParser:
         dest="to_paths",
         metavar="PATH",
         action="append",
-        help="Replace with this path (must match number of --from arguments)",
+        help="New path to use (must match number of --from arguments)",
     )
 
     return parser
