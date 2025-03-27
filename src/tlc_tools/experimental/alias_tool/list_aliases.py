@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 import pyarrow as pa
 from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url
@@ -8,6 +9,8 @@ from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url
 from .common import get_input_parquet
 
 logger = logging.getLogger(__name__)
+
+ALIAS_PATTERN = re.compile(r"^<[A-Z][A-Z0-9_]*>$")
 
 
 def find_aliases_in_column(column_path: str, column: pa.Array) -> list[tuple[str, str, str]]:
@@ -37,6 +40,7 @@ def find_aliases_in_column(column_path: str, column: pa.Array) -> list[tuple[str
 
     if pa.types.is_string(column.type):
         seen_aliases = set()
+
         for value in column:
             if value is not None:
                 str_val = value.as_py()
@@ -44,12 +48,8 @@ def find_aliases_in_column(column_path: str, column: pa.Array) -> list[tuple[str
                     end = str_val.find(">")
                     if end > 0:  # Must be at least one character between < and >
                         potential_alias = str_val[: end + 1]
-                        if (
-                            potential_alias.upper() == potential_alias
-                            and potential_alias[1:-1].replace("_", "").isalnum()
-                            and potential_alias[1].isupper()  # First character after < must be uppercase
-                            and potential_alias not in seen_aliases
-                        ):
+                        # Use regex for a single validation check instead of multiple string operations
+                        if ALIAS_PATTERN.match(potential_alias) and potential_alias not in seen_aliases:
                             seen_aliases.add(potential_alias)
                             found_aliases.append((column_path, potential_alias, str_val))
 
