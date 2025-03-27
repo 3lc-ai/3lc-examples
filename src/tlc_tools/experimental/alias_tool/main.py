@@ -4,7 +4,7 @@ import argparse
 import logging
 from collections.abc import Sequence
 
-from tlc.core import Url
+import tlc
 
 from tlc_tools.cli import register_tool
 
@@ -111,7 +111,6 @@ def create_rewrites_from_aliases(alias_names: Sequence[str]) -> list[tuple[str, 
     Raises:
         ValueError: If an alias is not found in registered aliases.
     """
-    import tlc
 
     registered_aliases = tlc.get_registered_url_aliases()
     rewrites = []
@@ -146,7 +145,7 @@ def create_rewrites_from_paths(from_paths: Sequence[str], to_paths: Sequence[str
     return list(zip(from_paths, to_paths))
 
 
-def handle_list_command(input_url: Url, columns: list[str]) -> None:
+def handle_list_command(input_url: tlc.Url, columns: list[str]) -> None:
     """Handle the list command.
 
     Args:
@@ -158,7 +157,7 @@ def handle_list_command(input_url: Url, columns: list[str]) -> None:
 
 
 def handle_replace_command(
-    input_url: Url,
+    input_url: tlc.Url,
     columns: list[str],
     rewrites: list[tuple[str, str]],
     process_parents: bool,
@@ -193,7 +192,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     try:
         # Parse common arguments
         columns = parse_columns(args.columns)
-        input_url = Url(args.input_path)
+        input_url = tlc.Url(args.input_path)
 
         if args.command == "list":
             handle_list_command(input_url, columns)
