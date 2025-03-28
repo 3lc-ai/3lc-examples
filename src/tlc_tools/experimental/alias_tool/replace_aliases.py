@@ -55,7 +55,7 @@ def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tup
         # Process each rewrite sequentially
         modified_column = column
         was_modified = False
-        change_count = 0
+        affected_rows = 0
         sample_rewrites: list[tuple[str, str]] = []  # Only store first N changes for logging
 
         for old, new in rewrites:
@@ -63,10 +63,12 @@ def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tup
             old_pattern = re.escape(old)
             new_column = pc.replace_substring_regex(modified_column, old_pattern, new)
 
-            # Check if any changes were made
-            if pc.any(pc.not_equal(new_column, modified_column)).as_py():
+            # Count affected rows
+            changed_mask = pc.not_equal(new_column, modified_column)
+            changed_count = pc.sum(changed_mask).as_py()
+            if changed_count > 0:
                 was_modified = True
-                change_count += 1
+                affected_rows += changed_count
                 # Only store first N changes for logging
                 if len(sample_rewrites) < SAMPLE_REWRITES_COUNT:
                     sample_rewrites.append((old, new))
@@ -76,10 +78,10 @@ def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tup
         if was_modified:
             if sample_rewrites:
                 sample_text = ", ".join(f"'{old}'→'{new}'" for old, new in sample_rewrites)
-                if change_count > len(sample_rewrites):
-                    sample_text += f" (and {change_count - len(sample_rewrites)} more)"
+                if len(rewrites) > len(sample_rewrites):
+                    sample_text += f" (and {len(rewrites) - len(sample_rewrites)} more patterns)"
                 logger.debug(f"Column '{column_path}': {sample_text}")
-            logger.info(f"Applied {change_count} rewrites in column '{column_path}'")
+            logger.info(f"Changed {affected_rows} rows in column '{column_path}'")
 
         return modified_column, was_modified
 
@@ -113,7 +115,7 @@ def restore_from_backup(backup_url: Url, original_url: Url) -> None:
 
 
 def replace_aliases_in_pa_table(
-    target_url: Url, pa_table: pa.Table, columns: list[str], rewrites: list[tuple[str, str]]
+    target_url: Url, pa_table: pa.Table, columns: list[str], rewrites: list[tuple[str, str]], dry_run: bool = False
 ) -> None:
     """Replace aliases in a PyArrow table.
 
@@ -122,6 +124,7 @@ def replace_aliases_in_pa_table(
         pa_table: The PyArrow table to process
         columns: List of columns to process. If empty, process all columns.
         rewrites: List of (old_path, new_path) pairs to rewrite
+        dry_run: If True, show changes without making them
     """
     backup_url = None
 
@@ -148,6 +151,10 @@ def replace_aliases_in_pa_table(
 
         if not changes_made:
             logger.info("No changes to apply.")
+            return
+
+        if dry_run:
+            logger.info(f"[DRY RUN] Would write changes to '{target_url}'")
             return
 
         # Create backup only if changes were made
@@ -180,6 +187,7 @@ def replace_aliases_in_tlc_table(
     columns: list[str],
     rewrites: list[tuple[str, str]],
     process_parents: bool = True,
+    dry_run: bool = False,
 ) -> None:
     """Replace aliases in a TLC Table and its lineage.
 
@@ -188,6 +196,7 @@ def replace_aliases_in_tlc_table(
         columns: List of columns to process. If empty, process all columns.
         rewrites: List of (old_path, new_path) pairs to rewrite
         process_parents: Whether to process parent tables recursively
+        dry_run: If True, show changes without making them
     """
     processed_tables = set()  # Track processed tables to avoid cycles
 
@@ -214,7 +223,7 @@ def replace_aliases_in_tlc_table(
 
             try:
                 pa_table = get_input_parquet(pq_url)
-                replace_aliases_in_pa_table(pq_url, pa_table, columns, rewrites)
+                replace_aliases_in_pa_table(pq_url, pa_table, columns, rewrites, dry_run)
             except Exception as e:
                 logger.warning(f"Failed to process cache for table {current_table.url}: {e}")
 
@@ -239,6 +248,7 @@ def replace_aliases(
     rewrites: list[tuple[str, str]],
     process_parents: bool = True,
     input_url: Url | None = None,
+    dry_run: bool = False,
 ) -> None:
     """Replace paths with aliases in a 3LC object.
 
@@ -247,12 +257,14 @@ def replace_aliases(
         columns: List of columns to process. If empty, process all columns.
         rewrites: List of (old_path, new_path) pairs to rewrite
         process_parents: Whether to process parent tables recursively
+        input_url: Optional URL of the input object
+        dry_run: If True, show changes without making them
     """
     if isinstance(obj, Table):
-        replace_aliases_in_tlc_table(obj, columns, rewrites, process_parents)
+        replace_aliases_in_tlc_table(obj, columns, rewrites, process_parents, dry_run)
     elif isinstance(obj, Run):
         raise NotImplementedError("Replacing aliases in Runs is not yet supported.")
     elif isinstance(obj, pa.Table):
-        replace_aliases_in_pa_table(input_url, obj, columns, rewrites)
+        replace_aliases_in_pa_table(input_url, obj, columns, rewrites, dry_run)
     else:
         raise ValueError("Input is not a valid 3LC object.")

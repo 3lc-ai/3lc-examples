@@ -142,6 +142,11 @@ Examples:
         action="store_true",
         help="Skip processing parent tables (enabled by default)",
     )
+    replace_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what changes would be made without actually making them",
+    )
 
     # Replacement specification options
     replace_mode = replace_parser.add_mutually_exclusive_group(required=True)
@@ -199,7 +204,7 @@ def create_rewrites_from_aliases(alias_names: Sequence[str]) -> list[tuple[str, 
     rewrites = []
 
     for name in alias_names:
-        bracketed_name = f"<{name}>" if not name.startswith("<") else name
+        bracketed_name = f"<{name.upper()}>" if not name.startswith("<") else name.upper()
         if bracketed_name not in registered_aliases:
             raise ValueError(f"Alias '{name}' not found in registered aliases")
         alias_value = registered_aliases[bracketed_name]
@@ -245,6 +250,7 @@ def handle_replace_command(
     columns: list[str],
     rewrites: list[tuple[str, str]],
     process_parents: bool,
+    dry_run: bool = False,
 ) -> None:
     """Handle the replace command.
 
@@ -253,9 +259,10 @@ def handle_replace_command(
         columns: List of columns to process.
         rewrites: List of (from, to) pairs for rewriting.
         process_parents: Whether to process parent tables.
+        dry_run: If True, show changes without making them
     """
     obj = get_input_object(input_url)
-    replace_aliases(obj, columns, rewrites, process_parents=process_parents, input_url=input_url)
+    replace_aliases(obj, columns, rewrites, process_parents=process_parents, input_url=input_url, dry_run=dry_run)
 
 
 @register_tool(name="alias", experimental=True, description="List, rewrite, and create URL aliases in 3LC objects")
@@ -288,7 +295,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             else:
                 rewrites = create_rewrites_from_paths(args.from_paths, args.to_paths)
 
-            handle_replace_command(input_url, columns, rewrites, not args.no_process_parents)
+            handle_replace_command(input_url, columns, rewrites, not args.no_process_parents, args.dry_run)
 
     except Exception as e:
         logger.error(f"Error: {e}")
