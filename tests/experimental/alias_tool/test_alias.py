@@ -407,7 +407,7 @@ def test_replace_pa_table_backup_none_changed(mocker):
         }
     )
 
-    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.backup_parquet")
+    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.backup_file")
     mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
 
     # Process with rewrites that won't affect anything
@@ -426,7 +426,7 @@ def test_replace_pa_table_backup_on_error(mocker):
         }
     )
 
-    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.backup_parquet")
+    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.backup_file")
     mock_backup.return_value = Url("test.parquet.backup")
 
     mock_restore = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.restore_from_backup")
@@ -564,7 +564,7 @@ def test_replace_tlc_table_parent_basic(sample_table_with_parent: Table) -> None
 
     # Check that the child table was modified
     reloaded_table = Table.from_url(sample_table_with_parent.url)
-    assert reloaded_table[0]["image_path"] == "/data/images/007.jpg"
+    assert reloaded_table[0]["image_path"] == "<DATA_PATH>/007.jpg"
     assert reloaded_table[0]["mask_path"] == "<MASK_PATH>/001.png"
 
     assert reloaded_table[1]["image_path"] == "<DATA_PATH>/002.jpg"
@@ -598,8 +598,8 @@ def test_replace_tlc_table_parent_disabled(sample_table_with_parent: Table) -> N
 
     # Check that the child table was not modified
     reloaded_table = Table.from_url(sample_table_with_parent.url)
-    assert reloaded_table[0]["image_path"] == "/data/images/007.jpg"
-    assert reloaded_table[0]["mask_path"] == "/data/masks/001.png"
+    assert reloaded_table[0]["image_path"] == "<DATA_PATH>/007.jpg"  # edit was replaced
+    assert reloaded_table[0]["mask_path"] == "/data/masks/001.png"  # parent table data not replaced
 
     # Check that the parent table was not modified
     parent_table = reloaded_table.input_table_url.object

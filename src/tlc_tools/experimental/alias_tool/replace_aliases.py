@@ -3,11 +3,13 @@ from __future__ import annotations
 import io
 import logging
 import re
+from copy import deepcopy
+from typing import Any
 
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url, UrlAdapterRegistry
+from tlc.core import EditedTable, Run, SchemaHelper, Table, TableFromParquet, Url, UrlAdapterRegistry
 
 from .common import get_input_parquet
 
@@ -88,11 +90,11 @@ def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tup
     return column, False
 
 
-def backup_parquet(input_path: Url) -> Url:
-    """Create a backup of a parquet file before modification.
+def backup_file(input_path: Url) -> Url:
+    """Create a backup of a file before modification.
 
     Args:
-        input_path: URL of the parquet file to backup
+        input_path: URL of the file to backup
 
     Returns:
         URL of the backup file
@@ -104,7 +106,7 @@ def backup_parquet(input_path: Url) -> Url:
 
 
 def restore_from_backup(backup_url: Url, original_url: Url) -> None:
-    """Restore a parquet file from its backup.
+    """Restore a file from its backup.
 
     Args:
         backup_url: URL of the backup file
@@ -158,7 +160,7 @@ def replace_aliases_in_pa_table(
             return
 
         # Create backup only if changes were made
-        backup_url = backup_parquet(target_url)
+        backup_url = backup_file(target_url)
 
         # Create output table with all columns
         output_pa_table = pa.table(new_columns)
@@ -180,6 +182,76 @@ def replace_aliases_in_pa_table(
     finally:
         if backup_url:
             backup_url.delete()
+
+
+def replace_aliases_in_value(value: Any, rewrites: list[tuple[str, str]]) -> Any:
+    """Replace aliases in a value.
+
+    Args:
+        value: The value to process
+        rewrites: List of (old_path, new_path) pairs to rewrite
+    """
+    if isinstance(value, dict):
+        return {k: replace_aliases_in_value(v, rewrites) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [replace_aliases_in_value(v, rewrites) for v in value]
+    elif isinstance(value, str):
+        for old, new in rewrites:
+            if old in value:
+                value = value.replace(old, new)
+    return value
+
+
+def replace_aliases_in_edited_table(
+    table: EditedTable,
+    columns: list[str],
+    rewrites: list[tuple[str, str]],
+    dry_run: bool = False,
+) -> None:
+    """Replace aliases in an EditedTable's edits attribute.
+
+    Args:
+        table: The EditedTable to process
+        columns: List of columns to process. If empty, process all columns.
+        rewrites: List of (old_path, new_path) pairs to rewrite
+        dry_run: If True, show changes without making them
+    """
+    edits = table.edits
+
+    # First, make a copy of the edits
+    edits_copy = deepcopy(edits)
+    was_modified = False
+
+    # Then, replace any "new_value" that matches an old path with a new path (from rewrites)
+    for column_name, column_data in edits_copy.items():
+        if columns and column_name not in columns:
+            continue
+
+        runs_and_values = column_data["runs_and_values"]
+        for i in range(1, len(runs_and_values), 2):
+            rewritten_value = replace_aliases_in_value(runs_and_values[i], rewrites)
+            if rewritten_value != runs_and_values[i]:
+                runs_and_values[i] = rewritten_value
+                was_modified = True
+
+    if dry_run:
+        logger.info(f"[DRY RUN] Would write 'edits' attribute changes to '{table.url}'")
+        return
+
+    if was_modified:
+        # Write the new edits back to the table json file
+        table.edits = edits_copy
+        backup_url = backup_file(table.url)
+        try:
+            table.write_to_url(force=True)
+        except Exception as e:
+            if backup_url:
+                logger.warning(f"Failed to write changes: {e}. Restoring from backup...")
+                restore_from_backup(backup_url, table.url)
+            raise
+        finally:
+            if backup_url:
+                backup_url.delete()
 
 
 def replace_aliases_in_tlc_table(
@@ -207,6 +279,10 @@ def replace_aliases_in_tlc_table(
         processed_tables.add(current_table.url)
 
         logger.debug(f"Processing table: {current_table.url}")
+
+        if isinstance(current_table, EditedTable):
+            replace_aliases_in_edited_table(current_table, columns, rewrites, dry_run)
+            # Continue processing, since the EditedTable might still have a row cache
 
         # Process the current table's parquet cache if it exists
         has_cache = current_table.row_cache_populated and current_table.row_cache_url
