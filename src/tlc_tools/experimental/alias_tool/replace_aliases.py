@@ -234,11 +234,11 @@ def replace_aliases_in_edited_table(
                 runs_and_values[i] = rewritten_value
                 was_modified = True
 
-    if dry_run:
-        logger.info(f"[DRY RUN] Would write 'edits' attribute changes to '{table.url}'")
-        return
-
     if was_modified:
+        if dry_run:
+            logger.info(f"[DRY RUN] Would write 'edits' attribute changes to '{table.url}'")
+            return
+
         # Write the new edits back to the table json file
         table.edits = edits_copy
         backup_url = backup_file(table.url)
@@ -278,7 +278,7 @@ def replace_aliases_in_tlc_table(
         current_table.ensure_fully_defined()
         processed_tables.add(current_table.url)
 
-        logger.debug(f"Processing table: {current_table.url}")
+        logger.info(f"├─ {current_table.url.name}")
 
         if isinstance(current_table, EditedTable):
             replace_aliases_in_edited_table(current_table, columns, rewrites, dry_run)
@@ -292,10 +292,8 @@ def replace_aliases_in_tlc_table(
             # Get URL of file to process - prefer cache if available
             if has_cache:
                 pq_url = current_table.row_cache_url.to_absolute(current_table.url)
-                logger.debug(f"  Using cache URL: {pq_url}")
             else:
                 pq_url = current_table.input_url.to_absolute(current_table.url)
-                logger.debug(f"  Using input URL: {pq_url}")
 
             try:
                 pa_table = get_input_parquet(pq_url)
@@ -306,7 +304,6 @@ def replace_aliases_in_tlc_table(
         # Process parent tables recursively if enabled
         if process_parents:
             parent_urls = list(SchemaHelper.object_input_urls(current_table, current_table.schema))
-            logger.debug(f"  Parent tables: {parent_urls}")
             for parent_url in parent_urls:
                 try:
                     parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
