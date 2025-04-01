@@ -78,9 +78,9 @@ def list_aliases_in_pa_table(pa_table: pa.Table, columns: list[str], input_url: 
 
         found_aliases = find_aliases_in_column(col_name, pa_table[col_name])
         if found_aliases:
-            logger.info(f"Found aliases in column '{col_name}' of table '{input_url or 'unknown'}'")
+            logger.info(f"  Found aliases in column '{col_name}'")
             for _column_path, alias, value in found_aliases:
-                logger.info(f"  {alias} ({value})")
+                logger.info(f"    {alias} ({value})")
 
 
 def list_aliases_in_tlc_table(table: Table, columns: list[str], process_parents: bool = True) -> None:
@@ -99,7 +99,7 @@ def list_aliases_in_tlc_table(table: Table, columns: list[str], process_parents:
         current_table.ensure_fully_defined()
         processed_tables.add(current_table.url)
 
-        logger.debug(f"Processing table: {current_table.url}")
+        logger.info(f"├─ {current_table.url.name}")
 
         # Process the current table's parquet cache if it exists
         has_cache = current_table.row_cache_populated and current_table.row_cache_url
@@ -109,27 +109,24 @@ def list_aliases_in_tlc_table(table: Table, columns: list[str], process_parents:
             # Get URL of file to process - prefer cache if available
             if has_cache:
                 pq_url = current_table.row_cache_url.to_absolute(current_table.url)
-                logger.debug(f"  Using cache URL: {pq_url}")
             else:
                 pq_url = current_table.input_url.to_absolute(current_table.url)
-                logger.debug(f"  Using input URL: {pq_url}")
 
             try:
                 pa_table = get_input_parquet(pq_url)
                 list_aliases_in_pa_table(pa_table, columns, pq_url)
             except Exception as e:
-                logger.warning(f"Failed to process cache for table {current_table.url}: {e}")
+                logger.warning(f"❌ Failed to process cache for table {current_table.url}: {e}")
 
         # Process parent tables recursively if enabled
         if process_parents:
             parent_urls = list(SchemaHelper.object_input_urls(current_table, current_table.schema))
-            logger.debug(f"  Parent tables: {parent_urls}")
             for parent_url in parent_urls:
                 try:
                     parent_table = Table.from_url(parent_url.to_absolute(owner=current_table.url))
                     process_table_recursive(parent_table)
                 except Exception as e:
-                    logger.warning(f"Failed to process parent table {parent_url}: {e}")
+                    logger.warning(f"❌ Failed to process parent table {parent_url}: {e}")
 
     # Start recursive processing from the input table
     process_table_recursive(table)
