@@ -12,9 +12,12 @@ The `tlc` Python package provides several helper functions for creating Tables f
 | **YOLO** | **Semantic segmentation**  | **Video thumbnails** |
 | [![yolo][yolo-img]][yolo-link] | [![semseg][semseg-img]][semseg-link] | [![video][video-img]][video-link] |
 | Load images and bounding boxes from the YOLO YAML file format. | Write a Table from images and one or more masks. | Work with video datasets in 3LC by creating thumbnails and storing URLs to video files. |
-| **From PyTorch Dataset** | **COCO** |    |
-| [![torch][torch-img]][torch-link] | [![coco][coco-img]][coco-link] |    |
-| Create a Table directly from a PyTorch Dataset (CIFAR-10). | Create a Table from a folder of images and a COCO format JSON file. | |
+| **From PyTorch Dataset** | **COCO** | **Instance segmentation - Polygons** |
+| [![torch][torch-img]][torch-link] | [![coco][coco-img]][coco-link] | [![instance-segmentation][instance-segmentation-img]][instance-segmentation-polygons-link] |
+| Create a Table directly from a PyTorch Dataset (CIFAR-10). | Create a Table from a folder of images and a COCO format JSON file. | Create a Table from instance segmentation polygons.|
+| **Instance segmentation - Masks** |||
+| [![instance-segmentation][instance-segmentation-img]][instance-segmentation-masks-link] | | |
+| Create a Table from instance segmentation masks. | | |
 
 [image-classification-img]: ../images/create-image-classification-table.png
 [image-classification-link]: create-image-classification-table.ipynb
@@ -32,3 +35,6 @@ The `tlc` Python package provides several helper functions for creating Tables f
 [torch-link]: create-table-from-torch.ipynb
 [coco-img]: ../images/coco.png
 [coco-link]: create-table-from-coco.ipynb
+[instance-segmentation-img]: ../images/instance-segmentation.png
+[instance-segmentation-polygons-link]: create-instance-segmentation-polygons-table.ipynb
+[instance-segmentation-masks-link]: create-instance-segmentation-masks-table.ipynb
