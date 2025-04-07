@@ -37,6 +37,9 @@ jobs:
 
     - name: Run CLI tests
       run: uv run pytest tests/cli/
+      env:
+        TLC_API_KEY: ${{ secrets.TLC_API_KEY}}
+        ${{ secrets.RUNTIME_NAME }}: ${{ secrets.RUNTIME_VALUE }}
 
     - name: Minimize uv cache
       run: uv cache prune --ci
