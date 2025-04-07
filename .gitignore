@@ -8,3 +8,6 @@ dist/
 *.npy
 **/lightning_logs/
 .DS_Store
+.coverage
+coverage.xml
+.notes/
