@@ -10,6 +10,7 @@ import zipfile
 
 import tlc
 import requests
+import tlc
 import torch
 from packaging import version
 
@@ -137,3 +138,26 @@ def download_and_extract_zipfile(url: str, location: str = "."):
     r = requests.get(url)
     z = zipfile.ZipFile(io.BytesIO(r.content))
     z.extractall(location)
+
+
+def check_is_bb_column(input_table: tlc.Table, bb_column: str) -> None:
+    if bb_column not in input_table.columns:
+        raise ValueError(f"Column {bb_column} not found in table {input_table.name}")
+
+    if "bb_list" not in input_table.rows_schema.values[bb_column].values:
+        raise ValueError(f"Column {bb_column} is missing the bb_list sub-column")
+
+    if "label" not in input_table.rows_schema.values[bb_column].values["bb_list"].values:
+        raise ValueError(f"Column {bb_column} is missing the label sub-column")
+
+    if "x1" not in input_table.rows_schema.values[bb_column].values["bb_list"].values:
+        raise ValueError(f"Column {bb_column} is missing the x1 sub-column")
+
+    if "y1" not in input_table.rows_schema.values[bb_column].values["bb_list"].values:
+        raise ValueError(f"Column {bb_column} is missing the y1 sub-column")
+
+    if "x0" not in input_table.rows_schema.values[bb_column].values["bb_list"].values:
+        raise ValueError(f"Column {bb_column} is missing the x0 sub-column")
+
+    if "y0" not in input_table.rows_schema.values[bb_column].values["bb_list"].values:
+        raise ValueError(f"Column {bb_column} is missing the y0 sub-column")
