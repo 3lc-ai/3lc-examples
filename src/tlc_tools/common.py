@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import io
 import platform
 import subprocess
 import sys
+import zipfile
 
+import requests
 import torch
 from packaging import version
 
@@ -99,3 +102,14 @@ def is_package_installed(package_name: str) -> bool:
 
 def is_windows() -> bool:
     return platform.system() == "Windows"
+
+
+def download_and_extract_zipfile(url: str, location: str = "."):
+    """Download a zipfile and extract it to a specified location.
+
+    :param url: The URL of the zipfile to download.
+    :param location: The location to extract the zipfile to.
+    """
+    r = requests.get(url)
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    z.extractall(location)
