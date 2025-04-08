@@ -13,4 +13,3 @@ repos:
   hooks:
     - id: nbstripout
       exclude: ^example-notebooks/
-
