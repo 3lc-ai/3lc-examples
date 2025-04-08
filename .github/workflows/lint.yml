@@ -1,4 +1,4 @@
-name: Run linter, formatter and type checker
+name: Run linter, formatter, type checker and run tests
 
 on:
   pull_request:
