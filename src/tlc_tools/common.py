@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import io
 import platform
 import subprocess
 import sys
+import zipfile
 
 import tlc
+import requests
 import torch
 from packaging import version
 
@@ -123,3 +126,14 @@ def check_is_bb_column(input_table: tlc.Table, bb_column: str) -> None:
 
     if "y0" not in input_table.rows_schema.values[bb_column].values["bb_list"].values:
         raise ValueError(f"Column {bb_column} is missing the y0 sub-column")
+
+
+def download_and_extract_zipfile(url: str, location: str = "."):
+    """Download a zipfile and extract it to a specified location.
+
+    :param url: The URL of the zipfile to download.
+    :param location: The location to extract the zipfile to.
+    """
+    r = requests.get(url)
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    z.extractall(location)
