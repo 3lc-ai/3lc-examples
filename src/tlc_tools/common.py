@@ -9,6 +9,7 @@ import sys
 import zipfile
 
 import requests
+import tlc
 import torch
 from packaging import version
 
@@ -102,6 +103,38 @@ def is_package_installed(package_name: str) -> bool:
 
 def is_windows() -> bool:
     return platform.system() == "Windows"
+
+
+def check_is_bb_column(
+    input_table: tlc.Table,
+    bb_column: str = "bbs",
+    bb_list_column: str = "bb_list",
+) -> None:
+    """Check that a column conforms to 3LC's bounding box format.
+
+    Ensures that the `bb_list_column` is present in the `bb_column`'s schema.
+
+    Ensures the required "label", "x1", "y1", "x0", "y0" sub-columns are present
+    in the `bb_list_column`'s schema.
+
+    :param input_table: The table to check.
+    :param bb_column: The name of the column to check.
+    :param bb_list_column: The name of the sub-column in the column to check.
+
+    :raises ValueError: If the column is missing the `bb_list_column` or any of
+        the required sub-columns.
+    """
+    if bb_column not in input_table.columns:
+        raise ValueError(f"Column {bb_column} not found in table {input_table.name}")
+
+    if bb_list_column not in input_table.rows_schema.values[bb_column].values:
+        raise ValueError(f"Column {bb_column} is missing the {bb_list_column} sub-column")
+
+    bb_list_schema = input_table.rows_schema.values[bb_column].values[bb_list_column]
+
+    for column in ["label", "x1", "y1", "x0", "y0"]:
+        if column not in bb_list_schema.values:
+            raise ValueError(f"Column {bb_column} is missing the {column} sub-column")
 
 
 def download_and_extract_zipfile(url: str, location: str = "."):
