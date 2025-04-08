@@ -66,6 +66,7 @@ dev = [
     "ipykernel>=6.29.5",
     "pytest-coverage>=0.0",
     "ipywidgets>=8.1.5",
+    "types-requests>=2.31.0.6",
 ]
 
 [build]
