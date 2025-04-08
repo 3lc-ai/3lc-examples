@@ -190,8 +190,9 @@ def compute_image_metrics(image_path: str | tlc.Url, metrics: list[IMAGE_METRICS
 
         # Sharpness (variance of the Laplacian)
         if "sharpness" in metrics:
-            sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
-            computed_metrics["sharpness"] = float(sharpness)
+            laplacian = np.asarray(cv2.Laplacian(pixels, cv2.CV_64F), dtype=np.float64)
+            sharpness = float(np.var(laplacian))
+            computed_metrics["sharpness"] = sharpness
 
         is_rgb = len(pixels.shape) == 3 and pixels.shape[2] == 3
 
