@@ -9,12 +9,12 @@ import pyarrow.parquet as pq
 import pytest
 from tlc.core import EditedTable, ObjectRegistry, Table, TableFromParquet, TableFromPydict, Url
 
-from tlc_tools.experimental.alias_tool.common import get_input_object
-from tlc_tools.experimental.alias_tool.list_aliases import (
+from tlc_tools.alias.common import get_input_object
+from tlc_tools.alias.list_aliases import (
     find_aliases_in_column,
     list_aliases,
 )
-from tlc_tools.experimental.alias_tool.replace_aliases import (
+from tlc_tools.alias.replace_aliases import (
     replace_aliases_in_pa_table,
     replace_aliases_in_tlc_table,
 )

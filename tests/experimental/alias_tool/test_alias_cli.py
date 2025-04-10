@@ -1,7 +1,7 @@
 import pytest
 from tlc.core import Url
 
-from tlc_tools.experimental.alias_tool.main import main
+from tlc_tools.cli.commands.alias import main
 
 
 def test_main_basic_replace(mocker):

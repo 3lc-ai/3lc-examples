@@ -23,7 +23,6 @@ def display_tools(tools: dict[str, ToolInfo]) -> None:
 
     table_data = []
     for tool_name, tool in sorted(tools.items()):
-        experimental_marker = "experimental" if tool.is_experimental else ""
-        table_data.append([display_name(tool_name), experimental_marker, tool.description])
+        table_data.append([display_name(tool_name), tool.description])
 
     print(tabulate(table_data, headers=["tool", "status", "description"], tablefmt="simple"))
