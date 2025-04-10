@@ -109,12 +109,6 @@ To run a tool, use the following syntax:
 
 The tool name is the name presented in the `3lc-tools list` command, and the tool-args are forwarded to the tool.
 
-Some tools are experimental, which means they are not yet ready for production use and might change or be removed without notice. These tools require the `--exp` flag to be set:
-
-```bash
-3lc-tools run --exp <tool-name> <tool-args>
-```
-
 ## Contributing
 
 We welcome contributions to this repository! If you have a suggestion for an

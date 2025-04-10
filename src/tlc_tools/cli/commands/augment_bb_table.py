@@ -5,10 +5,9 @@ import os
 
 import tlc
 
+from tlc_tools.augment_bbs.extend_table_with_metrics import extend_table_with_metrics
+from tlc_tools.augment_bbs.finetune_on_crops import train_model
 from tlc_tools.cli import register_tool
-
-from .extend_table_with_metrics import extend_table_with_metrics
-from .finetune_on_crops import train_model
 
 
 def parse_table_list(table_string):
@@ -18,7 +17,7 @@ def parse_table_list(table_string):
     return None
 
 
-@register_tool(experimental=True, description="Augment tables with bounding box embeddings and image metrics")
+@register_tool(description="Augment tables with bounding box embeddings and image metrics")
 def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     """
     Main function to process tables

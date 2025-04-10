@@ -6,11 +6,10 @@ from collections.abc import Sequence
 
 import tlc
 
+from tlc_tools.alias.common import get_input_object, setup_logging
+from tlc_tools.alias.list_aliases import list_aliases
+from tlc_tools.alias.replace_aliases import replace_aliases
 from tlc_tools.cli import register_tool
-
-from .common import get_input_object, setup_logging
-from .list_aliases import list_aliases
-from .replace_aliases import replace_aliases
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +264,7 @@ def handle_replace_command(
     replace_aliases(obj, columns, rewrites, process_parents=process_parents, input_url=input_url, dry_run=dry_run)
 
 
-@register_tool(name="alias", experimental=True, description="List, rewrite, and create URL aliases in 3LC objects")
+@register_tool(name="alias", description="List, rewrite, and create URL aliases in 3LC objects")
 def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     """Main function to process aliases in 3LC objects.
 
