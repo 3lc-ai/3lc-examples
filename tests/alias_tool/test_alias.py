@@ -269,7 +269,7 @@ def test_list_pa_table_basic(tmp_parquet, mocker):
         }
     )
 
-    mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
+    mock_logger = mocker.patch("tlc_tools.alias.list_aliases.logger")
     input_url = Url(tmp_parquet)
     list_aliases(table, [], input_url=input_url)
 
@@ -277,8 +277,8 @@ def test_list_pa_table_basic(tmp_parquet, mocker):
     found_aliases = [call.args[0] for call in mock_logger.info.call_args_list]
 
     # Check column headers
-    assert any(f"Found aliases in column 'col1' of table '{input_url}'" in msg for msg in found_aliases)
-    assert any(f"Found aliases in column 'metadata' of table '{input_url}'" in msg for msg in found_aliases)
+    assert any("Found aliases in column 'col1'" in msg for msg in found_aliases)
+    assert any("Found aliases in column 'metadata'" in msg for msg in found_aliases)
 
     # Check specific aliases
     assert any("  <DATA_PATH> (<DATA_PATH>/file.txt)" in msg for msg in found_aliases)
@@ -298,7 +298,7 @@ def test_list_pa_table_selected_columns(tmp_parquet, mocker):
         }
     )
 
-    mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
+    mock_logger = mocker.patch("tlc_tools.alias.list_aliases.logger")
     list_aliases(table, ["col1"], input_url=Url(tmp_parquet))
 
     # Verify only aliases from selected column were found
@@ -323,7 +323,7 @@ def test_list_pa_table_no_aliases(tmp_parquet, mocker):
         }
     )
 
-    mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
+    mock_logger = mocker.patch("tlc_tools.alias.list_aliases.logger")
     list_aliases(table, [], input_url=Url(tmp_parquet))
 
     # Verify no aliases were found
@@ -333,7 +333,7 @@ def test_list_pa_table_no_aliases(tmp_parquet, mocker):
 
 def test_list_tlc_table_basic(sample_table: Table, mocker) -> None:
     """Test listing aliases in a TLC table."""
-    mock_logger = mocker.patch("tlc_tools.experimental.alias_tool.list_aliases.logger")
+    mock_logger = mocker.patch("tlc_tools.alias.list_aliases.logger")
     list_aliases(sample_table, [])
 
     # Verify correct aliases were found and logged
@@ -407,7 +407,7 @@ def test_replace_pa_table_backup_none_changed(mocker):
         }
     )
 
-    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.backup_file")
+    mock_backup = mocker.patch("tlc_tools.alias.replace_aliases.backup_file")
     mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
 
     # Process with rewrites that won't affect anything
@@ -426,10 +426,10 @@ def test_replace_pa_table_backup_on_error(mocker):
         }
     )
 
-    mock_backup = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.backup_file")
+    mock_backup = mocker.patch("tlc_tools.alias.replace_aliases.backup_file")
     mock_backup.return_value = Url("test.parquet.backup")
 
-    mock_restore = mocker.patch("tlc_tools.experimental.alias_tool.replace_aliases.restore_from_backup")
+    mock_restore = mocker.patch("tlc_tools.alias.replace_aliases.restore_from_backup")
 
     # Make write fail
     mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")

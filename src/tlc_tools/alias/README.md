@@ -97,4 +97,3 @@ By default, the tool processes parent tables when handling Table objects. You ca
 - [ ] Allow supplying empty --apply to apply any relevant registered aliases
 - [ ] Add tooling for inspecting "inputs" to 3LC objects (relative URLs, aliased URLs, bulk data, metric tables, etc.)
 - [ ] Add back full column name when listing/replacing in nested structs
-- [ ] Add mypy to pre-commit
