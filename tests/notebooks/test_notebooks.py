@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -34,7 +35,28 @@ def get_ordered_notebook_paths() -> list[Any]:
     gather_notebooks(notebooks_folder)
 
     # Wrap notebooks as pytest parameters for testing
-    return [pytest.param(nb, id=nb.stem) for nb in ordered_notebooks]
+    ids = [nb.relative_to(notebooks_folder).as_posix().replace(".ipynb", "") for nb in ordered_notebooks]
+
+    # Create pytest parameters with marks based on notebook metadata
+    params = []
+    for nb, id in zip(ordered_notebooks, ids):
+        # Read notebook metadata
+        with open(nb, encoding="utf-8") as f:
+            notebook = json.load(f)
+
+        # Get test marks from notebook metadata
+        marks = []
+        if "metadata" in notebook and "test_marks" in notebook["metadata"]:
+            for mark in notebook["metadata"]["test_marks"]:
+                marks.append(getattr(pytest.mark, mark))
+
+        # Create parameter with marks if any exist
+        if marks:
+            params.append(pytest.param(nb, id=id, marks=marks))
+        else:
+            params.append(pytest.param(nb, id=id))
+
+    return params
 
 
 @pytest.mark.parametrize("notebook_path", get_ordered_notebook_paths())
