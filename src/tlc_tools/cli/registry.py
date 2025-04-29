@@ -6,7 +6,6 @@ from typing import Callable, NamedTuple
 
 class ToolInfo(NamedTuple):
     callable: Callable
-    is_experimental: bool
     module_path: str
     description: str
 
@@ -15,30 +14,22 @@ class ToolInfo(NamedTuple):
 _TOOLS: dict[str, ToolInfo] = {}
 
 
-def register_tool(*, name: str | None = None, experimental: bool = False, description: str = ""):
+def register_tool(*, name: str | None = None, description: str = ""):
     """Decorator to register a CLI tool, making it available through the 3lc-tools CLI.
 
     Args:
         name: Optional custom name for the tool. If not provided, defaults to the module name.
-        experimental: Whether this is an experimental tool.
         description: A description of the tool, displayed when listing tools.
     """
 
     def decorator(func: Callable) -> Callable:
         tool_name = name if name is not None else func.__module__.split(".")[-1]
-        if experimental and name is None:
-            tool_name = tool_name.replace("experimental.", "")
 
-        # Don't set prog when script is run directly
-        if func.__module__ == "__main__":
-            callable = func
-        # Forward command that is used to run the tool when using 3lc-tools run
-        else:
-            callable = partial(func, prog=f"3lc-tools run {'--exp' if experimental else ''} {tool_name}")
+        # Don't set prog when script is run directly, forward command that is
+        # used to run the tool when using 3lc-tools run
+        callable = func if func.__module__ == "__main__" else partial(func, prog=f"3lc-tools run {tool_name}")
 
-        _TOOLS[tool_name] = ToolInfo(
-            callable=callable, is_experimental=experimental, module_path=func.__module__, description=description
-        )
+        _TOOLS[tool_name] = ToolInfo(callable=callable, module_path=func.__module__, description=description)
         return callable
 
     return decorator

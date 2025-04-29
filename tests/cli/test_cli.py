@@ -27,11 +27,6 @@ def official_dummy_tool(args=None, prog=None):
     return 0
 
 
-def experimental_dummy_tool(args=None, prog=None):
-    """A dummy experimental tool that just returns success"""
-    return 0
-
-
 @pytest.fixture(autouse=True)
 def setup_tools():
     """Fixture to set up dummy tools in the registry before each test"""
@@ -41,21 +36,12 @@ def setup_tools():
     # Add our test tools directly to the registry
     _TOOLS["official_dummy_tool"] = ToolInfo(
         callable=official_dummy_tool,
-        is_experimental=False,
         module_path="test_cli",
         description="A dummy tool for testing",
     )
 
-    _TOOLS["experimental_dummy_tool"] = ToolInfo(
-        callable=experimental_dummy_tool,
-        is_experimental=True,
-        module_path="test_cli",
-        description="An experimental dummy tool for testing",
-    )
-
     _TOOLS["tool_with_parser"] = ToolInfo(
         callable=tool_with_parser,
-        is_experimental=False,
         module_path="test_cli",
         description="A tool with a custom parser",
     )
@@ -79,9 +65,6 @@ def setup_tools():
         ([], "usage:", 1),
         # Tool operations
         (["run", "official-dummy-tool"], "", 0),
-        (["run", "experimental-dummy-tool"], "error:", 1),
-        (["run", "--exp", "experimental-dummy-tool"], "", 0),
-        (["run", "--experimental", "experimental-dummy-tool"], "", 0),
         (["list"], "official-dummy-tool", 0),
         # Tool argument parsing
         (["run", "tool_with_parser", "--arg1", "1", "--arg2", "2"], "", 0),

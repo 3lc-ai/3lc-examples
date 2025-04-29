@@ -24,7 +24,6 @@ def create_parser() -> argparse.ArgumentParser:
     # Run command
     run_parser = subparsers.add_parser("run", help="run a tool with arguments")
     run_parser.add_argument("tool", help="tool to run")
-    run_parser.add_argument("--exp", "--experimental", action="store_true", help="allow running experimental tools")
 
     # Pass remaining args through to the tool
     run_parser.add_argument("args", nargs=argparse.REMAINDER, help="arguments to pass to the tool")
@@ -32,13 +31,12 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def run_tool(tools: dict[str, ToolInfo], tool_name: str, args: list, allow_experimental: bool) -> None:
+def run_tool(tools: dict[str, ToolInfo], tool_name: str, args: list) -> None:
     """Run the specified tool with given arguments.
 
     :param tools: A dictionary of tool names to tool info.
     :param tool_name: The name of the tool to run.
     :param args: The arguments to pass to the tool.
-    :param allow_experimental: Whether to allow running experimental tools.
     """
     normalized_name = normalize_tool_name(tool_name)
 
@@ -47,12 +45,6 @@ def run_tool(tools: dict[str, ToolInfo], tool_name: str, args: list, allow_exper
         sys.exit(1)
 
     tool = tools[normalized_name]
-    if tool.is_experimental and not allow_experimental:
-        print(
-            f"Error: '{display_name(normalized_name)}' is an experimental tool. "
-            f"Use '3lc-tools run --exp {display_name(normalized_name)}' to run it."
-        )
-        sys.exit(1)
 
     # Pass the remaining arguments directly to the tool
     try:
@@ -90,7 +82,7 @@ def main() -> int:
         sys.exit(0)
     elif args.command == "run":
         try:
-            run_tool(tools, args.tool, args.args, args.exp)
+            run_tool(tools, args.tool, args.args)
             sys.exit(0)
         except Exception as e:
             print(f"Error: {str(e)}", file=sys.stderr)

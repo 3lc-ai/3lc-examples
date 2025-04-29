@@ -32,7 +32,7 @@ def setup_logging(verbosity: int = 0, quiet: bool = False) -> None:
         level = logging.INFO
 
     # Configure root logger for the alias tool
-    root_logger = logging.getLogger("tlc_tools.experimental.alias_tool")
+    root_logger = logging.getLogger("tlc_tools.alias")
     root_logger.setLevel(level)
     root_logger.addHandler(console_handler)
 
