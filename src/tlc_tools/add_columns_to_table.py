@@ -73,6 +73,7 @@ def add_columns_to_table(
             if input_schemas[column_name].sample_type == tlc.PILImage.sample_type:
                 image_url = tlc.Url(column_value).to_absolute(table.url)
                 column_value = Image.open(io.BytesIO(image_url.read()))
+                column_value._tlc_url = image_url.to_str()
 
             output_row[column_name] = column_value
 

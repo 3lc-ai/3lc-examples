@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Callable
 
 import tlc
@@ -11,6 +12,24 @@ from transformers import ViTImageProcessor, ViTModel
 
 from tlc_tools import add_columns_to_table
 from tlc_tools.common import infer_torch_device
+
+
+@contextmanager
+def temporary_table_map(table: tlc.Table, map_fn: Callable | None = None):
+    """
+    Context manager for temporarily mapping a table. The table will be unmapped
+    when exiting the context, regardless of whether an exception occurred.
+
+    :param table: The table to temporarily map
+    :param map_fn: Optional mapping function to apply
+    """
+    try:
+        if map_fn is not None:
+            table.map(map_fn)
+        yield table
+    finally:
+        if map_fn is not None:
+            table._map_functions.pop()
 
 
 def add_embeddings_to_table(
@@ -61,20 +80,18 @@ def add_embeddings_to_table(
         embedding_extraction_fn = lambda output: output.cpu().numpy() if isinstance(output, torch.Tensor) else output  # noqa: E731
 
     # Map the table to ensure samples are compatible with the model
-    if preprocess_fn:
-        table.map(preprocess_fn)
+    with temporary_table_map(table, preprocess_fn):
+        # Set up DataLoader
+        dataloader = torch.utils.data.DataLoader(table, batch_size=batch_size, shuffle=False)
 
-    # Set up DataLoader
-    dataloader = torch.utils.data.DataLoader(table, batch_size=batch_size, shuffle=False)
+        # Run inference and extract embeddings
+        all_embeddings = []
+        for batch in tqdm.tqdm(dataloader, total=len(dataloader), desc="Extracting embeddings"):
+            with torch.no_grad():
+                outputs = model(batch.to(device))
+                embeddings = embedding_extraction_fn(outputs)
 
-    # Run inference and extract embeddings
-    all_embeddings = []
-    for batch in tqdm.tqdm(dataloader, total=len(dataloader), desc="Extracting embeddings"):
-        with torch.no_grad():
-            outputs = model(batch.to(device))
-            embeddings = embedding_extraction_fn(outputs)
-
-        all_embeddings.extend(embeddings.tolist())
+            all_embeddings.extend(embeddings.tolist())
 
     # We assign a special number role to the embedding column so that it will be
     # automatically selected for dimensionality reduction, and will not be sent
