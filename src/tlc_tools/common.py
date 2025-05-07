@@ -7,6 +7,7 @@ import platform
 import subprocess
 import sys
 import zipfile
+from typing import Literal
 
 import requests
 import tlc
@@ -135,6 +136,36 @@ def check_is_bb_column(
     for column in ["label", "x1", "y1", "x0", "y0"]:
         if column not in bb_list_schema.values:
             raise ValueError(f"Column {bb_column} is missing the {column} sub-column")
+
+
+def check_is_segmentation_column(
+    input_table: tlc.Table,
+    segmentation_column: str = tlc.SEGMENTATIONS,
+    sample_type: Literal["instance_segmentation_masks", "instance_segmentation_polygons", ""] = "",
+) -> None:
+    """Check that a column conforms to 3LC's segmentation format.
+
+    Ensures that the `segmentation_column` is present in the `input_table`'s schema.
+
+    Ensures that the `segmentation_column`'s schema is a `tlc.InstanceSegmentationMasks`
+    or `tlc.InstanceSegmentationPolygons` sample type.
+
+    :param input_table: The table to check.
+    :param segmentation_column: The name of the column to check.
+    :param sample_type: The sample type of the segmentation column.
+
+    :raises ValueError: If the column is missing the `segmentation_column` or
+        the `segmentation_column`'s schema is not a `tlc.InstanceSegmentationMasks`
+        or `tlc.InstanceSegmentationPolygons` sample type.
+    """
+    if segmentation_column not in input_table.columns:
+        raise ValueError(f"Column {segmentation_column} not found in table {input_table.name}")
+
+    if segmentation_column not in input_table.rows_schema.values:
+        raise ValueError(f"Column {segmentation_column} not found in table {input_table.name}")
+
+    if sample_type and input_table.rows_schema.values[segmentation_column].sample_type != sample_type:
+        raise ValueError(f"Column {segmentation_column} is not a {sample_type} sample type")
 
 
 def download_and_extract_zipfile(url: str, location: str = "."):

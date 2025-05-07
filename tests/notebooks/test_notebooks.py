@@ -51,10 +51,7 @@ def get_ordered_notebook_paths() -> list[Any]:
                 marks.append(getattr(pytest.mark, mark))
 
         # Create parameter with marks if any exist
-        if marks:
-            params.append(pytest.param(nb, id=id, marks=marks))
-        else:
-            params.append(pytest.param(nb, id=id))
+        params.append(pytest.param(nb, id=id, marks=marks))
 
     return params
 
