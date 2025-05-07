@@ -23,13 +23,15 @@ def temporary_table_map(table: tlc.Table, map_fn: Callable | None = None):
     :param table: The table to temporarily map
     :param map_fn: Optional mapping function to apply
     """
+    if map_fn is None:
+        yield table
+        return
+
     try:
-        if map_fn is not None:
-            table.map(map_fn)
+        table.map(map_fn)
         yield table
     finally:
-        if map_fn is not None:
-            table._map_functions.pop()
+        table._map_functions.pop()
 
 
 def add_embeddings_to_table(
