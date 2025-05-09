@@ -19,8 +19,8 @@ class BBCropDataset(Dataset):
         table: tlc.Table,
         transform=None,
         label_map: Mapping | None = None,
-        add_background: bool | None = None,
-        background_freq: float | None = None,
+        add_background: bool = False,
+        background_freq: float = 0.5,
         image_column_name: str = "image",
         x_max_offset: float = 0.0,
         y_max_offset: float = 0.0,
@@ -48,18 +48,13 @@ class BBCropDataset(Dataset):
 
         self.bb_schema = table.schema.values["rows"].values["bbs"].values["bb_list"]
 
-        if add_background is None:
-            self.add_background = len(self.label_map) == 1
-        else:
-            self.add_background = add_background
+        self.add_background = add_background
+        self.background_freq = background_freq
 
-        # Calculate background frequency if not provided
-        if background_freq is None and self.add_background:
-            self.background_freq = 1 / (len(self.label_map) + 1)
-        else:
-            self.background_freq = background_freq if background_freq is not None else 0.5
+        self.background_label = int(max(self.label_map.keys()) + 1) if add_background else None
+        self.label_2_contiguous_idx = {label: idx for idx, label in enumerate(self.label_map.keys())}
+        self.label_2_contiguous_idx[self.background_label] = len(self.label_2_contiguous_idx)
 
-        self.background_label = len(self.label_map) if add_background else None
         self.random_gen = random.Random(42)  # Fixed seed for reproducibility
         self.x_max_offset = x_max_offset
         self.y_max_offset = y_max_offset
@@ -107,7 +102,7 @@ class BBCropDataset(Dataset):
                 y_scale_range=self.y_scale_range,
                 x_scale_range=self.x_scale_range,
             )
-            label = torch.tensor(bb["label"], dtype=torch.long)
+            label = torch.tensor(self.label_2_contiguous_idx[bb["label"]], dtype=torch.long)
 
         if self.transform:
             crop = self.transform(crop)
@@ -159,13 +154,15 @@ class BBCropDataset(Dataset):
                 "No valid background patch found. Returning a black square. Please check your data.",
                 stacklevel=2,
             )
-            return Image.new("RGB", (100, 100), color=(0, 0, 0)), torch.tensor(self.background_label, dtype=torch.long)
+            return Image.new("RGB", (100, 100), color=(0, 0, 0)), torch.tensor(
+                self.label_2_contiguous_idx[self.background_label], dtype=torch.long
+            )
 
         # Crop the background patch from the image
         background_patch = image.crop(
             (proposed_box[0], proposed_box[1], proposed_box[0] + proposed_box[2], proposed_box[1] + proposed_box[3])
         )
-        return background_patch, torch.tensor(self.background_label, dtype=torch.long)
+        return background_patch, torch.tensor(self.label_2_contiguous_idx[self.background_label], dtype=torch.long)
 
     @staticmethod
     def _intersects(box1: list[int], box2: list[int]) -> bool:

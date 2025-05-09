@@ -33,6 +33,36 @@ def calculate_bb_metrics(image, bb, bb_schema):
     return {"brightness": float(brightness), "contrast": float(contrast), "sharpness": float(sharpness)}
 
 
+def single_sample_bb_crop_iterator(sample, bb_schema, image_transform):
+    """Process a single sample for bounding box crops."""
+    image_filename = sample["image"]
+    image_bytes = tlc.Url(image_filename).read()
+    image = Image.open(BytesIO(image_bytes))
+    w, h = image.size
+
+    for bb in sample["bbs"]["bb_list"]:
+        bb_crop = tlc.BBCropInterface.crop(image, bb, bb_schema, h, w)
+        yield image_transform(bb_crop)
+
+
+def bb_crop_iterator(input_table, bb_schema, image_transform):
+    """Iterate over all bounding box crops in the table."""
+    for sample in input_table:
+        yield from single_sample_bb_crop_iterator(sample, bb_schema, image_transform)
+
+
+def batched_bb_crop_iterator(input_table, bb_schema, image_transform, batch_size, device):
+    """Create batches of bounding box crops."""
+    batch = []
+    for bb_crop in bb_crop_iterator(input_table, bb_schema, image_transform):
+        batch.append(bb_crop)
+        if len(batch) == batch_size:
+            yield torch.stack(batch).to(device)
+            batch = []
+    if batch:
+        yield torch.stack(batch).to(device)
+
+
 def extend_table_with_metrics(
     input_table: tlc.Table,
     output_table_name: str,
@@ -92,6 +122,22 @@ def extend_table_with_metrics(
         checkpoint = torch.load(cast(str, model_checkpoint), map_location=device, weights_only=True)
         num_classes = checkpoint["classifier.bias"].shape[0]
 
+        # Get label map and determine if background was used
+        label_map = input_table.get_simple_value_map("bbs.bb_list.label")
+        add_background = num_classes > len(label_map)
+        background_label = max(label_map.keys()) + 1 if add_background else None
+
+        # Create mapping from contiguous idx back to original labels
+        label_2_contiguous_idx = {label: idx for idx, label in enumerate(label_map.keys())}
+        if add_background:
+            label_2_contiguous_idx[background_label] = len(label_2_contiguous_idx)
+        contiguous_2_label = {idx: label for label, idx in label_2_contiguous_idx.items()}
+
+        print(f"Label map: {label_map}")
+        print(f"Using {num_classes} classes with background={add_background}")
+        print(f"Label to contiguous mapping: {label_2_contiguous_idx}")
+        print(f"Contiguous to label mapping: {contiguous_2_label}")
+
         model = timm.create_model(model_name, pretrained=False, num_classes=num_classes)
         model.load_state_dict(checkpoint)
         model = model.to(device)
@@ -106,30 +152,6 @@ def extend_table_with_metrics(
             ]
         )
 
-        def single_sample_bb_crop_iterator(sample):
-            image_filename = sample["image"]
-            image_bytes = tlc.Url(image_filename).read()
-            image = Image.open(BytesIO(image_bytes))
-            w, h = image.size
-
-            for bb in sample["bbs"]["bb_list"]:
-                bb_crop = tlc.BBCropInterface.crop(image, bb, bb_schema, h, w)
-                yield image_transform(bb_crop)
-
-        def bb_crop_iterator():
-            for sample in input_table:
-                yield from single_sample_bb_crop_iterator(sample)
-
-        def batched_bb_crop_iterator():
-            batch = []
-            for bb_crop in bb_crop_iterator():
-                batch.append(bb_crop)
-                if len(batch) == batch_size:
-                    yield torch.stack(batch).to(device)
-                    batch = []
-            if batch:
-                yield torch.stack(batch).to(device)
-
         # Constants for chunking
         CHUNK_SIZE = 16384
         chunk_dir = os.path.join(os.path.expanduser("~"), ".tlc_temp_embeddings")
@@ -141,21 +163,26 @@ def extend_table_with_metrics(
         print("Processing batches and saving chunks...")
 
         # print shape of embedding only, removing batch dimension
-        first_batch = next(batched_bb_crop_iterator())
+        first_batch = next(batched_bb_crop_iterator(input_table, bb_schema, image_transform, batch_size, device))
         with torch.no_grad():
             first_embedding = model.forward_features(first_batch).cpu().numpy()
             print(f"Shape of embedding: {first_embedding.shape[1:]}")
 
         for batch in tqdm(
-            batched_bb_crop_iterator(), desc="Running model inference", total=total_bb_count // batch_size
+            batched_bb_crop_iterator(input_table, bb_schema, image_transform, batch_size, device),
+            desc="Running model inference",
+            total=total_bb_count // batch_size,
         ):
             with torch.no_grad():
                 # Get predictions
                 output = model(batch)
                 probabilities = torch.softmax(output, dim=1)
-                predicted_labels = torch.argmax(output, dim=1)
+                predicted_contiguous_labels = torch.argmax(output, dim=1)
                 confidences = torch.max(probabilities, dim=1)[0]
-                labels.extend(predicted_labels.cpu().numpy())
+
+                # Map contiguous labels back to original label space
+                predicted_original_labels = [contiguous_2_label[idx.item()] for idx in predicted_contiguous_labels]
+                labels.extend(predicted_original_labels)
                 confidences_list.extend(confidences.cpu().numpy())
 
                 # Get embeddings
@@ -275,8 +302,10 @@ def extend_table_with_metrics(
 
         # Create label and confidence schemas
         label_schema = deepcopy(bb_list_schema.values["label"])
+        assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
+        label_schema.value.map[background_label] = tlc.MapElement("background")
         label_schema.writable = False
-        confidence_schema = tlc.Schema(value=tlc.Float32Value())
+        confidence_schema = tlc.Schema(value=tlc.Float32Value(), writable=False)
 
         # Add schemas to bb_list
         if "classif_Embedding" not in bb_list_schema.values:

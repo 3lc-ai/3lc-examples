@@ -14,6 +14,16 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from .bb_crop_dataset import BBCropDataset
 
+# 1. +1
+# 2. +1 background value
+# 3. val use all, add_background should be false
+# 4.
+
+
+def convert_to_rgb(img):
+    """Convert image to RGB."""
+    return img.convert("RGB")
+
 
 def train_model(
     train_table_url: str,
@@ -27,6 +37,7 @@ def train_model(
     y_max_offset: float = 0.03,
     x_scale_range: tuple[float, float] = (0.95, 1.05),
     y_scale_range: tuple[float, float] = (0.95, 1.05),
+    num_workers: int = 8,
 ):
     """Train a model on bounding box crops from the given tables.
 
@@ -41,6 +52,7 @@ def train_model(
     :param y_max_offset: Maximum offset in the y direction.
     :param x_scale_range: Range of x scale factors.
     :param y_scale_range: Range of y scale factors.
+    :param num_workers: Number of workers for data loading.
     """
 
     if torch.cuda.is_available():
@@ -60,15 +72,26 @@ def train_model(
     label_map = train_table.get_simple_value_map("bbs.bb_list.label")
     print(f"Label map: {label_map}")
 
-    max_label = max(int(x) for x in label_map)  # Look at the index keys, not the label values
-    num_classes = max_label + 1 if not include_background else max_label + 2
+    add_background = len(label_map) == 1 or include_background
+    background_freq = 1 / (len(label_map) + 1)
+    background_label = max(label_map.keys()) + 1 if add_background else None
+    num_classes = len(label_map) if not add_background else len(label_map) + 1
+
+    # Create mapping from contiguous idx back to original labels
+    label_2_contiguous_idx = {label: idx for idx, label in enumerate(label_map.keys())}
+    if add_background:
+        label_2_contiguous_idx[background_label] = len(label_2_contiguous_idx)
+    contiguous_2_label = {idx: label for label, idx in label_2_contiguous_idx.items()}
+
     print(f"Training with {num_classes} classes")
+    print(f"Label to contiguous mapping: {label_2_contiguous_idx}")
+    print(f"Contiguous to label mapping: {contiguous_2_label}")
 
     # Setup transforms and datasets
     val_transforms = transforms.Compose(
         [
             transforms.Resize((224, 224)),
-            transforms.Lambda(lambda img: img.convert("RGB")),
+            transforms.Lambda(convert_to_rgb),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
@@ -77,7 +100,7 @@ def train_model(
     train_transforms = transforms.Compose(
         [
             transforms.Resize((224, 224)),
-            transforms.Lambda(lambda img: img.convert("RGB")),
+            transforms.Lambda(convert_to_rgb),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
             transforms.RandomRotation(degrees=10),
             transforms.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 2.0)),
@@ -91,7 +114,8 @@ def train_model(
     train_dataset = BBCropDataset(
         train_table,
         transform=train_transforms,
-        add_background=include_background,
+        add_background=add_background,
+        background_freq=background_freq,
         x_max_offset=x_max_offset,
         y_max_offset=y_max_offset,
         x_scale_range=x_scale_range,
@@ -101,6 +125,7 @@ def train_model(
     val_dataset = BBCropDataset(
         val_table,
         transform=val_transforms,
+        add_background=False,
     )
 
     # Calculate class frequencies across all bounding boxes
@@ -141,10 +166,20 @@ def train_model(
     print(f"Unique weights: {list(set(bb_weights))}")
 
     train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, sampler=sampler, num_workers=8, pin_memory=True, persistent_workers=True
+        train_dataset,
+        batch_size=batch_size,
+        sampler=sampler,
+        num_workers=num_workers,
+        pin_memory=True,
+        persistent_workers=num_workers > 0,
     )
     val_dataloader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True, persistent_workers=True
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True,
+        persistent_workers=num_workers > 0,
     )
 
     # Create model and training components
@@ -254,10 +289,14 @@ def train_model(
 
             # Get class names from label map
             min_class_name = (
-                label_map.get(min_class_actual_idx, f"unknown_{min_class_actual_idx}") if min_class_idx != -1 else "N/A"
+                label_map.get(contiguous_2_label[int(min_class_actual_idx)], f"unknown_{min_class_actual_idx}")
+                if min_class_idx != -1
+                else "N/A"
             )
             max_class_name = (
-                label_map.get(max_class_actual_idx, f"unknown_{max_class_actual_idx}") if max_class_idx != -1 else "N/A"
+                label_map.get(contiguous_2_label[int(max_class_actual_idx)], f"unknown_{max_class_actual_idx}")
+                if max_class_idx != -1
+                else "N/A"
             )
 
             isValRun = True
@@ -287,8 +326,14 @@ def train_model(
             # Log per-class accuracies with label names
             for i in range(num_classes):
                 if val_class_total[i] > 0:
-                    # Get label name from the label map
-                    label_name = label_map.get(i, f"unknown_{i}")
+                    # Get original label from contiguous index
+                    original_label = contiguous_2_label[i]
+                    # Get label name from the label map or use "background" for background class
+                    label_name = (
+                        "background"
+                        if original_label == background_label
+                        else label_map.get(original_label, f"unknown_{original_label}")
+                    )
                     # Log with just the label name
                     tlc.log({f"val_{label_name}_acc": val_class_acc[i].item()})
 

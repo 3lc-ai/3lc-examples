@@ -38,7 +38,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     parser.add_argument("--train_table", help="Training table URL")
     parser.add_argument("--val_table", help="Validation table URL")
     parser.add_argument("--train_only", action="store_true", help="Only train the model, don't add metrics")
-    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=5, help="Number of training epochs")
     parser.add_argument(
         "--include_background",
         action="store_true",
@@ -65,7 +65,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         default=0,
         help="Number of dimensions to reduce from the end of embeddings (0 means no reduction)",
     )
-
+    parser.add_argument("--num_workers", type=int, default=8, help="Number of workers for data loading")
     args = parser.parse_args(tool_args)
 
     # Check if we're in training mode
@@ -100,6 +100,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             epochs=args.epochs,
             batch_size=args.batch_size,
             include_background=args.include_background,
+            num_workers=args.num_workers,
         )
 
         if args.train_only:
