@@ -15,7 +15,7 @@ import torchvision.transforms as transforms
 from PIL import Image, ImageStat
 from tqdm import tqdm
 
-from .label_utils import create_label_mappings, setup_label_schema
+from .label_utils import create_label_mappings
 
 
 def calculate_bb_metrics(image, bb, bb_schema):
@@ -80,7 +80,8 @@ def extend_table_with_metrics(
     device: torch.device | None = None,
     reduce_last_dims: int = 0,
     max_memory_gb: int = 64,
-):
+    label_column_path: str = "bbs.bb_list.label",
+) -> tuple[str, pacmap.PaCMAP | None, np.ndarray | None]:
     """Extend table with embeddings and/or image metrics in a single pass.
 
     :param input_table: Input table to extend.
@@ -97,6 +98,9 @@ def extend_table_with_metrics(
     :param device: Device to use.
     :param reduce_last_dims: Number of dimensions to reduce from the end (0 means no reduction).
     :param max_memory_gb: Maximum memory to use in GB.
+    :param label_column_path: Path to the label column in the table.
+
+    :return: Tuple of output table URL, PaCMAP reducer, and fit embeddings.
     """
     if not (add_embeddings or add_image_metrics):
         raise ValueError("Must specify at least one type of metrics to add")
@@ -125,7 +129,10 @@ def extend_table_with_metrics(
         num_classes = checkpoint["classifier.bias"].shape[0]
 
         # Get label map and determine if background was used
-        label_map = input_table.get_simple_value_map("bbs.bb_list.label")
+        label_map = input_table.get_simple_value_map(label_column_path)
+        if not label_map:
+            raise ValueError(f"Label map not found in table at path: {label_column_path}")
+
         label_2_contiguous_idx, contiguous_2_label, background_label, add_background = create_label_mappings(
             label_map, include_background=num_classes > len(label_map)
         )
@@ -298,9 +305,13 @@ def extend_table_with_metrics(
         )
 
         # Create label and confidence schemas
-        label_schema, confidence_schema = setup_label_schema(
-            bb_list_schema, int(background_label) if background_label is not None else None
-        )
+        label_schema = deepcopy(bb_list_schema.values["label"])
+        if background_label is not None:
+            assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
+            label_schema.value.map[background_label] = tlc.MapElement("background")
+        label_schema.writable = False
+
+        confidence_schema = tlc.Schema(value=tlc.Float32Value(), writable=False)
 
         # Add schemas to bb_list
         if "classif_Embedding" not in bb_list_schema.values:

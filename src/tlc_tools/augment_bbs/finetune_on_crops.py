@@ -12,6 +12,8 @@ import torchvision.transforms as transforms
 import tqdm
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
+from tlc_tools.common import infer_torch_device
+
 from .bb_crop_dataset import BBCropDataset
 from .label_utils import create_label_mappings, get_label_name
 
@@ -39,7 +41,8 @@ def train_model(
     x_scale_range: tuple[float, float] = (0.95, 1.05),
     y_scale_range: tuple[float, float] = (0.95, 1.05),
     num_workers: int = 8,
-):
+    label_column_path: str = "bbs.bb_list.label",
+) -> tuple[nn.Module, str]:
     """Train a model on bounding box crops from the given tables.
 
     :param train_table_url: URL of the table to train on.
@@ -54,15 +57,10 @@ def train_model(
     :param x_scale_range: Range of x scale factors.
     :param y_scale_range: Range of y scale factors.
     :param num_workers: Number of workers for data loading.
+    :param label_column_path: Path to the label column in the table.
     """
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
-
+    device = infer_torch_device()
     print(f"Using device: {device}")
 
     # Load tables
@@ -70,7 +68,9 @@ def train_model(
     val_table = tlc.Table.from_url(val_table_url)
 
     # Get schema and number of classes
-    label_map = train_table.get_simple_value_map("bbs.bb_list.label")
+    label_map = train_table.get_simple_value_map(label_column_path)
+    if not label_map:
+        raise ValueError(f"Label map not found in table at path: {label_column_path}")
     print(f"Label map: {label_map}")
 
     # Create label mappings for training and validation
@@ -287,10 +287,10 @@ def train_model(
 
             # Get class names from label map
             min_class_name = (
-                get_label_name(min_class_actual_idx, label_map, background_label) if min_class_idx != -1 else "N/A"
+                get_label_name(int(min_class_actual_idx), label_map, background_label) if min_class_idx != -1 else "N/A"
             )
             max_class_name = (
-                get_label_name(max_class_actual_idx, label_map, background_label) if max_class_idx != -1 else "N/A"
+                get_label_name(int(max_class_actual_idx), label_map, background_label) if max_class_idx != -1 else "N/A"
             )
 
             isValRun = True

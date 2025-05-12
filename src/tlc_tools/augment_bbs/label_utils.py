@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Union
+from copy import deepcopy
 
 import tlc
-
-LabelType = Union[int, float]
 
 
 def create_label_mappings(
     label_map: dict, include_background: bool = False, force_no_background: bool = False
-) -> tuple[dict[LabelType, int], dict[int, LabelType], LabelType | None, bool]:
+) -> tuple[dict[int, int], dict[int, int], int | None, bool]:
     """Create bidirectional mappings between original labels and contiguous indices.
 
     Args:
@@ -43,7 +41,7 @@ def create_label_mappings(
     return label_to_contiguous, contiguous_to_label, background_label, add_background
 
 
-def get_label_name(label: LabelType, label_map: dict, background_label: LabelType | None = None) -> str:
+def get_label_name(label: int, label_map: dict, background_label: int | None = None) -> str:
     """Get a human-readable name for a label.
 
     Args:
@@ -74,7 +72,7 @@ def setup_label_schema(
         - confidence_schema: Schema for the confidence column
     """
     # Create label and confidence schemas
-    label_schema = bb_list_schema.values["label"].copy()
+    label_schema = deepcopy(bb_list_schema.values["label"])
     if background_label is not None:
         assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
         label_schema.value.map[background_label] = tlc.MapElement("background")

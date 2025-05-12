@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import random
 import warnings
-from collections.abc import Mapping
 from io import BytesIO
 
 import tlc
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
+
+from .label_utils import create_label_mappings
 
 
 class BBCropDataset(Dataset):
@@ -18,7 +19,6 @@ class BBCropDataset(Dataset):
         self,
         table: tlc.Table,
         transform=None,
-        label_map: Mapping | None = None,
         add_background: bool = False,
         background_freq: float = 0.5,
         image_column_name: str = "image",
@@ -26,21 +26,22 @@ class BBCropDataset(Dataset):
         y_max_offset: float = 0.0,
         y_scale_range: tuple[float, float] = (1.0, 1.0),
         x_scale_range: tuple[float, float] = (1.0, 1.0),
+        label_column_path: str = "bbs.bb_list.label",
     ):
         """
         :param table: The input table containing image and bounding box data.
         :param transform: Transformations to apply to cropped images.
-        :param label_map: Mapping from original labels to contiguous integer labels.
         :param add_background: Whether to include background patches.
         :param background_freq: Probability of sampling a background patch.
         :param x_max_offset: Maximum offset in the x direction for bounding box cropping.
         :param y_max_offset: Maximum offset in the y direction for bounding box cropping.
         :param y_scale_range: Range of scaling factors in the y direction for bounding box cropping.
         :param x_scale_range: Range of scaling factors in the x direction for bounding box cropping.
+        :param label_column_path: Path to the label column in the table.
         """
         self.table = table
         self.transform = transform
-        self.label_map = label_map or table.get_value_map("bbs.bb_list.label")
+        self.label_map = table.get_simple_value_map(label_column_path)
         self.image_column_name = image_column_name
 
         if not self.label_map:
@@ -48,12 +49,12 @@ class BBCropDataset(Dataset):
 
         self.bb_schema = table.schema.values["rows"].values["bbs"].values["bb_list"]
 
-        self.add_background = add_background
-        self.background_freq = background_freq
-
-        self.background_label = int(max(self.label_map.keys()) + 1) if add_background else None
-        self.label_2_contiguous_idx = {label: idx for idx, label in enumerate(self.label_map.keys())}
-        self.label_2_contiguous_idx[self.background_label] = len(self.label_2_contiguous_idx)
+        # Use label_utils to create mappings
+        self.label_2_contiguous_idx, _, self.background_label, self.add_background = create_label_mappings(
+            self.label_map,
+            include_background=add_background,
+        )
+        self.background_freq = background_freq if self.add_background else 0
 
         self.random_gen = random.Random(42)  # Fixed seed for reproducibility
         self.x_max_offset = x_max_offset

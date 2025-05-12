@@ -30,7 +30,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     # General arguments
     parser.add_argument("--model_name", default="efficientnet_b0", help="Model architecture name")
     parser.add_argument(
-        "--model_checkpoint", default="./models/bb_classifier.pth", help="Path to save/load model checkpoint"
+        "--model_checkpoint", default="./models/TMP_bb_classifier.pth", help="Path to save/load model checkpoint"
     )
     parser.add_argument("--transient_data_path", default="./", help="Path for temporary files")
 
@@ -38,7 +38,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     parser.add_argument("--train_table", help="Training table URL")
     parser.add_argument("--val_table", help="Validation table URL")
     parser.add_argument("--train_only", action="store_true", help="Only train the model, don't add metrics")
-    parser.add_argument("--epochs", type=int, default=5, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument(
         "--include_background",
         action="store_true",
