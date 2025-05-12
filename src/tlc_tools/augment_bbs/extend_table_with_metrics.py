@@ -15,6 +15,8 @@ import torchvision.transforms as transforms
 from PIL import Image, ImageStat
 from tqdm import tqdm
 
+from .label_utils import create_label_mappings, setup_label_schema
+
 
 def calculate_bb_metrics(image, bb, bb_schema):
     """Calculate metrics for a single bounding box crop"""
@@ -124,14 +126,9 @@ def extend_table_with_metrics(
 
         # Get label map and determine if background was used
         label_map = input_table.get_simple_value_map("bbs.bb_list.label")
-        add_background = num_classes > len(label_map)
-        background_label = max(label_map.keys()) + 1 if add_background else None
-
-        # Create mapping from contiguous idx back to original labels
-        label_2_contiguous_idx = {label: idx for idx, label in enumerate(label_map.keys())}
-        if add_background:
-            label_2_contiguous_idx[background_label] = len(label_2_contiguous_idx)
-        contiguous_2_label = {idx: label for label, idx in label_2_contiguous_idx.items()}
+        label_2_contiguous_idx, contiguous_2_label, background_label, add_background = create_label_mappings(
+            label_map, include_background=num_classes > len(label_map)
+        )
 
         print(f"Label map: {label_map}")
         print(f"Using {num_classes} classes with background={add_background}")
@@ -181,7 +178,7 @@ def extend_table_with_metrics(
                 confidences = torch.max(probabilities, dim=1)[0]
 
                 # Map contiguous labels back to original label space
-                predicted_original_labels = [contiguous_2_label[idx.item()] for idx in predicted_contiguous_labels]
+                predicted_original_labels = [int(contiguous_2_label[idx.item()]) for idx in predicted_contiguous_labels]
                 labels.extend(predicted_original_labels)
                 confidences_list.extend(confidences.cpu().numpy())
 
@@ -301,11 +298,9 @@ def extend_table_with_metrics(
         )
 
         # Create label and confidence schemas
-        label_schema = deepcopy(bb_list_schema.values["label"])
-        assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
-        label_schema.value.map[background_label] = tlc.MapElement("background")
-        label_schema.writable = False
-        confidence_schema = tlc.Schema(value=tlc.Float32Value(), writable=False)
+        label_schema, confidence_schema = setup_label_schema(
+            bb_list_schema, int(background_label) if background_label is not None else None
+        )
 
         # Add schemas to bb_list
         if "classif_Embedding" not in bb_list_schema.values:
