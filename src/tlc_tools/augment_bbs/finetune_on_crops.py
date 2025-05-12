@@ -287,10 +287,14 @@ def train_model(
 
             # Get class names from label map
             min_class_name = (
-                get_label_name(int(min_class_actual_idx), label_map, background_label) if min_class_idx != -1 else "N/A"
+                get_label_name(contiguous_2_label[int(min_class_actual_idx)], label_map, background_label)
+                if min_class_idx != -1
+                else "N/A"
             )
             max_class_name = (
-                get_label_name(int(max_class_actual_idx), label_map, background_label) if max_class_idx != -1 else "N/A"
+                get_label_name(contiguous_2_label[int(max_class_actual_idx)], label_map, background_label)
+                if max_class_idx != -1
+                else "N/A"
             )
 
             isValRun = True

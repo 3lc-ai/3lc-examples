@@ -79,7 +79,7 @@ def extend_table_with_metrics(
     n_neighbors: int = 10,
     device: torch.device | None = None,
     reduce_last_dims: int = 0,
-    max_memory_gb: int = 64,
+    max_memory_gb: int = 8,
     label_column_path: str = "bbs.bb_list.label",
 ) -> tuple[str, pacmap.PaCMAP | None, np.ndarray | None]:
     """Extend table with embeddings and/or image metrics in a single pass.
