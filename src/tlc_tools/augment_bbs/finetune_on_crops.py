@@ -13,6 +13,7 @@ import tqdm
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from .bb_crop_dataset import BBCropDataset
+from .label_utils import create_label_mappings, get_label_name
 
 # 1. +1
 # 2. +1 background value
@@ -72,20 +73,17 @@ def train_model(
     label_map = train_table.get_simple_value_map("bbs.bb_list.label")
     print(f"Label map: {label_map}")
 
-    add_background = len(label_map) == 1 or include_background
-    background_freq = 1 / (len(label_map) + 1)
-    background_label = max(label_map.keys()) + 1 if add_background else None
-    num_classes = len(label_map) if not add_background else len(label_map) + 1
-
-    # Create mapping from contiguous idx back to original labels
-    label_2_contiguous_idx = {label: idx for idx, label in enumerate(label_map.keys())}
-    if add_background:
-        label_2_contiguous_idx[background_label] = len(label_2_contiguous_idx)
-    contiguous_2_label = {idx: label for label, idx in label_2_contiguous_idx.items()}
+    # Create label mappings for training and validation
+    label_2_contiguous_idx, contiguous_2_label, background_label, add_background = create_label_mappings(
+        label_map, include_background=include_background
+    )
+    num_classes = len(label_2_contiguous_idx)
+    background_freq = 1 / num_classes if add_background else 0
 
     print(f"Training with {num_classes} classes")
     print(f"Label to contiguous mapping: {label_2_contiguous_idx}")
     print(f"Contiguous to label mapping: {contiguous_2_label}")
+    print(f"Using background: {add_background} (background_label={background_label})")
 
     # Setup transforms and datasets
     val_transforms = transforms.Compose(
@@ -289,14 +287,10 @@ def train_model(
 
             # Get class names from label map
             min_class_name = (
-                label_map.get(contiguous_2_label[int(min_class_actual_idx)], f"unknown_{min_class_actual_idx}")
-                if min_class_idx != -1
-                else "N/A"
+                get_label_name(min_class_actual_idx, label_map, background_label) if min_class_idx != -1 else "N/A"
             )
             max_class_name = (
-                label_map.get(contiguous_2_label[int(max_class_actual_idx)], f"unknown_{max_class_actual_idx}")
-                if max_class_idx != -1
-                else "N/A"
+                get_label_name(max_class_actual_idx, label_map, background_label) if max_class_idx != -1 else "N/A"
             )
 
             isValRun = True
@@ -329,11 +323,7 @@ def train_model(
                     # Get original label from contiguous index
                     original_label = contiguous_2_label[i]
                     # Get label name from the label map or use "background" for background class
-                    label_name = (
-                        "background"
-                        if original_label == background_label
-                        else label_map.get(original_label, f"unknown_{original_label}")
-                    )
+                    label_name = get_label_name(original_label, label_map, background_label)
                     # Log with just the label name
                     tlc.log({f"val_{label_name}_acc": val_class_acc[i].item()})
 
