@@ -305,7 +305,7 @@ def extend_table_with_metrics(
         )
 
         # Create label and confidence schemas
-        label_schema = deepcopy(bb_list_schema.values["label"])
+        label_schema = bb_list_schema.values["label"]
         if background_label is not None:
             assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
             label_schema.value.map[background_label] = tlc.MapElement("background")
