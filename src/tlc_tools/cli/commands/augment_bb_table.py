@@ -65,7 +65,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         default=0,
         help="Number of dimensions to reduce from the end of embeddings (0 means no reduction)",
     )
-
+    parser.add_argument("--num_workers", type=int, default=8, help="Number of workers for data loading")
     args = parser.parse_args(tool_args)
 
     # Check if we're in training mode
@@ -92,6 +92,16 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     # Training phase if needed
     if training_mode:
         print("=== Training Model ===")
+        print("\nTraining parameters:")
+        print(f"  Model: {args.model_name}")
+        print(f"  Epochs: {args.epochs}")
+        print(f"  Batch size: {args.batch_size}")
+        print(f"  Include background: {args.include_background}")
+        print(f"  Number of workers: {args.num_workers}")
+        print(f"  Model checkpoint: {args.model_checkpoint}")
+        print(f"  Train table: {args.train_table}")
+        print(f"  Val table: {args.val_table}\n")
+
         _, best_checkpoint_path = train_model(
             train_table_url=args.train_table,
             val_table_url=args.val_table,
@@ -100,6 +110,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             epochs=args.epochs,
             batch_size=args.batch_size,
             include_background=args.include_background,
+            num_workers=args.num_workers,
         )
 
         if args.train_only:

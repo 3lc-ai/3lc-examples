@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import random
 import warnings
-from collections.abc import Mapping
 from io import BytesIO
 
 import tlc
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
+
+from .label_utils import create_label_mappings
 
 
 class BBCropDataset(Dataset):
@@ -18,29 +19,29 @@ class BBCropDataset(Dataset):
         self,
         table: tlc.Table,
         transform=None,
-        label_map: Mapping | None = None,
-        add_background: bool | None = None,
-        background_freq: float | None = None,
+        add_background: bool = False,
+        background_freq: float = 0.5,
         image_column_name: str = "image",
         x_max_offset: float = 0.0,
         y_max_offset: float = 0.0,
         y_scale_range: tuple[float, float] = (1.0, 1.0),
         x_scale_range: tuple[float, float] = (1.0, 1.0),
+        label_column_path: str = "bbs.bb_list.label",
     ):
         """
         :param table: The input table containing image and bounding box data.
         :param transform: Transformations to apply to cropped images.
-        :param label_map: Mapping from original labels to contiguous integer labels.
         :param add_background: Whether to include background patches.
         :param background_freq: Probability of sampling a background patch.
         :param x_max_offset: Maximum offset in the x direction for bounding box cropping.
         :param y_max_offset: Maximum offset in the y direction for bounding box cropping.
         :param y_scale_range: Range of scaling factors in the y direction for bounding box cropping.
         :param x_scale_range: Range of scaling factors in the x direction for bounding box cropping.
+        :param label_column_path: Path to the label column in the table.
         """
         self.table = table
         self.transform = transform
-        self.label_map = label_map or table.get_value_map("bbs.bb_list.label")
+        self.label_map = table.get_simple_value_map(label_column_path)
         self.image_column_name = image_column_name
 
         if not self.label_map:
@@ -48,18 +49,13 @@ class BBCropDataset(Dataset):
 
         self.bb_schema = table.schema.values["rows"].values["bbs"].values["bb_list"]
 
-        if add_background is None:
-            self.add_background = len(self.label_map) == 1
-        else:
-            self.add_background = add_background
+        # Use label_utils to create mappings
+        self.label_2_contiguous_idx, _, self.background_label, self.add_background = create_label_mappings(
+            self.label_map,
+            include_background=add_background,
+        )
+        self.background_freq = background_freq if self.add_background else 0
 
-        # Calculate background frequency if not provided
-        if background_freq is None and self.add_background:
-            self.background_freq = 1 / (len(self.label_map) + 1)
-        else:
-            self.background_freq = background_freq if background_freq is not None else 0.5
-
-        self.background_label = len(self.label_map) if add_background else None
         self.random_gen = random.Random(42)  # Fixed seed for reproducibility
         self.x_max_offset = x_max_offset
         self.y_max_offset = y_max_offset
@@ -107,7 +103,7 @@ class BBCropDataset(Dataset):
                 y_scale_range=self.y_scale_range,
                 x_scale_range=self.x_scale_range,
             )
-            label = torch.tensor(bb["label"], dtype=torch.long)
+            label = torch.tensor(self.label_2_contiguous_idx[bb["label"]], dtype=torch.long)
 
         if self.transform:
             crop = self.transform(crop)
@@ -159,13 +155,15 @@ class BBCropDataset(Dataset):
                 "No valid background patch found. Returning a black square. Please check your data.",
                 stacklevel=2,
             )
-            return Image.new("RGB", (100, 100), color=(0, 0, 0)), torch.tensor(self.background_label, dtype=torch.long)
+            return Image.new("RGB", (100, 100), color=(0, 0, 0)), torch.tensor(
+                self.label_2_contiguous_idx[self.background_label], dtype=torch.long
+            )
 
         # Crop the background patch from the image
         background_patch = image.crop(
             (proposed_box[0], proposed_box[1], proposed_box[0] + proposed_box[2], proposed_box[1] + proposed_box[3])
         )
-        return background_patch, torch.tensor(self.background_label, dtype=torch.long)
+        return background_patch, torch.tensor(self.label_2_contiguous_idx[self.background_label], dtype=torch.long)
 
     @staticmethod
     def _intersects(box1: list[int], box2: list[int]) -> bool:
