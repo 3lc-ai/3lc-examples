@@ -4,11 +4,12 @@ import random
 import warnings
 from io import BytesIO
 
+import numpy as np
 import tlc
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
-
+from tlc.core.builtins.types.segmentation_helper import SegmentationHelper
 from .label_utils import create_label_mappings
 
 
@@ -47,7 +48,14 @@ class BBCropDataset(Dataset):
         if not self.label_map:
             raise ValueError("No label map found. Expecting label map under the key 'bbs.bb_list.label'.")
 
-        self.bb_schema = table.schema.values["rows"].values["bbs"].values["bb_list"]
+        try:
+            self.bb_schema = table.schema.values["rows"].values["bbs"].values["bb_list"]
+        except KeyError:
+            try:
+                self.bb_schema = table.schema.values["rows"].values["segmentations"]
+            except KeyError:
+                msg = "No bounding box schema found. Expecting bounding box schema under the key 'bbs.bb_list' or 'segmentation'."
+                raise ValueError(msg)
 
         # Use label_utils to create mappings
         self.label_2_contiguous_idx, _, self.background_label, self.add_background = create_label_mappings(
@@ -65,9 +73,13 @@ class BBCropDataset(Dataset):
         # Create a list of (image_idx, bb) pairs for all bounding boxes
         self.all_bbs = []
         for idx, row in enumerate(self.table.table_rows):
-            bbs = row["bbs"]["bb_list"]
-            for bb in bbs:
-                self.all_bbs.append((idx, bb))
+            # bbs = row["bbs"]["bb_list"]
+            # for bb in bbs:
+            #     self.all_bbs.append((idx, bb))
+            rles = row["segmentations"]["rles"]
+            labels = row["segmentations"]["instance_properties"]["label"]
+            for rle, label in zip(rles, labels):
+                self.all_bbs.append((idx, (rle, label)))
 
     def __len__(self) -> int:
         return len(self.all_bbs)  # Return total number of bounding boxes
@@ -94,16 +106,48 @@ class BBCropDataset(Dataset):
             image_idx, bb = self.all_bbs[idx]
             row = self.table.table_rows[image_idx]
             image = self.load_image_data(row)
-            crop = tlc.BBCropInterface.crop(
-                image,
-                bb,
-                self.bb_schema,
-                x_max_offset=self.x_max_offset,
-                y_max_offset=self.y_max_offset,
-                y_scale_range=self.y_scale_range,
-                x_scale_range=self.x_scale_range,
-            )
-            label = torch.tensor(self.label_2_contiguous_idx[bb["label"]], dtype=torch.long)
+            if isinstance(bb, tuple):
+                w, h = image.size
+                rle, label = bb
+                coco = {"size": [h, w], "counts": rle}
+                bbox = SegmentationHelper.bbox_from_rle(coco)
+                mask = SegmentationHelper.mask_from_rle(coco)
+                bb_schema = tlc.BoundingBoxListSchema(
+                    {},
+                    x1_number_role=tlc.NUMBER_ROLE_BB_SIZE_X,
+                    y1_number_role=tlc.NUMBER_ROLE_BB_SIZE_Y,
+                )["bb_list"]
+                bb_dict = {"x0": bbox[0], "y0": bbox[1], "x1": bbox[2], "y1": bbox[3]}
+                # Apply the mask to the image
+                image_array = np.array(image.convert("RGB"))
+                # Expand mask dimensions to match image_array
+                mask = mask[:, :, np.newaxis]  # Shape becomes (h, w, 1)
+                mask = np.repeat(mask, 3, axis=2)  # Shape becomes (h, w, 3)
+                # Keep original pixels inside mask, zero out everything else
+                masked_image = image_array * mask
+                image = Image.fromarray(masked_image.astype(np.uint8), mode="RGB")
+                crop = tlc.BBCropInterface.crop(
+                    image,
+                    bb_dict,
+                    bb_schema,
+                    x_max_offset=self.x_max_offset,
+                    y_max_offset=self.y_max_offset,
+                    y_scale_range=self.y_scale_range,
+                    x_scale_range=self.x_scale_range,
+                )
+                label = torch.tensor(self.label_2_contiguous_idx[label], dtype=torch.long)
+
+            else:
+                crop = tlc.BBCropInterface.crop(
+                    image,
+                    bb,
+                    self.bb_schema,
+                    x_max_offset=self.x_max_offset,
+                    y_max_offset=self.y_max_offset,
+                    y_scale_range=self.y_scale_range,
+                    x_scale_range=self.x_scale_range,
+                )
+                label = torch.tensor(self.label_2_contiguous_idx[bb["label"]], dtype=torch.long)
 
         if self.transform:
             crop = self.transform(crop)

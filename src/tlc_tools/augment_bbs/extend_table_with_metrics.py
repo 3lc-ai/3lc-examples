@@ -15,6 +15,7 @@ from PIL import Image, ImageStat
 from tqdm import tqdm
 
 from .label_utils import create_label_mappings
+from tlc.core.builtins.types.segmentation_helper import SegmentationHelper
 
 
 def calculate_bb_metrics(image, bb, bb_schema):
@@ -41,14 +42,39 @@ def single_sample_bb_crop_iterator(sample, bb_schema, image_transform):
     image = Image.open(BytesIO(image_bytes))
     w, h = image.size
 
-    for bb in sample["bbs"]["bb_list"]:
-        bb_crop = tlc.BBCropInterface.crop(image, bb, bb_schema, h, w)
-        yield image_transform(bb_crop)
+    # for bb in sample["bbs"]["bb_list"]:
+    #     bb_crop = tlc.BBCropInterface.crop(image, bb, bb_schema, h, w)
+    #     yield image_transform(bb_crop)
+    for rle, label in zip(sample["segmentations"]["rles"], sample["segmentations"]["instance_properties"]["label"]):
+        coco = {"size": [h, w], "counts": rle}
+        bbox = SegmentationHelper.bbox_from_rle(coco)
+        mask = SegmentationHelper.mask_from_rle(coco)
+        bb_schema = tlc.BoundingBoxListSchema(
+            {},
+            x1_number_role=tlc.NUMBER_ROLE_BB_SIZE_X,
+            y1_number_role=tlc.NUMBER_ROLE_BB_SIZE_Y,
+        )["bb_list"]
+        bb_dict = {"x0": bbox[0], "y0": bbox[1], "x1": bbox[2], "y1": bbox[3]}
+        # Apply the mask to the image
+        image_array = np.array(image.convert("RGB"))
+        # Expand mask dimensions to match image_array
+        mask = mask[:, :, np.newaxis]  # Shape becomes (h, w, 1)
+        mask = np.repeat(mask, 3, axis=2)  # Shape becomes (h, w, 3)
+        # Keep original pixels inside mask, zero out everything else
+        masked_image = image_array * mask
+        image = Image.fromarray(masked_image.astype(np.uint8), mode="RGB")
+        crop = tlc.BBCropInterface.crop(
+            image,
+            bb_dict,
+            bb_schema,
+        )
+        # label = torch.tensor(self.label_2_contiguous_idx[label], dtype=torch.long)
+        yield image_transform(crop)
 
 
 def bb_crop_iterator(input_table, bb_schema, image_transform):
     """Iterate over all bounding box crops in the table."""
-    for sample in input_table:
+    for sample in input_table.table_rows:
         yield from single_sample_bb_crop_iterator(sample, bb_schema, image_transform)
 
 
@@ -108,10 +134,12 @@ def extend_table_with_metrics(
         raise ValueError("Model checkpoint required for embeddings")
 
     # Get total BB count for progress bar
-    total_bb_count = sum(len(row["bbs"]["bb_list"]) for row in input_table)
+    # total_bb_count = sum(len(row["bbs"]["bb_list"]) for row in input_table)
+    total_bb_count = sum(len(row["segmentations"]["rles"]) for row in input_table.table_rows)
 
     # Get BB schema for cropping
-    bb_schema = input_table.rows_schema.values["bbs"].values["bb_list"]
+    # bb_schema = input_table.rows_schema.values["bbs"].values["bb_list"]
+    bb_schema = None
 
     # Collect embeddings if needed
     labels: list[int] = []
@@ -296,13 +324,15 @@ def extend_table_with_metrics(
 
     # Create schema for new table
     new_table_schema = deepcopy(input_table.rows_schema)
-    bb_list_schema = new_table_schema.values["bbs"].values["bb_list"]
+    # bb_list_schema = new_table_schema.values["bbs"].values["bb_list"]
+    bb_list_schema = new_table_schema.values["segmentations"].values["instance_properties"]
 
     if add_embeddings:
         # Create schema for embedding
         embedding_schema = tlc.Schema(
             value=tlc.Float32Value(),
             size0=tlc.DimensionNumericValue(num_components, num_components),
+            size1=tlc.DimensionNumericValue(0, 1000),
         )
 
         # Create label and confidence schemas
@@ -311,8 +341,10 @@ def extend_table_with_metrics(
             assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
             label_schema.value.map[background_label] = tlc.MapElement("background")
         label_schema.writable = False
+        # label_schema.size0 = tlc.DimensionNumericValue(0, 1000)
 
         confidence_schema = tlc.Schema(value=tlc.Float32Value(), writable=False)
+        confidence_schema.size0 = tlc.DimensionNumericValue(0, 1000)
 
         # Add schemas to bb_list
         if "classif_Embedding" not in bb_list_schema.values:
@@ -356,18 +388,27 @@ def extend_table_with_metrics(
         if add_image_metrics:
             image = Image.open(row["image"])
 
-        for bb in new_row["bbs"]["bb_list"]:
+        # for bb in new_row["bbs"]["bb_list"]:
+        new_row["segmentations"]["instance_properties"]["classif_Embedding"] = []
+        new_row["segmentations"]["instance_properties"]["classif_Label"] = []
+        new_row["segmentations"]["instance_properties"]["classif_Confidence"] = []
+
+        for _ in new_row["segmentations"]["instance_properties"]["label"]:
             if add_embeddings:
-                bb["classif_Embedding"] = embeddings_nd[embedding_idx].tolist()
-                bb["classif_Label"] = int(labels[embedding_idx])
-                bb["classif_Confidence"] = float(confidences_list[embedding_idx])
+                new_row["segmentations"]["instance_properties"]["classif_Embedding"].append(
+                    embeddings_nd[embedding_idx].tolist()
+                )
+                new_row["segmentations"]["instance_properties"]["classif_Label"].append(int(labels[embedding_idx]))
+                new_row["segmentations"]["instance_properties"]["classif_Confidence"].append(
+                    float(confidences_list[embedding_idx])
+                )
                 embedding_idx += 1
 
-            if add_image_metrics:
-                metrics = calculate_bb_metrics(image, bb, bb_schema)
-                bb["brightness"] = metrics["brightness"]
-                bb["contrast"] = metrics["contrast"]
-                bb["sharpness"] = metrics["sharpness"]
+            # if add_image_metrics:
+            # metrics = calculate_bb_metrics(image, bb, bb_schema)
+            # bb["brightness"] = metrics["brightness"]
+            # bb["contrast"] = metrics["contrast"]
+            # bb["sharpness"] = metrics["sharpness"]
 
         # Add the hidden columns to the new row
         for key in hidden_column_names:

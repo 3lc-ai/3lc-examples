@@ -112,22 +112,18 @@ def train_model(
         y_max_offset=y_max_offset,
         x_scale_range=x_scale_range,
         y_scale_range=y_scale_range,
+        label_column_path=label_column_path,
     )
 
     val_dataset = BBCropDataset(
         val_table,
         transform=val_transforms,
         add_background=False,
+        label_column_path=label_column_path,
     )
 
     # Calculate class frequencies across all bounding boxes
-    class_counts: dict[int, int] = {}
-    total_bbs = 0  # Add counter for total bounding boxes
-    for row in train_table.table_rows:
-        for bb in row["bbs"]["bb_list"]:
-            label = bb["label"]
-            class_counts[label] = class_counts.get(label, 0) + 1
-            total_bbs += 1
+    total_bbs, class_counts = count_instances(train_table)
 
     # Find the count of the most frequent class
     max_count = max(class_counts.values())
@@ -136,15 +132,8 @@ def train_model(
     class_weights = {label: (max_count / count) for label, count in class_counts.items()}
 
     # Pre-allocate numpy array for weights
-    bb_weights = np.zeros(total_bbs, dtype=np.float32)
-    idx = 0
     print(f"Training on {len(train_table)} images with {total_bbs} bounding boxes")
-
-    # Fill weights array
-    for row in train_table.table_rows:
-        for bb in row["bbs"]["bb_list"]:
-            bb_weights[idx] = class_weights[bb["label"]]
-            idx += 1
+    bb_weights = compute_instance_weights(train_table, total_bbs, class_weights)
 
     # take the sqrt of the weights with numpy, found this to be better than just using the weights
     bb_weights = np.sqrt(bb_weights)
@@ -352,3 +341,33 @@ def train_model(
 
     run.set_status_completed()
     return model, best_checkpoint_path
+
+
+def compute_instance_weights(train_table, total_bbs, class_weights):
+    bb_weights = np.zeros(total_bbs, dtype=np.float32)
+    idx = 0
+
+    # Fill weights array
+    for row in train_table.table_rows:
+        # for bb in row["bbs"]["bb_list"]:
+        #     bb_weights[idx] = class_weights[bb["label"]]
+        #     idx += 1
+        for label in row["segmentations"]["instance_properties"]["label"]:
+            bb_weights[idx] = class_weights[label]
+            idx += 1
+    return bb_weights
+
+
+def count_instances(train_table):
+    total_bbs = 0  # Add counter for total bounding boxes
+    class_counts: dict[int, int] = {}
+
+    for row in train_table.table_rows:
+        # for bb in row["bbs"]["bb_list"]:
+        #     label = bb["label"]
+        #     class_counts[label] = class_counts.get(label, 0) + 1
+        #     total_bbs += 1
+        for label in row["segmentations"]["instance_properties"]["label"]:
+            class_counts[label] = class_counts.get(label, 0) + 1
+            total_bbs += 1
+    return total_bbs, class_counts
