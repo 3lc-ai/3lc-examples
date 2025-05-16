@@ -8,8 +8,9 @@ import numpy as np
 import tlc
 import torch
 from PIL import Image
-from torch.utils.data import Dataset
 from tlc.core.builtins.types.segmentation_helper import SegmentationHelper
+from torch.utils.data import Dataset
+
 from .label_utils import create_label_mappings
 
 
