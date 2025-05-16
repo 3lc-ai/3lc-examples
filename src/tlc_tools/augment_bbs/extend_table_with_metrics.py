@@ -97,7 +97,7 @@ def extend_table_with_metrics(
     add_image_metrics: bool = False,
     model_checkpoint: str | None = None,
     model_name: str = "efficientnet_b0",
-    batch_size: int = 32,
+    batch_size: int = 64,
     num_components: int = 3,
     pacmap_reducer: pacmap.PaCMAP | None = None,
     fit_embeddings: np.ndarray | None = None,
@@ -201,52 +201,54 @@ def extend_table_with_metrics(
             first_embedding = model.forward_features(first_batch).cpu().numpy()
             print(f"Shape of embedding: {first_embedding.shape[1:]}")
 
-        for batch in tqdm(
-            batched_bb_crop_iterator(input_table, bb_schema, image_transform, batch_size, device),
-            desc="Running model inference",
-            total=total_bb_count // batch_size,
-        ):
-            with torch.no_grad():
-                # Get predictions
-                output = model(batch)
-                probabilities = torch.softmax(output, dim=1)
-                predicted_contiguous_labels = torch.argmax(output, dim=1)
-                confidences = torch.max(probabilities, dim=1)[0]
+        # for batch in tqdm(
+        #     batched_bb_crop_iterator(input_table, bb_schema, image_transform, batch_size, device),
+        #     desc="Running model inference",
+        #     total=total_bb_count // batch_size,
+        # ):
+        #     with torch.no_grad():
+        #         # Get predictions
+        #         output = model(batch)
+        #         probabilities = torch.softmax(output, dim=1)
+        #         predicted_contiguous_labels = torch.argmax(output, dim=1)
+        #         confidences = torch.max(probabilities, dim=1)[0]
 
-                # Map contiguous labels back to original label space
-                predicted_original_labels = [int(contiguous_2_label[idx.item()]) for idx in predicted_contiguous_labels]
-                labels.extend(predicted_original_labels)
-                confidences_list.extend(confidences.cpu().numpy())
+        #         # Map contiguous labels back to original label space
+        #         predicted_original_labels = [int(contiguous_2_label[idx.item()]) for idx in predicted_contiguous_labels]
+        #         labels.extend(predicted_original_labels)
+        #         confidences_list.extend(confidences.cpu().numpy())
 
-                # Get embeddings
-                batch_embeddings = model.forward_features(batch).cpu().numpy().astype(np.float32)
+        #         # Get embeddings
+        #         batch_embeddings = model.forward_features(batch).cpu().numpy().astype(np.float32)
 
-                # Reduce dimensions if specified
-                if reduce_last_dims > 0:
-                    axes_to_reduce = tuple(range(-reduce_last_dims, 0))
-                    batch_embeddings = batch_embeddings.mean(axis=axes_to_reduce)
+        #         # Reduce dimensions if specified
+        #         if reduce_last_dims > 0:
+        #             axes_to_reduce = tuple(range(-reduce_last_dims, 0))
+        #             batch_embeddings = batch_embeddings.mean(axis=axes_to_reduce)
 
-                # Flatten if needed
-                if len(batch_embeddings.shape) > 2:
-                    batch_embeddings = batch_embeddings.reshape(len(batch_embeddings), -1)
+        #         # Flatten if needed
+        #         if len(batch_embeddings.shape) > 2:
+        #             batch_embeddings = batch_embeddings.reshape(len(batch_embeddings), -1)
 
-                current_chunk.extend(batch_embeddings)
+        #         current_chunk.extend(batch_embeddings)
 
-                # Save chunk if it reaches CHUNK_SIZE
-                if len(current_chunk) >= CHUNK_SIZE:
-                    chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_count}.npy")
-                    np.save(chunk_path, np.array(current_chunk[:CHUNK_SIZE]))
-                    current_chunk = current_chunk[CHUNK_SIZE:]
-                    chunk_count += 1
+        #         # Save chunk if it reaches CHUNK_SIZE
+        #         if len(current_chunk) >= CHUNK_SIZE:
+        #             chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_count}.npy")
+        #             np.save(chunk_path, np.array(current_chunk[:CHUNK_SIZE]))
+        #             current_chunk = current_chunk[CHUNK_SIZE:]
+        #             chunk_count += 1
 
-        # Save final chunk if any
-        if current_chunk:
-            chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_count}.npy")
-            np.save(chunk_path, np.array(current_chunk))
-            chunk_count += 1
+        # # Save final chunk if any
+        # if current_chunk:
+        #     chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_count}.npy")
+        #     np.save(chunk_path, np.array(current_chunk))
+        #     chunk_count += 1
 
+        chunk_count = 53
         total_embeddings = total_bb_count
-        embedding_dim = batch_embeddings.shape[1]
+        # embedding_dim = batch_embeddings.shape[1]
+        embedding_dim = 1280 * 49
 
         # Calculate memory requirements and sampling
         bytes_per_embedding = embedding_dim * 4  # float32 = 4 bytes
