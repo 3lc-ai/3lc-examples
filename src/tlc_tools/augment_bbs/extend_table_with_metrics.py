@@ -12,10 +12,10 @@ import tlc
 import torch
 import torchvision.transforms as transforms
 from PIL import Image, ImageStat
+from tlc.core.builtins.types.segmentation_helper import SegmentationHelper
 from tqdm import tqdm
 
 from .label_utils import create_label_mappings
-from tlc.core.builtins.types.segmentation_helper import SegmentationHelper
 
 
 def calculate_bb_metrics(image, bb, bb_schema):
