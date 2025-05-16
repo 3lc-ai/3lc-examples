@@ -5,7 +5,7 @@ from .common import check_package_version
 from .split import split_table
 
 try:
-    required_min_version = "2.11"
+    required_min_version = "2.14"
     check_package_version("tlc", required_min_version)
     import tlc
 except Exception as e:
