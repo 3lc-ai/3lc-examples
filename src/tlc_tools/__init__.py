@@ -1,7 +1,7 @@
 """Tools for working with the 3lc package."""
 
 try:
-    import tlc
+    import tlc  # noqa: F401
 except ImportError:
     raise ImportError("3lc is not installed. Please install it with `pip install 3lc` or equivalent.") from None
 
