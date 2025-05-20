@@ -46,15 +46,16 @@ def check_package_version(package_name: str, required_min_version: str) -> None:
 
     :param package_name: The name of the package to check.
     :param required_version: The minimum required version of the package.
-
-    Returns:
-        str: A message indicating whether the installed version is sufficient or not.
-
+    :raises ValueError: If the installed version of the package is less than the required version.
     """
 
     package = __import__(package_name)
     installed_version = package.__version__
-    assert version.parse(installed_version) >= version.parse(required_min_version)
+    if version.parse(installed_version) < version.parse(required_min_version):
+        raise ValueError(
+            f"The installed version of {package_name} is {installed_version}, "
+            f"but {required_min_version} or higher is required."
+        )
 
 
 def install_package(package_name: str) -> None:
