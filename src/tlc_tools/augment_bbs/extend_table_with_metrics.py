@@ -8,7 +8,6 @@ from typing import cast
 import cv2
 import numpy as np
 import pacmap
-import timm
 import tlc
 import torch
 import torchvision.transforms as transforms
@@ -141,6 +140,8 @@ def extend_table_with_metrics(
         print(f"Using {num_classes} classes with background={add_background}")
         print(f"Label to contiguous mapping: {label_2_contiguous_idx}")
         print(f"Contiguous to label mapping: {contiguous_2_label}")
+
+        import timm
 
         model = timm.create_model(model_name, pretrained=False, num_classes=num_classes)
         model.load_state_dict(checkpoint)

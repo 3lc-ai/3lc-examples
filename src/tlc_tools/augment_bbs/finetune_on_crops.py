@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 
 import numpy as np
-import timm
 import tlc
 import torch
 import torch.nn as nn
@@ -179,6 +178,8 @@ def train_model(
         pin_memory=True,
         persistent_workers=num_workers > 0,
     )
+
+    import timm
 
     # Create model and training components
     model = timm.create_model(model_name, pretrained=True, num_classes=num_classes).to(device)
