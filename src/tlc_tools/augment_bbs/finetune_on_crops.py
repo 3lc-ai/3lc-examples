@@ -16,11 +16,6 @@ from tlc_tools.common import infer_torch_device
 from .bb_crop_dataset import BBCropDataset
 from .label_utils import create_label_mappings, get_label_name
 
-# 1. +1
-# 2. +1 background value
-# 3. val use all, add_background should be false
-# 4.
-
 
 def convert_to_rgb(img):
     """Convert image to RGB."""
