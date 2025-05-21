@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 
 import numpy as np
-import timm
 import tlc
 import torch
 import torch.nn as nn
@@ -16,11 +15,6 @@ from tlc_tools.common import infer_torch_device
 
 from .bb_crop_dataset import BBCropDataset
 from .label_utils import create_label_mappings, get_label_name
-
-# 1. +1
-# 2. +1 background value
-# 3. val use all, add_background should be false
-# 4.
 
 
 def convert_to_rgb(img):
@@ -179,6 +173,8 @@ def train_model(
         pin_memory=True,
         persistent_workers=num_workers > 0,
     )
+
+    import timm
 
     # Create model and training components
     model = timm.create_model(model_name, pretrained=True, num_classes=num_classes).to(device)
