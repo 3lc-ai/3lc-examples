@@ -11,9 +11,9 @@ import torchvision.transforms as transforms
 import tqdm
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
-from tlc_tools.common import infer_torch_device
+from tlc_tools.common import infer_torch_device, InstanceConfig, resolve_instance_config
 
-from .bb_crop_dataset import BBCropDataset
+from .instance_crop_dataset import InstanceCropDataset
 from .label_utils import create_label_mappings, get_label_name
 
 
@@ -35,7 +35,8 @@ def train_model(
     x_scale_range: tuple[float, float] = (0.95, 1.05),
     y_scale_range: tuple[float, float] = (0.95, 1.05),
     num_workers: int = 8,
-    label_column_path: str = "bbs.bb_list.label",
+    label_column_path: str = "bbs.bb_list.label",  # Keep for backward compatibility
+    instance_config: InstanceConfig | None = None,  # New parameter
 ) -> tuple[nn.Module, str]:
     """Train a model on bounding box crops from the given tables.
 
@@ -51,7 +52,8 @@ def train_model(
     :param x_scale_range: Range of x scale factors.
     :param y_scale_range: Range of y scale factors.
     :param num_workers: Number of workers for data loading.
-    :param label_column_path: Path to the label column in the table.
+    :param label_column_path: Path to the label column in the table (deprecated, use instance_config).
+    :param instance_config: Instance configuration object with column/type/label info.
     """
 
     device = infer_torch_device()
@@ -61,10 +63,31 @@ def train_model(
     train_table = tlc.Table.from_url(train_table_url)
     val_table = tlc.Table.from_url(val_table_url)
 
+    # Resolve instance configuration for training table - backward compatibility with label_column_path
+    if instance_config is None:
+        instance_config = resolve_instance_config(
+            input_table=train_table,
+            label_column_path=label_column_path if label_column_path != "bbs.bb_list.label" else None,
+            allow_label_free=False,  # Training always requires labels
+        )
+        print("Warning: Using legacy label_column_path parameter. Consider using instance_config parameter.")
+
+    # Training cannot work without labels
+    if instance_config.label_column_path is None:
+        raise ValueError("Training requires labels, but no label column was found or provided")
+
+    print(f"Instance configuration for training:")
+    print(f"  Instance column: {instance_config.instance_column}")
+    print(f"  Instance type: {instance_config.instance_type}")
+    print(f"  Label column path: {instance_config.label_column_path}")
+
+    # Use the resolved label column path for the rest of the function
+    resolved_label_column_path = instance_config.label_column_path
+
     # Get schema and number of classes
-    label_map = train_table.get_simple_value_map(label_column_path)
+    label_map = train_table.get_simple_value_map(resolved_label_column_path)
     if not label_map:
-        raise ValueError(f"Label map not found in table at path: {label_column_path}")
+        raise ValueError(f"Label map not found in table at path: {resolved_label_column_path}")
     print(f"Label map: {label_map}")
 
     # Create label mappings for training and validation
@@ -103,27 +126,34 @@ def train_model(
         ]
     )
 
-    train_dataset = BBCropDataset(
+    train_dataset = InstanceCropDataset(
         train_table,
         transform=train_transforms,
+        instance_config=instance_config,
         add_background=add_background,
         background_freq=background_freq,
         x_max_offset=x_max_offset,
         y_max_offset=y_max_offset,
         x_scale_range=x_scale_range,
         y_scale_range=y_scale_range,
-        label_column_path=label_column_path,
     )
 
-    val_dataset = BBCropDataset(
+    # For validation, we use the same instance_config but need to resolve it for the val_table
+    val_instance_config = resolve_instance_config(
+        input_table=val_table,
+        label_column_path=resolved_label_column_path,
+        allow_label_free=False,
+    )
+
+    val_dataset = InstanceCropDataset(
         val_table,
         transform=val_transforms,
+        instance_config=val_instance_config,
         add_background=False,
-        label_column_path=label_column_path,
     )
 
-    # Calculate class frequencies across all bounding boxes
-    total_bbs, class_counts = count_instances(train_table)
+    # Calculate class frequencies across all instances
+    total_instances, class_counts = count_instances(train_table, instance_config)
 
     # Find the count of the most frequent class
     max_count = max(class_counts.values())
@@ -132,19 +162,19 @@ def train_model(
     class_weights = {label: (max_count / count) for label, count in class_counts.items()}
 
     # Pre-allocate numpy array for weights
-    print(f"Training on {len(train_table)} images with {total_bbs} bounding boxes")
-    bb_weights = compute_instance_weights(train_table, total_bbs, class_weights)
+    print(f"Training on {len(train_table)} images with {total_instances} instances")
+    instance_weights = compute_instance_weights(train_table, total_instances, class_weights, instance_config)
 
     # take the sqrt of the weights with numpy, found this to be better than just using the weights
-    bb_weights = np.sqrt(bb_weights)
+    instance_weights = np.sqrt(instance_weights)
 
     # Print Number of weights
-    print(f"Number of weights: {len(bb_weights)}")
+    print(f"Number of weights: {len(instance_weights)}")
 
-    sampler = WeightedRandomSampler(weights=bb_weights, num_samples=min(len(bb_weights), len(train_table)))  # type: ignore[arg-type]
+    sampler = WeightedRandomSampler(weights=instance_weights, num_samples=min(len(instance_weights), len(train_table)))  # type: ignore[arg-type]
 
     # print all unique weights
-    print(f"Unique weights: {list(set(bb_weights))}")
+    print(f"Unique weights: {list(set(instance_weights))}")
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -343,31 +373,61 @@ def train_model(
     return model, best_checkpoint_path
 
 
-def compute_instance_weights(train_table, total_bbs, class_weights):
-    bb_weights = np.zeros(total_bbs, dtype=np.float32)
+def compute_instance_weights(train_table, total_instances, class_weights, instance_config: InstanceConfig):
+    instance_weights = np.zeros(total_instances, dtype=np.float32)
     idx = 0
 
     # Fill weights array
     for row in train_table.table_rows:
-        # for bb in row["bbs"]["bb_list"]:
-        #     bb_weights[idx] = class_weights[bb["label"]]
-        #     idx += 1
-        for label in row["segmentations"]["instance_properties"]["label"]:
-            bb_weights[idx] = class_weights[label]
-            idx += 1
-    return bb_weights
+        if instance_config.instance_column == "bbs":
+            # For bounding boxes, iterate through bb_list
+            for bb in row["bbs"]["bb_list"]:
+                instance_weights[idx] = class_weights[bb["label"]]
+                idx += 1
+        elif instance_config.instance_column == "segmentations":
+            # For segmentations, iterate through instance properties
+            for label in row["segmentations"]["instance_properties"]["label"]:
+                instance_weights[idx] = class_weights[label]
+                idx += 1
+        else:
+            # For other instance types, handle generically
+            instance_data = row[instance_config.instance_column]
+            instances = instance_data if isinstance(instance_data, list) else [instance_data]
+            for instance in instances:
+                # Extract label using the configured path
+                if instance_config.label_column_path:
+                    label_parts = instance_config.label_column_path.split(".")[-1:]  # Get the last part (field name)
+                    label = instance[label_parts[0]]
+                    instance_weights[idx] = class_weights[label]
+                    idx += 1
+    return instance_weights
 
 
-def count_instances(train_table):
-    total_bbs = 0  # Add counter for total bounding boxes
+def count_instances(train_table, instance_config: InstanceConfig):
+    total_instances = 0
     class_counts: dict[int, int] = {}
 
     for row in train_table.table_rows:
-        # for bb in row["bbs"]["bb_list"]:
-        #     label = bb["label"]
-        #     class_counts[label] = class_counts.get(label, 0) + 1
-        #     total_bbs += 1
-        for label in row["segmentations"]["instance_properties"]["label"]:
-            class_counts[label] = class_counts.get(label, 0) + 1
-            total_bbs += 1
-    return total_bbs, class_counts
+        if instance_config.instance_column == "bbs":
+            # For bounding boxes, iterate through bb_list
+            for bb in row["bbs"]["bb_list"]:
+                label = bb["label"]
+                class_counts[label] = class_counts.get(label, 0) + 1
+                total_instances += 1
+        elif instance_config.instance_column == "segmentations":
+            # For segmentations, iterate through instance properties
+            for label in row["segmentations"]["instance_properties"]["label"]:
+                class_counts[label] = class_counts.get(label, 0) + 1
+                total_instances += 1
+        else:
+            # For other instance types, handle generically
+            instance_data = row[instance_config.instance_column]
+            instances = instance_data if isinstance(instance_data, list) else [instance_data]
+            for instance in instances:
+                # Extract label using the configured path
+                if instance_config.label_column_path:
+                    label_parts = instance_config.label_column_path.split(".")[-1:]  # Get the last part (field name)
+                    label = instance[label_parts[0]]
+                    class_counts[label] = class_counts.get(label, 0) + 1
+                    total_instances += 1
+    return total_instances, class_counts

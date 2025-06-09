@@ -15,8 +15,8 @@ from .label_utils import create_label_mappings
 from tlc_tools.common import InstanceConfig, resolve_instance_config
 
 
-class BBCropDataset(Dataset):
-    """Custom dataset for cropping instances (bounding boxes or segmentations) and generating background patches."""
+class InstanceCropDataset(Dataset):
+    """Clean dataset for cropping instances (bounding boxes or segmentations) and generating background patches."""
 
     def __init__(
         self,
@@ -29,8 +29,7 @@ class BBCropDataset(Dataset):
         y_max_offset: float = 0.0,
         y_scale_range: tuple[float, float] = (1.0, 1.0),
         x_scale_range: tuple[float, float] = (1.0, 1.0),
-        label_column_path: str = "bbs.bb_list.label",  # Keep for backward compatibility
-        instance_config: InstanceConfig | None = None,  # New parameter
+        instance_config: InstanceConfig | None = None,
     ):
         """
         :param table: The input table containing image and instance data.
@@ -42,21 +41,18 @@ class BBCropDataset(Dataset):
         :param y_max_offset: Maximum offset in the y direction for instance cropping.
         :param y_scale_range: Range of scaling factors in the y direction for instance cropping.
         :param x_scale_range: Range of scaling factors in the x direction for instance cropping.
-        :param label_column_path: Path to the label column (deprecated, use instance_config).
         :param instance_config: Instance configuration object with column/type/label info.
         """
         self.table = table
         self.transform = transform
         self.image_column_name = image_column_name
 
-        # Resolve instance configuration - backward compatibility with label_column_path
+        # Resolve instance configuration
         if instance_config is None:
             self.instance_config = resolve_instance_config(
                 input_table=table,
-                label_column_path=label_column_path if label_column_path != "bbs.bb_list.label" else None,
                 allow_label_free=False,  # Dataset creation usually requires labels
             )
-            print("Warning: Using legacy label_column_path parameter. Consider using instance_config parameter.")
         else:
             self.instance_config = instance_config
 
@@ -371,3 +367,7 @@ class BBCropDataset(Dataset):
         x1, y1, w1, h1 = box1
         x2, y2, w2, h2 = box2
         return not (x1 + w1 <= x2 or x2 + w2 <= x1 or y1 + h1 <= y2 or y2 + h2 <= y1)
+
+
+# Backward compatibility alias
+BBCropDataset = InstanceCropDataset

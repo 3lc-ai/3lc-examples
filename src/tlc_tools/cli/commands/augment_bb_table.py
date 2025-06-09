@@ -8,6 +8,7 @@ import tlc
 from tlc_tools.augment_bbs.extend_table_with_metrics import extend_table_with_metrics
 from tlc_tools.augment_bbs.finetune_on_crops import train_model
 from tlc_tools.cli import register_tool
+from tlc_tools.common import resolve_instance_config, InstanceConfig
 
 
 def parse_table_list(table_string):
@@ -66,6 +67,25 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         help="Number of dimensions to reduce from the end of embeddings (0 means no reduction)",
     )
     parser.add_argument("--num_workers", type=int, default=8, help="Number of workers for data loading")
+
+    # Instance handling arguments
+    parser.add_argument(
+        "--instance_column", help="Name of the column containing instances (auto-detect if not specified)"
+    )
+    parser.add_argument(
+        "--instance_type",
+        choices=["bounding_boxes", "segmentation_masks", "segmentation_polygons", "auto"],
+        default="auto",
+        help="Type of instances to process (auto-detect by default)",
+    )
+    parser.add_argument(
+        "--label_column_path", help="Path to labels within instance column (auto-infer if not specified)"
+    )
+    parser.add_argument(
+        "--allow_label_free",
+        action="store_true",
+        help="Allow processing tables without labels (for anonymous instances)",
+    )
     args = parser.parse_args(tool_args)
 
     # Check if we're in training mode
@@ -74,6 +94,19 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     # Validate disable flags
     if args.disable_embeddings and args.disable_metrics and not args.train_only:
         raise ValueError("Cannot disable both embeddings and metrics unless --train_only is specified")
+
+    # Check for label-free training attempt
+    if training_mode and args.allow_label_free:
+        print("Warning: Training mode detected with --allow_label_free flag.")
+        print("Training requires labels and cannot be performed in label-free mode.")
+        print("You can either:")
+        print("  1. Remove --allow_label_free to require labels for training")
+        print("  2. Use --train_only=false to skip training and only process tables")
+        if args.train_only:
+            raise ValueError("Cannot train model in label-free mode. Training requires labels.")
+        else:
+            print("Proceeding with table processing only (skipping training)...")
+            training_mode = False
 
     # Check if model checkpoint exists when not training but adding embeddings
     if not training_mode and not args.disable_embeddings:
@@ -92,6 +125,17 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     # Training phase if needed
     if training_mode:
         print("=== Training Model ===")
+
+        # Resolve instance configuration for training table
+        train_table = tlc.Table.from_url(args.train_table)
+        training_instance_config = resolve_instance_config(
+            input_table=train_table,
+            instance_column=args.instance_column,
+            instance_type=args.instance_type,
+            label_column_path=args.label_column_path,
+            allow_label_free=False,  # Training always requires labels
+        )
+
         print("\nTraining parameters:")
         print(f"  Model: {args.model_name}")
         print(f"  Epochs: {args.epochs}")
@@ -100,7 +144,10 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         print(f"  Number of workers: {args.num_workers}")
         print(f"  Model checkpoint: {args.model_checkpoint}")
         print(f"  Train table: {args.train_table}")
-        print(f"  Val table: {args.val_table}\n")
+        print(f"  Val table: {args.val_table}")
+        print(f"  Instance column: {training_instance_config.instance_column}")
+        print(f"  Instance type: {training_instance_config.instance_type}")
+        print(f"  Label column path: {training_instance_config.label_column_path}\n")
 
         _, best_checkpoint_path = train_model(
             train_table_url=args.train_table,
@@ -111,6 +158,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             batch_size=args.batch_size,
             include_background=args.include_background,
             num_workers=args.num_workers,
+            instance_config=training_instance_config,
         )
 
         if args.train_only:
@@ -139,6 +187,24 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         input_table = tlc.Table.from_url(table_url)
         output_name = f"{input_table.name}{args.output_suffix}"
 
+        # Resolve instance configuration for this table
+        print("Resolving instance configuration...")
+        try:
+            instance_config = resolve_instance_config(
+                input_table=input_table,
+                instance_column=args.instance_column,
+                instance_type=args.instance_type,
+                label_column_path=args.label_column_path,
+                allow_label_free=args.allow_label_free,
+            )
+            print(f"  Instance column: {instance_config.instance_column}")
+            print(f"  Instance type: {instance_config.instance_type}")
+            print(f"  Label column path: {instance_config.label_column_path}")
+            print(f"  Label-free mode: {instance_config.allow_label_free}")
+        except ValueError as e:
+            print(f"Error: Failed to resolve instance configuration: {e}")
+            continue
+
         output_table_url, pacmap_reducer, fit_embeddings = extend_table_with_metrics(
             input_table=input_table,
             output_table_name=output_name,
@@ -153,6 +219,8 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             n_neighbors=args.n_neighbors,
             reduce_last_dims=args.reduce_last_dims,
             max_memory_gb=args.max_memory_gb,
+            # New instance configuration parameters
+            instance_config=instance_config,
         )
 
         print(f"Created extended table: {output_table_url}")
