@@ -52,3 +52,4 @@ def test_resolve_instance_config(table_factory: Callable[[], tlc.Table]) -> None
     assert instance_config.instance_column == instance_column
     assert instance_config.label_column_path == label_column_path
     assert instance_config.instance_type == "segmentations" if task == "segment" else "bounding_boxes"
+    assert instance_config.instance_properties_column == "instance_properties" if task == "segment" else "bb_list"
