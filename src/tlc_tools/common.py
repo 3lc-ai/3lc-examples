@@ -271,6 +271,14 @@ def detect_instance_column_and_type(
             raise ValueError(f"No valid instance column found in table {input_table.name}")
 
 
+def validate_instance_config(input_table: tlc.Table, instance_config: InstanceConfig) -> None:
+    """Validate the instance configuration.
+
+    :param instance_config: The instance configuration to validate.
+    """
+    pass
+
+
 def resolve_instance_config(
     input_table: tlc.Table,
     instance_column: str | None = None,
@@ -312,12 +320,6 @@ def resolve_instance_config(
     )
 
     # # Step 5: Validate the configuration
-    # validate_instance_column(
-    #     input_table=input_table,
-    #     instance_column=config.instance_column,
-    #     instance_type=config.instance_type,
-    #     label_column_path=config.label_column_path,
-    #     allow_label_free=config.allow_label_free,
-    # )
+    validate_instance_config(input_table, config)
 
     return config

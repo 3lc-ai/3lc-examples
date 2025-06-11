@@ -10,13 +10,18 @@ import pacmap
 import tlc
 import torch
 import torchvision.transforms as transforms
-from PIL import Image, ImageStat
+from PIL import ImageStat
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from tlc_tools.common import InstanceConfig, validate_instance_config
+
 from .instance_crop_dataset import InstanceCropDataset
 from .label_utils import create_label_mappings
-from tlc_tools.common import InstanceConfig
+
+CLASSIFIER_EMBEDDING = "classif_Embedding"
+CLASSIFIER_LABEL = "classif_Label"
+CLASSIFIER_CONFIDENCE = "classif_Confidence"
 
 
 def custom_collate_fn(batch):
@@ -102,7 +107,7 @@ def extend_table_with_metrics(
             allow_label_free=False,  # Default to requiring labels for backward compatibility
         )
     else:
-        validate_instance_config(instance_config)
+        validate_instance_config(input_table, instance_config)
 
     instance_column = instance_config.instance_column
     instance_type = instance_config.instance_type
@@ -397,8 +402,8 @@ def extend_table_with_metrics(
         )
 
         # Add schemas to instance properties
-        if "classif_Embedding" not in instance_properties_schema.values:
-            instance_properties_schema.add_sub_schema("classif_Embedding", embedding_schema)
+        if CLASSIFIER_EMBEDDING not in instance_properties_schema.values:
+            instance_properties_schema.add_sub_schema(CLASSIFIER_EMBEDDING, embedding_schema)
 
         # Only add label and confidence schemas for non-pretrained models
         if not use_pretrained:
@@ -424,10 +429,10 @@ def extend_table_with_metrics(
             confidence_schema = tlc.Schema(value=tlc.Float32Value(), writable=False)
             confidence_schema.size0 = tlc.DimensionNumericValue(0, 1000)
 
-            if "classif_Label" not in instance_properties_schema.values:
-                instance_properties_schema.add_sub_schema("classif_Label", label_schema)
-            if "classif_Confidence" not in instance_properties_schema.values:
-                instance_properties_schema.add_sub_schema("classif_Confidence", confidence_schema)
+            if CLASSIFIER_LABEL not in instance_properties_schema.values:
+                instance_properties_schema.add_sub_schema(CLASSIFIER_LABEL, label_schema)
+            if CLASSIFIER_CONFIDENCE not in instance_properties_schema.values:
+                instance_properties_schema.add_sub_schema(CLASSIFIER_CONFIDENCE, confidence_schema)
 
     # Add image metrics schema if needed
     if add_image_metrics:
@@ -488,29 +493,27 @@ def extend_table_with_metrics(
 
         # Initialize embedding/label/confidence/metrics lists for this row's instances
         if add_embeddings:
-            if instance_config.instance_column == "bbs":
+            if instance_column == "bbs":
                 # For BBs, add directly to bb_list items
                 pass  # We'll handle this in the instance loop
-            elif instance_config.instance_type == "segmentation_masks":
+            elif instance_type == "segmentations":
                 # Initialize lists for segmentation instance properties
-                if "classif_Embedding" not in new_row[instance_config.instance_column]["instance_properties"]:
-                    new_row[instance_config.instance_column]["instance_properties"]["classif_Embedding"] = []
+                if CLASSIFIER_EMBEDDING not in new_row[instance_column][instance_properties_column]:
+                    new_row[instance_column][instance_properties_column][CLASSIFIER_EMBEDDING] = []
                 # Only initialize label and confidence lists for non-pretrained models
                 if not use_pretrained:
-                    if "classif_Label" not in new_row[instance_config.instance_column]["instance_properties"]:
-                        new_row[instance_config.instance_column]["instance_properties"]["classif_Label"] = []
-                    if "classif_Confidence" not in new_row[instance_config.instance_column]["instance_properties"]:
-                        new_row[instance_config.instance_column]["instance_properties"]["classif_Confidence"] = []
+                    if CLASSIFIER_LABEL not in new_row[instance_column][instance_properties_column]:
+                        new_row[instance_column][instance_properties_column][CLASSIFIER_LABEL] = []
+                    if CLASSIFIER_CONFIDENCE not in new_row[instance_column][instance_properties_column]:
+                        new_row[instance_column][instance_properties_column][CLASSIFIER_CONFIDENCE] = []
 
         # Get instances for this row
-        if instance_config.instance_column == "bbs":
-            instances = new_row["bbs"]["bb_list"]
-        elif instance_config.instance_type == "segmentation_masks":
-            instances = new_row[instance_config.instance_column]["rles"]
+        if instance_type == "bounding_boxes":
+            instances = new_row[instance_column][instance_properties_column]
+        elif instance_type == "segmentations":
+            instances = new_row[instance_column]["rles"]
         else:
-            # For other instance types
-            instance_data = new_row[instance_config.instance_column]
-            instances = instance_data if isinstance(instance_data, list) else [instance_data]
+            raise ValueError(f"Invalid instance type: {instance_type}")
 
         # Process each instance in this row
         for instance_index in range(len(instances)):
@@ -524,63 +527,55 @@ def extend_table_with_metrics(
                 break
 
             if add_embeddings:
-                if instance_config.instance_column == "bbs":
+                if instance_type == "bounding_boxes":
                     # Add embeddings to the bb item
-                    instances[instance_index]["classif_Embedding"] = embeddings_nd[embedding_idx].tolist()
+                    instances[instance_index][CLASSIFIER_EMBEDDING] = embeddings_nd[embedding_idx].tolist()
                     # Add labels and confidences only for non-pretrained models
                     if not use_pretrained:
-                        instances[instance_index]["classif_Label"] = int(labels[embedding_idx])
-                        instances[instance_index]["classif_Confidence"] = float(confidences_list[embedding_idx])
-                elif instance_config.instance_type == "segmentation_masks":
+                        instances[instance_index][CLASSIFIER_LABEL] = int(labels[embedding_idx])
+                        instances[instance_index][CLASSIFIER_CONFIDENCE] = float(confidences_list[embedding_idx])
+                elif instance_type == "segmentations":
                     # Add embeddings to instance properties lists
-                    new_row[instance_config.instance_column]["instance_properties"]["classif_Embedding"].append(
+                    new_row[instance_column][instance_properties_column][CLASSIFIER_EMBEDDING].append(
                         embeddings_nd[embedding_idx].tolist()
                     )
                     # Add labels and confidences only for non-pretrained models
                     if not use_pretrained:
-                        new_row[instance_config.instance_column]["instance_properties"]["classif_Label"].append(
+                        new_row[instance_column][instance_properties_column][CLASSIFIER_LABEL].append(
                             int(labels[embedding_idx])
                         )
-                        new_row[instance_config.instance_column]["instance_properties"]["classif_Confidence"].append(
+                        new_row[instance_column][instance_properties_column][CLASSIFIER_CONFIDENCE].append(
                             float(confidences_list[embedding_idx])
                         )
 
             if add_image_metrics:
                 metrics = image_metrics_list[embedding_idx]
-                if instance_config.instance_column == "bbs":
+                if instance_type == "bounding_boxes":
                     # Add metrics to the bb item
                     instances[instance_index]["brightness"] = metrics["brightness"]
                     instances[instance_index]["contrast"] = metrics["contrast"]
                     instances[instance_index]["sharpness"] = metrics["sharpness"]
-                elif instance_config.instance_type == "segmentation_masks":
+                elif instance_type == "segmentations":
                     # Add metrics to instance properties lists
-                    if "brightness" not in new_row[instance_config.instance_column]["instance_properties"]:
-                        new_row[instance_config.instance_column]["instance_properties"]["brightness"] = []
-                    if "contrast" not in new_row[instance_config.instance_column]["instance_properties"]:
-                        new_row[instance_config.instance_column]["instance_properties"]["contrast"] = []
-                    if "sharpness" not in new_row[instance_config.instance_column]["instance_properties"]:
-                        new_row[instance_config.instance_column]["instance_properties"]["sharpness"] = []
+                    if "brightness" not in new_row[instance_column][instance_properties_column]:
+                        new_row[instance_column][instance_properties_column]["brightness"] = []
+                    if "contrast" not in new_row[instance_column][instance_properties_column]:
+                        new_row[instance_column][instance_properties_column]["contrast"] = []
+                    if "sharpness" not in new_row[instance_column][instance_properties_column]:
+                        new_row[instance_column][instance_properties_column]["sharpness"] = []
 
-                    new_row[instance_config.instance_column]["instance_properties"]["brightness"].append(
-                        metrics["brightness"]
-                    )
-                    new_row[instance_config.instance_column]["instance_properties"]["contrast"].append(
-                        metrics["contrast"]
-                    )
-                    new_row[instance_config.instance_column]["instance_properties"]["sharpness"].append(
-                        metrics["sharpness"]
-                    )
+                    new_row[instance_column][instance_properties_column]["brightness"].append(metrics["brightness"])
+                    new_row[instance_column][instance_properties_column]["contrast"].append(metrics["contrast"])
+                    new_row[instance_column][instance_properties_column]["sharpness"].append(metrics["sharpness"])
 
             embedding_idx += 1
         # Add the hidden columns to the new row
         for key in hidden_column_names:
             new_row[key] = hidden_columns[key][row_index]
 
-    if instance_config.instance_type == "segmentation_masks":
-        seg_sample_type = new_table_schema[instance_config.instance_column].sample_type_object
-        new_row[instance_config.instance_column] = seg_sample_type.sample_from_row(
-            new_row[instance_config.instance_column]
-        )
+    if instance_type == "segmentation":
+        seg_sample_type = new_table_schema[instance_column].sample_type_object
+        new_row[instance_column] = seg_sample_type.sample_from_row(new_row[instance_column])
         table_writer.add_row(new_row)
 
     # Finalize table
