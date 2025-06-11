@@ -142,7 +142,7 @@ class InstanceCropDataset(Dataset):
         Fetch a sample from the dataset.
 
         :param idx: int, index of the specific instance.
-        :returns: (cropped image, label) where label is a tensor (or -1 for label-free mode).
+        :returns: (original_pil_image, transformed_tensor, label) where label is a tensor (or -1 for label-free mode).
         """
         # Determine if a background patch should be generated
         is_background = self.add_background and self.random_gen.random() < self.background_freq
@@ -152,10 +152,13 @@ class InstanceCropDataset(Dataset):
         else:
             crop, label = self._get_instance_crop(idx)
 
-        if self.transform:
-            crop = self.transform(crop)
+        # Keep original PIL image for metrics
+        original_pil = crop.copy()
 
-        return crop, label
+        # Apply transform for model
+        transformed_tensor = self.transform(crop) if self.transform else crop
+
+        return original_pil, transformed_tensor, label
 
     def _get_instance_crop(self, idx: int):
         """Get a crop for a specific instance."""
@@ -367,6 +370,28 @@ class InstanceCropDataset(Dataset):
         x1, y1, w1, h1 = box1
         x2, y2, w2, h2 = box2
         return not (x1 + w1 <= x2 or x2 + w2 <= x1 or y1 + h1 <= y2 or y2 + h2 <= y1)
+
+    def get_row_instance_mapping(self) -> list[tuple[int, int]]:
+        """Get mapping from dataset index to (row_index, instance_index_within_row).
+
+        This provides the mapping needed to assign embeddings and predictions back to the
+        correct instances in the original table structure.
+
+        :return: List where index is dataset index, value is (row_index, instance_index_within_row)
+        """
+        mapping = []
+
+        # Group instances by row to determine instance_index_within_row
+        row_instance_counts = {}
+
+        for row_idx, instance_data in self.all_instances:
+            # Get the instance index within this row (0-based)
+            instance_index_within_row = row_instance_counts.get(row_idx, 0)
+            row_instance_counts[row_idx] = instance_index_within_row + 1
+
+            mapping.append((row_idx, instance_index_within_row))
+
+        return mapping
 
 
 # Backward compatibility alias

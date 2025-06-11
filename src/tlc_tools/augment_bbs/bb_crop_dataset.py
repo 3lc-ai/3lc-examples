@@ -53,10 +53,8 @@ class BBCropDataset(Dataset):
         if instance_config is None:
             self.instance_config = resolve_instance_config(
                 input_table=table,
-                label_column_path=label_column_path if label_column_path != "bbs.bb_list.label" else None,
                 allow_label_free=False,  # Dataset creation usually requires labels
             )
-            print("Warning: Using legacy label_column_path parameter. Consider using instance_config parameter.")
         else:
             self.instance_config = instance_config
 

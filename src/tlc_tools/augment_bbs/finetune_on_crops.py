@@ -67,10 +67,8 @@ def train_model(
     if instance_config is None:
         instance_config = resolve_instance_config(
             input_table=train_table,
-            label_column_path=label_column_path if label_column_path != "bbs.bb_list.label" else None,
             allow_label_free=False,  # Training always requires labels
         )
-        print("Warning: Using legacy label_column_path parameter. Consider using instance_config parameter.")
 
     # Training cannot work without labels
     if instance_config.label_column_path is None:

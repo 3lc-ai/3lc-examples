@@ -132,7 +132,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             input_table=train_table,
             instance_column=args.instance_column,
             instance_type=args.instance_type,
-            label_column_path=args.label_column_path,
             allow_label_free=False,  # Training always requires labels
         )
 

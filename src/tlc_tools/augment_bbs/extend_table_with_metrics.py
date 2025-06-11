@@ -19,6 +19,19 @@ from .label_utils import create_label_mappings
 from tlc_tools.common import InstanceConfig
 
 
+def custom_collate_fn(batch):
+    """Custom collate function to handle PIL images alongside tensors.
+
+    :param batch: List of (pil_image, tensor, label) tuples
+    :return: (pil_images_list, tensor_batch, label_batch)
+    """
+    pil_images = [item[0] for item in batch]  # Keep PIL images in a list
+    tensors = torch.stack([item[1] for item in batch])  # Stack tensors normally
+    labels = torch.tensor([item[2] for item in batch])  # Convert labels to tensor
+
+    return pil_images, tensors, labels
+
+
 def calculate_bb_metrics(image, bb, bb_schema):
     """Calculate metrics for a single bounding box crop"""
     # Get the crop using BBCropInterface
@@ -52,7 +65,6 @@ def extend_table_with_metrics(
     reduce_last_dims: int = 0,
     max_memory_gb: int = 8,
     num_workers: int = 0,  # New parameter for DataLoader
-    label_column_path: str = "bbs.bb_list.label",  # Keep for backward compatibility
     instance_config: InstanceConfig | None = None,  # New parameter
 ) -> tuple[str, pacmap.PaCMAP | None, np.ndarray | None]:
     """Extend table with embeddings and/or image metrics in a single pass.
@@ -87,17 +99,22 @@ def extend_table_with_metrics(
         # Use legacy label_column_path for backward compatibility
         instance_config = resolve_instance_config(
             input_table=input_table,
-            label_column_path=label_column_path if label_column_path != "bbs.bb_list.label" else None,
             allow_label_free=False,  # Default to requiring labels for backward compatibility
         )
-        print("Warning: Using legacy label_column_path parameter. Consider using instance_config parameter.")
+    else:
+        validate_instance_config(instance_config)
+
+    instance_column = instance_config.instance_column
+    instance_type = instance_config.instance_type
+    label_column_path = instance_config.label_column_path
+    instance_properties_column = instance_config.instance_properties_column
 
     # Check if we have labels when needed for embeddings
-    if add_embeddings and not instance_config.allow_label_free and instance_config.label_column_path is None:
-        raise ValueError("Model checkpoint required for embeddings, and labels required for training model")
+    # if add_embeddings and not instance_config.allow_label_free and instance_config.label_column_path is None:
+    #     raise ValueError("Model checkpoint required for embeddings, and labels required for training model")
 
-    if add_embeddings and model_checkpoint is None and not instance_config.allow_label_free:
-        raise ValueError("Model checkpoint required for embeddings")
+    # if add_embeddings and model_checkpoint is None and not instance_config.allow_label_free:
+    #     raise ValueError("Model checkpoint required for embeddings (or use allow_label_free=True for pretrained model)")
 
     # Create dataset using the refactored BBCropDataset
     image_transform = transforms.Compose(
@@ -118,18 +135,20 @@ def extend_table_with_metrics(
     total_instances = len(dataset)
     print(f"Total instances to process: {total_instances}")
 
-    # Create DataLoader with multi-worker support
+    # Create DataLoader with multi-worker support and custom collate function
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=False,  # Keep deterministic order
         num_workers=num_workers,
-        pin_memory=True if device and device.type == "cuda" else False,
+        pin_memory=bool(device and device.type == "cuda"),
+        collate_fn=custom_collate_fn,  # Use custom collate for PIL images
     )
 
-    # Collect embeddings if needed
+    # Collect embeddings and metrics if needed
     labels: list[int] = []
     confidences_list: list[float] = []
+    image_metrics_list: list[dict[str, float]] = []
     if add_embeddings:
         # Load model
         if device is None:
@@ -137,22 +156,35 @@ def extend_table_with_metrics(
 
         print("Device: ", device)
 
-        # Load checkpoint first to get number of classes
-        checkpoint = torch.load(cast(str, model_checkpoint), map_location=device, weights_only=True)
-        num_classes = checkpoint["classifier.bias"].shape[0]
+        # Determine if we're using a checkpoint or pretrained model
+        use_pretrained = model_checkpoint is None and instance_config.allow_label_free
 
-        # Get label map and determine if background was used - use instance_config
-        if instance_config.label_column_path:
-            label_map = input_table.get_simple_value_map(instance_config.label_column_path)
-            if not label_map:
-                raise ValueError(f"Label map not found in table at path: {instance_config.label_column_path}")
-        else:
-            # Label-free mode - create dummy mappings
+        if use_pretrained:
+            print("Using pretrained model (label-free mode)")
+            # For pretrained model, we don't have custom classes
+            num_classes = 1000  # Standard ImageNet classes
             label_map = {}
+            label_2_contiguous_idx = {}
+            contiguous_2_label = {}
+            background_label = None
+            add_background = False
+        else:
+            # Load checkpoint first to get number of classes
+            checkpoint = torch.load(cast(str, model_checkpoint), map_location=device, weights_only=True)
+            num_classes = checkpoint["classifier.bias"].shape[0]
 
-        label_2_contiguous_idx, contiguous_2_label, background_label, add_background = create_label_mappings(
-            label_map, include_background=num_classes > len(label_map) if label_map else False
-        )
+            # Get label map and determine if background was used - use instance_config
+            if instance_config.label_column_path:
+                label_map = input_table.get_simple_value_map(instance_config.label_column_path)
+                if not label_map:
+                    raise ValueError(f"Label map not found in table at path: {instance_config.label_column_path}")
+            else:
+                # Label-free mode - create dummy mappings
+                label_map = {}
+
+            label_2_contiguous_idx, contiguous_2_label, background_label, add_background = create_label_mappings(
+                label_map, include_background=num_classes > len(label_map) if label_map else False
+            )
 
         print(f"Label map: {label_map}")
         print(f"Using {num_classes} classes with background={add_background}")
@@ -161,8 +193,9 @@ def extend_table_with_metrics(
 
         import timm
 
-        model = timm.create_model(model_name, pretrained=False, num_classes=num_classes)
-        model.load_state_dict(checkpoint)
+        model = timm.create_model(model_name, pretrained=use_pretrained, num_classes=num_classes)
+        if not use_pretrained:
+            model.load_state_dict(checkpoint)
         model = model.to(device)
         model.eval()
 
@@ -182,40 +215,68 @@ def extend_table_with_metrics(
             batch_size=1,  # Just one sample to peek
             shuffle=False,
             num_workers=0,  # No multiprocessing for peek
+            collate_fn=custom_collate_fn,  # Use custom collate for PIL images
         )
         peek_batch = next(iter(peek_dataloader))
-        peek_images = peek_batch[0].to(device)
+        _, peek_tensors, _ = peek_batch  # Unpack: pil_images, tensors, labels
+        peek_images = peek_tensors.to(device)
 
         with torch.no_grad():
             peek_embedding = model.forward_features(peek_images).cpu().numpy()
             print(f"Shape of embedding: {peek_embedding.shape[1:]}")
+            if reduce_last_dims > 0:
+                peek_embedding = peek_embedding.mean(axis=tuple(range(-reduce_last_dims, 0)))
+            if len(peek_embedding.shape) > 2:
+                peek_embedding = peek_embedding.reshape(len(peek_embedding), -1)
+            print(f"Shape of flattened embedding: {peek_embedding.shape}")
 
-        # Process all batches with the main dataloader
+    # Process all batches (for embeddings and/or metrics)
+    if add_embeddings or add_image_metrics:
         dataloader_iter = iter(dataloader)
-        for batch_data in tqdm(dataloader_iter, desc="Running model inference", total=len(dataloader)):
-            batch_images = batch_data[0].to(device)  # Images are first element
+        desc = "Running model inference" if add_embeddings else "Computing image metrics"
+        for batch_data in tqdm(dataloader_iter, desc=desc, total=len(dataloader)):
+            batch_pil_images, batch_tensors, batch_labels = batch_data  # Unpack the custom collate output
 
-            with torch.no_grad():
-                # Get predictions
-                output = model(batch_images)
-                probabilities = torch.softmax(output, dim=1)
-                predicted_contiguous_labels = torch.argmax(output, dim=1)
-                confidences = torch.max(probabilities, dim=1)[0]
+            # Collect image metrics if needed (using original PIL images)
+            if add_image_metrics:
+                for pil_image in batch_pil_images:
+                    # Calculate metrics directly on original PIL image
+                    gray_crop = pil_image.convert("L")
+                    brightness = ImageStat.Stat(pil_image).mean[0]
+                    contrast = ImageStat.Stat(gray_crop).stddev[0]
+                    pixels = np.array(pil_image)
+                    sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
 
-                # Map contiguous labels back to original label space (if we have labels)
-                if not instance_config.allow_label_free or label_map:
-                    predicted_original_labels = [
-                        int(contiguous_2_label[idx.item()]) for idx in predicted_contiguous_labels
-                    ]
-                    labels.extend(predicted_original_labels)
-                    confidences_list.extend(confidences.cpu().numpy())
-                else:
-                    # Label-free mode - store predictions as-is
-                    labels.extend(predicted_contiguous_labels.cpu().numpy().tolist())
-                    confidences_list.extend(confidences.cpu().numpy())
+                    image_metrics_list.append(
+                        {"brightness": float(brightness), "contrast": float(contrast), "sharpness": float(sharpness)}
+                    )
 
-                # Get embeddings
-                batch_embeddings = model.forward_features(batch_images).cpu().numpy().astype(np.float32)
+            # Process embeddings if needed
+            if add_embeddings:
+                batch_images = batch_tensors.to(device)  # Use transformed tensors for model
+
+                with torch.no_grad():
+                    if not use_pretrained:
+                        # Get predictions only for custom trained models
+                        output = model(batch_images)
+                        probabilities = torch.softmax(output, dim=1)
+                        predicted_contiguous_labels = torch.argmax(output, dim=1)
+                        confidences = torch.max(probabilities, dim=1)[0]
+
+                        # Map contiguous labels back to original label space (if we have labels)
+                        if not instance_config.allow_label_free or label_map:
+                            predicted_original_labels = [
+                                int(contiguous_2_label[idx.item()]) for idx in predicted_contiguous_labels
+                            ]
+                            labels.extend(predicted_original_labels)
+                            confidences_list.extend(confidences.cpu().numpy())
+                        else:
+                            # Label-free mode - store predictions as-is
+                            labels.extend(predicted_contiguous_labels.cpu().numpy().tolist())
+                            confidences_list.extend(confidences.cpu().numpy())
+
+                    # Get embeddings (only operation needed for pretrained models)
+                    batch_embeddings = model.forward_features(batch_images).cpu().numpy().astype(np.float32)
 
                 # Reduce dimensions if specified
                 if reduce_last_dims > 0:
@@ -318,17 +379,14 @@ def extend_table_with_metrics(
 
         print("Done with embeddings")
 
+    if add_image_metrics and not add_embeddings:
+        print("Done with image metrics")
+
     # Create schema for new table
     new_table_schema = deepcopy(input_table.rows_schema)
 
     # Get the target schema for instance properties based on instance config
-    if instance_config.instance_column == "bbs":
-        instance_properties_schema = new_table_schema.values["bbs"].values["bb_list"]
-    elif instance_config.instance_column == "segmentations":
-        instance_properties_schema = new_table_schema.values["segmentations"].values["instance_properties"]
-    else:
-        # For other instance types, try to find the schema
-        instance_properties_schema = new_table_schema.values[instance_config.instance_column]
+    instance_properties_schema = new_table_schema.values[instance_column].values[instance_properties_column]
 
     if add_embeddings:
         # Create schema for embedding
@@ -338,45 +396,70 @@ def extend_table_with_metrics(
             size1=tlc.DimensionNumericValue(0, 1000),
         )
 
-        # Create label and confidence schemas
-        if instance_config.label_column_path and not instance_config.allow_label_free:
-            # Use existing label schema as template
-            label_parts = instance_config.label_column_path.split(".")
-            temp_schema = new_table_schema
-            for part in label_parts:
-                temp_schema = temp_schema.values[part]
-            label_schema = deepcopy(temp_schema)
-
-            if background_label is not None:
-                assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
-                label_schema.value.map[background_label] = tlc.MapElement("background")
-        else:
-            # Label-free mode - create integer schema for predicted labels
-            label_schema = tlc.Schema(value=tlc.Int32Value(), writable=False)
-
-        label_schema.writable = False
-        label_schema.size0 = tlc.DimensionNumericValue(0, 1000)
-
-        confidence_schema = tlc.Schema(value=tlc.Float32Value(), writable=False)
-        confidence_schema.size0 = tlc.DimensionNumericValue(0, 1000)
-
         # Add schemas to instance properties
         if "classif_Embedding" not in instance_properties_schema.values:
             instance_properties_schema.add_sub_schema("classif_Embedding", embedding_schema)
-        if "classif_Label" not in instance_properties_schema.values:
-            instance_properties_schema.add_sub_schema("classif_Label", label_schema)
-        if "classif_Confidence" not in instance_properties_schema.values:
-            instance_properties_schema.add_sub_schema("classif_Confidence", confidence_schema)
+
+        # Only add label and confidence schemas for non-pretrained models
+        if not use_pretrained:
+            # Create label and confidence schemas
+            if label_column_path and not instance_config.allow_label_free:
+                # Use existing label schema as template
+                label_parts = label_column_path.split(".")
+                temp_schema = new_table_schema
+                for part in label_parts:
+                    temp_schema = temp_schema.values[part]
+                label_schema = deepcopy(temp_schema)
+
+                if background_label is not None:
+                    assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
+                    label_schema.value.map[background_label] = tlc.MapElement("background")
+            else:
+                # Label-free mode - create integer schema for predicted labels
+                label_schema = tlc.Schema(value=tlc.Int32Value(), writable=False)
+
+            label_schema.writable = False
+            label_schema.size0 = tlc.DimensionNumericValue(0, 1000)
+
+            confidence_schema = tlc.Schema(value=tlc.Float32Value(), writable=False)
+            confidence_schema.size0 = tlc.DimensionNumericValue(0, 1000)
+
+            if "classif_Label" not in instance_properties_schema.values:
+                instance_properties_schema.add_sub_schema("classif_Label", label_schema)
+            if "classif_Confidence" not in instance_properties_schema.values:
+                instance_properties_schema.add_sub_schema("classif_Confidence", confidence_schema)
 
     # Add image metrics schema if needed
     if add_image_metrics:
         # Add new metrics schema if they don't exist
         if "brightness" not in instance_properties_schema.values:
-            instance_properties_schema.add_sub_value("brightness", tlc.schema.Float32Value(), writable=False)
+            instance_properties_schema.add_sub_schema(
+                "brightness",
+                tlc.Schema(
+                    value=tlc.schema.Float32Value(),
+                    writable=False,
+                    size0=tlc.DimensionNumericValue(0, 1000),
+                ),
+            )
         if "contrast" not in instance_properties_schema.values:
-            instance_properties_schema.add_sub_value("contrast", tlc.schema.Float32Value(), writable=False)
+            instance_properties_schema.add_sub_schema(
+                "contrast",
+                tlc.Schema(
+                    value=tlc.schema.Float32Value(),
+                    writable=False,
+                    size0=tlc.DimensionNumericValue(0, 1000),
+                ),
+            )
+
         if "sharpness" not in instance_properties_schema.values:
-            instance_properties_schema.add_sub_value("sharpness", tlc.schema.Float32Value(), writable=False)
+            instance_properties_schema.add_sub_schema(
+                "sharpness",
+                tlc.Schema(
+                    value=tlc.schema.Float32Value(),
+                    writable=False,
+                    size0=tlc.DimensionNumericValue(0, 1000),
+                ),
+            )
 
     # Create TableWriter
     table_writer = tlc.TableWriter(
@@ -395,50 +478,35 @@ def extend_table_with_metrics(
 
     print(f"Processing with: embeddings={add_embeddings}, image_metrics={add_image_metrics}")
 
-    # Build mapping from dataset index to (row_index, instance_index)
-    # This allows us to map embeddings back to the correct instances
-    dataset_index_to_row_instance = []
-    for row_index, row in enumerate(input_table.table_rows):
-        # Get instances for this row using the same logic as the dataset
-        if instance_config.instance_column == "bbs":
-            instances = row["bbs"]["bb_list"]
-        elif instance_config.instance_column == "segmentations":
-            instances = row["segmentations"]["rles"]  # or another identifier
-        else:
-            # For other instance types, get the instances from the configured column
-            instance_data = row[instance_config.instance_column]
-            instances = instance_data if isinstance(instance_data, list) else [instance_data]
-
-        for instance_index in range(len(instances)):
-            dataset_index_to_row_instance.append((row_index, instance_index))
+    # Get mapping from dataset index to (row_index, instance_index) using dataset's own logic
+    dataset_index_to_row_instance = dataset.get_row_instance_mapping()
 
     # Process each row and map embeddings back
     embedding_idx = 0
     for row_index, row in enumerate(tqdm(input_table.table_rows, desc="Processing rows")):
         new_row = row.copy()
 
-        if add_image_metrics:
-            image = Image.open(tlc.Url(row["image"]).to_absolute().to_str())
-
-        # Initialize embedding/label/confidence lists for this row's instances
+        # Initialize embedding/label/confidence/metrics lists for this row's instances
         if add_embeddings:
             if instance_config.instance_column == "bbs":
                 # For BBs, add directly to bb_list items
                 pass  # We'll handle this in the instance loop
-            elif instance_config.instance_column == "segmentations":
+            elif instance_config.instance_type == "segmentation_masks":
                 # Initialize lists for segmentation instance properties
-                if "classif_Embedding" not in new_row["segmentations"]["instance_properties"]:
-                    new_row["segmentations"]["instance_properties"]["classif_Embedding"] = []
-                if "classif_Label" not in new_row["segmentations"]["instance_properties"]:
-                    new_row["segmentations"]["instance_properties"]["classif_Label"] = []
-                if "classif_Confidence" not in new_row["segmentations"]["instance_properties"]:
-                    new_row["segmentations"]["instance_properties"]["classif_Confidence"] = []
+                if "classif_Embedding" not in new_row[instance_config.instance_column]["instance_properties"]:
+                    new_row[instance_config.instance_column]["instance_properties"]["classif_Embedding"] = []
+                # Only initialize label and confidence lists for non-pretrained models
+                if not use_pretrained:
+                    if "classif_Label" not in new_row[instance_config.instance_column]["instance_properties"]:
+                        new_row[instance_config.instance_column]["instance_properties"]["classif_Label"] = []
+                    if "classif_Confidence" not in new_row[instance_config.instance_column]["instance_properties"]:
+                        new_row[instance_config.instance_column]["instance_properties"]["classif_Confidence"] = []
 
         # Get instances for this row
         if instance_config.instance_column == "bbs":
             instances = new_row["bbs"]["bb_list"]
-        elif instance_config.instance_column == "segmentations":
-            instances = new_row["segmentations"]["rles"]
+        elif instance_config.instance_type == "segmentation_masks":
+            instances = new_row[instance_config.instance_column]["rles"]
         else:
             # For other instance types
             instance_data = new_row[instance_config.instance_column]
@@ -457,34 +525,64 @@ def extend_table_with_metrics(
 
             if add_embeddings:
                 if instance_config.instance_column == "bbs":
-                    # Add directly to the bb item
+                    # Add embeddings to the bb item
                     instances[instance_index]["classif_Embedding"] = embeddings_nd[embedding_idx].tolist()
-                    instances[instance_index]["classif_Label"] = int(labels[embedding_idx])
-                    instances[instance_index]["classif_Confidence"] = float(confidences_list[embedding_idx])
-                elif instance_config.instance_column == "segmentations":
-                    # Add to instance properties lists
-                    new_row["segmentations"]["instance_properties"]["classif_Embedding"].append(
+                    # Add labels and confidences only for non-pretrained models
+                    if not use_pretrained:
+                        instances[instance_index]["classif_Label"] = int(labels[embedding_idx])
+                        instances[instance_index]["classif_Confidence"] = float(confidences_list[embedding_idx])
+                elif instance_config.instance_type == "segmentation_masks":
+                    # Add embeddings to instance properties lists
+                    new_row[instance_config.instance_column]["instance_properties"]["classif_Embedding"].append(
                         embeddings_nd[embedding_idx].tolist()
                     )
-                    new_row["segmentations"]["instance_properties"]["classif_Label"].append(int(labels[embedding_idx]))
-                    new_row["segmentations"]["instance_properties"]["classif_Confidence"].append(
-                        float(confidences_list[embedding_idx])
+                    # Add labels and confidences only for non-pretrained models
+                    if not use_pretrained:
+                        new_row[instance_config.instance_column]["instance_properties"]["classif_Label"].append(
+                            int(labels[embedding_idx])
+                        )
+                        new_row[instance_config.instance_column]["instance_properties"]["classif_Confidence"].append(
+                            float(confidences_list[embedding_idx])
+                        )
+
+            if add_image_metrics:
+                metrics = image_metrics_list[embedding_idx]
+                if instance_config.instance_column == "bbs":
+                    # Add metrics to the bb item
+                    instances[instance_index]["brightness"] = metrics["brightness"]
+                    instances[instance_index]["contrast"] = metrics["contrast"]
+                    instances[instance_index]["sharpness"] = metrics["sharpness"]
+                elif instance_config.instance_type == "segmentation_masks":
+                    # Add metrics to instance properties lists
+                    if "brightness" not in new_row[instance_config.instance_column]["instance_properties"]:
+                        new_row[instance_config.instance_column]["instance_properties"]["brightness"] = []
+                    if "contrast" not in new_row[instance_config.instance_column]["instance_properties"]:
+                        new_row[instance_config.instance_column]["instance_properties"]["contrast"] = []
+                    if "sharpness" not in new_row[instance_config.instance_column]["instance_properties"]:
+                        new_row[instance_config.instance_column]["instance_properties"]["sharpness"] = []
+
+                    new_row[instance_config.instance_column]["instance_properties"]["brightness"].append(
+                        metrics["brightness"]
+                    )
+                    new_row[instance_config.instance_column]["instance_properties"]["contrast"].append(
+                        metrics["contrast"]
+                    )
+                    new_row[instance_config.instance_column]["instance_properties"]["sharpness"].append(
+                        metrics["sharpness"]
                     )
 
-                embedding_idx += 1
-
-            # TODO: Add image metrics support for instances
-            # if add_image_metrics:
-            #     metrics = calculate_bb_metrics(image, instance, schema)
-            #     # Add metrics to instance
+            embedding_idx += 1
         # Add the hidden columns to the new row
         for key in hidden_column_names:
             new_row[key] = hidden_columns[key][row_index]
 
-        seg_sample_type = new_table_schema["segmentations"].sample_type_object
-        new_row["segmentations"] = seg_sample_type.sample_from_row(new_row["segmentations"])
+    if instance_config.instance_type == "segmentation_masks":
+        seg_sample_type = new_table_schema[instance_config.instance_column].sample_type_object
+        new_row[instance_config.instance_column] = seg_sample_type.sample_from_row(
+            new_row[instance_config.instance_column]
+        )
         table_writer.add_row(new_row)
 
     # Finalize table
-    table_writer.finalize()
-    return table_writer.url, pacmap_reducer, fit_embeddings
+    table = table_writer.finalize()
+    return table.url, pacmap_reducer, fit_embeddings
