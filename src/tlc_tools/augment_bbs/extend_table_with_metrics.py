@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from copy import deepcopy
-from typing import cast
+from typing import Any, cast, Literal
 
 import cv2
 import numpy as np
@@ -22,6 +22,111 @@ from .label_utils import create_label_mappings
 CLASSIFIER_EMBEDDING = "classif_Embedding"
 CLASSIFIER_LABEL = "classif_Label"
 CLASSIFIER_CONFIDENCE = "classif_Confidence"
+
+
+# ========================
+# SCHEMA FACTORY FUNCTIONS
+# ========================
+
+
+def create_embedding_schema(
+    instance_type: Literal["bounding_boxes", "segmentations"], num_components: int
+) -> tlc.Schema:
+    """Create embedding schema appropriate for instance type."""
+    return tlc.Schema(
+        value=tlc.Float32Value(),
+        size0=tlc.DimensionNumericValue(num_components, num_components),
+        size1=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
+    )
+
+
+def create_label_schema(
+    instance_type: Literal["bounding_boxes", "segmentations"],
+    label_schema_template: tlc.Schema | None = None,
+    background_label: int | None = None,
+) -> tlc.Schema:
+    """Create label schema appropriate for instance type."""
+    if label_schema_template:
+        # Use existing label schema as template
+        label_schema = deepcopy(label_schema_template)
+        if background_label is not None:
+            assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
+            label_schema.value.map[background_label] = tlc.MapElement("background")
+    else:
+        # Label-free mode - create integer schema for predicted labels
+        label_schema = tlc.Schema(value=tlc.Int32Value(), writable=False)
+
+    label_schema.writable = False
+    label_schema.size0 = tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None
+
+    return label_schema
+
+
+def create_confidence_schema(instance_type: Literal["bounding_boxes", "segmentations"]) -> tlc.Schema:
+    """Create confidence schema appropriate for instance type."""
+    return tlc.Schema(
+        value=tlc.Float32Value(),
+        writable=False,
+        size0=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
+    )
+
+
+def create_metrics_schema(instance_type: Literal["bounding_boxes", "segmentations"]) -> tlc.Schema:
+    """Create image metrics schema appropriate for instance type."""
+    return tlc.Schema(
+        value=tlc.schema.Float32Value(),
+        writable=False,
+        size0=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
+    )
+
+
+def add_embedding_schemas_to_instance_properties(
+    instance_properties_schema: tlc.Schema,
+    instance_type: Literal["bounding_boxes", "segmentations"],
+    num_components: int,
+    use_pretrained: bool,
+    label_column_path: str | None,
+    allow_label_free: bool,
+    background_label: int | None,
+    new_table_schema: tlc.Schema,
+) -> None:
+    """Add embedding-related schemas to instance properties schema."""
+    # Create and add embedding schema
+    embedding_schema = create_embedding_schema(instance_type, num_components)
+    if CLASSIFIER_EMBEDDING not in instance_properties_schema.values:
+        instance_properties_schema.add_sub_schema(CLASSIFIER_EMBEDDING, embedding_schema)
+
+    # Only add label and confidence schemas for non-pretrained models
+    if not use_pretrained:
+        # Create label schema
+        label_schema_template = None
+        if label_column_path and not allow_label_free:
+            # Use existing label schema as template
+            label_parts = label_column_path.split(".")
+            temp_schema = new_table_schema
+            for part in label_parts:
+                temp_schema = temp_schema.values[part]
+            label_schema_template = temp_schema
+
+        label_schema = create_label_schema(instance_type, label_schema_template, background_label)
+        confidence_schema = create_confidence_schema(instance_type)
+
+        if CLASSIFIER_LABEL not in instance_properties_schema.values:
+            instance_properties_schema.add_sub_schema(CLASSIFIER_LABEL, label_schema)
+        if CLASSIFIER_CONFIDENCE not in instance_properties_schema.values:
+            instance_properties_schema.add_sub_schema(CLASSIFIER_CONFIDENCE, confidence_schema)
+
+
+def add_metrics_schemas_to_instance_properties(
+    instance_properties_schema: tlc.Schema,
+    instance_type: Literal["bounding_boxes", "segmentations"],
+) -> None:
+    """Add image metrics schemas to instance properties schema."""
+    metrics_schema = create_metrics_schema(instance_type)
+
+    for metric_name in ["brightness", "contrast", "sharpness"]:
+        if metric_name not in instance_properties_schema.values:
+            instance_properties_schema.add_sub_schema(metric_name, metrics_schema)
 
 
 def custom_collate_fn(batch):
@@ -393,77 +498,23 @@ def extend_table_with_metrics(
     instance_properties_schema = new_table_schema.values[instance_column].values[instance_properties_column]
 
     if add_embeddings:
-        # Create schema for embedding
-        embedding_schema = tlc.Schema(
-            value=tlc.Float32Value(),
-            size0=tlc.DimensionNumericValue(num_components, num_components),
-            size1=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
+        add_embedding_schemas_to_instance_properties(
+            instance_properties_schema=instance_properties_schema,
+            instance_type=instance_type,
+            num_components=num_components,
+            use_pretrained=use_pretrained,
+            label_column_path=label_column_path,
+            allow_label_free=instance_config.allow_label_free,
+            background_label=background_label,
+            new_table_schema=new_table_schema,
         )
-
-        # Add schemas to instance properties
-        if CLASSIFIER_EMBEDDING not in instance_properties_schema.values:
-            instance_properties_schema.add_sub_schema(CLASSIFIER_EMBEDDING, embedding_schema)
-
-        # Only add label and confidence schemas for non-pretrained models
-        if not use_pretrained:
-            # Create label and confidence schemas
-            if label_column_path and not instance_config.allow_label_free:
-                # Use existing label schema as template
-                label_parts = label_column_path.split(".")
-                temp_schema = new_table_schema
-                for part in label_parts:
-                    temp_schema = temp_schema.values[part]
-                label_schema = deepcopy(temp_schema)
-
-                if background_label is not None:
-                    assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
-                    label_schema.value.map[background_label] = tlc.MapElement("background")
-            else:
-                # Label-free mode - create integer schema for predicted labels
-                label_schema = tlc.Schema(value=tlc.Int32Value(), writable=False)
-
-            label_schema.writable = False
-            label_schema.size0 = tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None
-
-            confidence_schema = tlc.Schema(value=tlc.Float32Value(), writable=False)
-            confidence_schema.size0 = tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None
-
-            if CLASSIFIER_LABEL not in instance_properties_schema.values:
-                instance_properties_schema.add_sub_schema(CLASSIFIER_LABEL, label_schema)
-            if CLASSIFIER_CONFIDENCE not in instance_properties_schema.values:
-                instance_properties_schema.add_sub_schema(CLASSIFIER_CONFIDENCE, confidence_schema)
 
     # Add image metrics schema if needed
     if add_image_metrics:
-        # Add new metrics schema if they don't exist
-        if "brightness" not in instance_properties_schema.values:
-            instance_properties_schema.add_sub_schema(
-                "brightness",
-                tlc.Schema(
-                    value=tlc.schema.Float32Value(),
-                    writable=False,
-                    size0=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
-                ),
-            )
-        if "contrast" not in instance_properties_schema.values:
-            instance_properties_schema.add_sub_schema(
-                "contrast",
-                tlc.Schema(
-                    value=tlc.schema.Float32Value(),
-                    writable=False,
-                    size0=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
-                ),
-            )
-
-        if "sharpness" not in instance_properties_schema.values:
-            instance_properties_schema.add_sub_schema(
-                "sharpness",
-                tlc.Schema(
-                    value=tlc.schema.Float32Value(),
-                    writable=False,
-                    size0=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
-                ),
-            )
+        add_metrics_schemas_to_instance_properties(
+            instance_properties_schema=instance_properties_schema,
+            instance_type=instance_type,
+        )
 
     # Create TableWriter
     table_writer = tlc.TableWriter(
@@ -485,89 +536,45 @@ def extend_table_with_metrics(
     # Get mapping from dataset index to (row_index, instance_index) using dataset's own logic
     dataset_index_to_row_instance = dataset.get_row_instance_mapping()
 
+    # Create reverse lookup: (row_index, instance_index) -> dataset_index for O(1) lookups
+    row_instance_to_dataset_index = {
+        (row_idx, instance_idx): dataset_idx
+        for dataset_idx, (row_idx, instance_idx) in enumerate(dataset_index_to_row_instance)
+    }
+
     # Process each row and map embeddings back
     embedding_idx = 0
     for row_index, row in enumerate(tqdm(input_table.table_rows, desc="Processing rows")):
         new_row = row.copy()
 
         # Initialize embedding/label/confidence/metrics lists for this row's instances
-        if add_embeddings:
-            if instance_column == "bbs":
-                # For BBs, add directly to bb_list items
-                pass  # We'll handle this in the instance loop
-            elif instance_type == "segmentations":
-                # Initialize lists for segmentation instance properties
-                if CLASSIFIER_EMBEDDING not in new_row[instance_column][instance_properties_column]:
-                    new_row[instance_column][instance_properties_column][CLASSIFIER_EMBEDDING] = []
-                # Only initialize label and confidence lists for non-pretrained models
-                if not use_pretrained:
-                    if CLASSIFIER_LABEL not in new_row[instance_column][instance_properties_column]:
-                        new_row[instance_column][instance_properties_column][CLASSIFIER_LABEL] = []
-                    if CLASSIFIER_CONFIDENCE not in new_row[instance_column][instance_properties_column]:
-                        new_row[instance_column][instance_properties_column][CLASSIFIER_CONFIDENCE] = []
+        if instance_type == "segmentations":
+            # For segmentations, we need to initialize lists in instance_properties
+            initialize_segmentation_lists(
+                new_row, instance_column, instance_properties_column, add_embeddings, add_image_metrics, use_pretrained
+            )
+            # Note: For bounding boxes, we add directly to each bb_list item (no initialization needed)
 
         # Get instances for this row
-        if instance_type == "bounding_boxes":
-            instances = new_row[instance_column][instance_properties_column]
-        elif instance_type == "segmentations":
-            instances = new_row[instance_column]["rles"]
-        else:
-            raise ValueError(f"Invalid instance type: {instance_type}")
+        instances = get_instances_for_row(new_row, instance_column, instance_type, instance_properties_column)
 
         # Process each instance in this row
-        for instance_index in range(len(instances)):
-            # Find the corresponding dataset index for this (row_index, instance_index)
-            while embedding_idx < len(dataset_index_to_row_instance) and dataset_index_to_row_instance[
-                embedding_idx
-            ] != (row_index, instance_index):
-                embedding_idx += 1
+        process_instances_for_row(
+            row_index,
+            new_row,
+            instance_type,
+            instance_column,
+            instance_properties_column,
+            row_instance_to_dataset_index,
+            add_embeddings,
+            add_image_metrics,
+            embeddings_nd,
+            labels,
+            confidences_list,
+            image_metrics_list,
+            use_pretrained,
+        )
 
-            if embedding_idx >= len(dataset_index_to_row_instance):
-                break
-
-            if add_embeddings:
-                if instance_type == "bounding_boxes":
-                    # Add embeddings to the bb item
-                    instances[instance_index][CLASSIFIER_EMBEDDING] = embeddings_nd[embedding_idx].tolist()
-                    # Add labels and confidences only for non-pretrained models
-                    if not use_pretrained:
-                        instances[instance_index][CLASSIFIER_LABEL] = int(labels[embedding_idx])
-                        instances[instance_index][CLASSIFIER_CONFIDENCE] = float(confidences_list[embedding_idx])
-                elif instance_type == "segmentations":
-                    # Add embeddings to instance properties lists
-                    new_row[instance_column][instance_properties_column][CLASSIFIER_EMBEDDING].append(
-                        embeddings_nd[embedding_idx].tolist()
-                    )
-                    # Add labels and confidences only for non-pretrained models
-                    if not use_pretrained:
-                        new_row[instance_column][instance_properties_column][CLASSIFIER_LABEL].append(
-                            int(labels[embedding_idx])
-                        )
-                        new_row[instance_column][instance_properties_column][CLASSIFIER_CONFIDENCE].append(
-                            float(confidences_list[embedding_idx])
-                        )
-
-            if add_image_metrics:
-                metrics = image_metrics_list[embedding_idx]
-                if instance_type == "bounding_boxes":
-                    # Add metrics to the bb item
-                    instances[instance_index]["brightness"] = metrics["brightness"]
-                    instances[instance_index]["contrast"] = metrics["contrast"]
-                    instances[instance_index]["sharpness"] = metrics["sharpness"]
-                elif instance_type == "segmentations":
-                    # Add metrics to instance properties lists
-                    if "brightness" not in new_row[instance_column][instance_properties_column]:
-                        new_row[instance_column][instance_properties_column]["brightness"] = []
-                    if "contrast" not in new_row[instance_column][instance_properties_column]:
-                        new_row[instance_column][instance_properties_column]["contrast"] = []
-                    if "sharpness" not in new_row[instance_column][instance_properties_column]:
-                        new_row[instance_column][instance_properties_column]["sharpness"] = []
-
-                    new_row[instance_column][instance_properties_column]["brightness"].append(metrics["brightness"])
-                    new_row[instance_column][instance_properties_column]["contrast"].append(metrics["contrast"])
-                    new_row[instance_column][instance_properties_column]["sharpness"].append(metrics["sharpness"])
-
-            embedding_idx += 1
         # Add the hidden columns to the new row
         for key in hidden_column_names:
             new_row[key] = hidden_columns[key][row_index]
@@ -581,3 +588,167 @@ def extend_table_with_metrics(
     # Finalize table
     table = table_writer.finalize()
     return table.url, pacmap_reducer, fit_embeddings
+
+
+# ========================
+# INSTANCE DATA ASSIGNMENT HELPERS
+# ========================
+
+
+def initialize_segmentation_lists(
+    new_row: dict,
+    instance_column: str,
+    instance_properties_column: str,
+    add_embeddings: bool,
+    add_image_metrics: bool,
+    use_pretrained: bool,
+) -> None:
+    """Initialize empty lists for segmentation instance properties."""
+    if add_embeddings:
+        if CLASSIFIER_EMBEDDING not in new_row[instance_column][instance_properties_column]:
+            new_row[instance_column][instance_properties_column][CLASSIFIER_EMBEDDING] = []
+
+        # Only initialize label and confidence lists for non-pretrained models
+        if not use_pretrained:
+            if CLASSIFIER_LABEL not in new_row[instance_column][instance_properties_column]:
+                new_row[instance_column][instance_properties_column][CLASSIFIER_LABEL] = []
+            if CLASSIFIER_CONFIDENCE not in new_row[instance_column][instance_properties_column]:
+                new_row[instance_column][instance_properties_column][CLASSIFIER_CONFIDENCE] = []
+
+    if add_image_metrics:
+        for metric_name in ["brightness", "contrast", "sharpness"]:
+            if metric_name not in new_row[instance_column][instance_properties_column]:
+                new_row[instance_column][instance_properties_column][metric_name] = []
+
+
+def assign_data_to_bbox_instance(
+    instance: dict,
+    embedding_data: dict[str, Any] | None = None,
+    metrics_data: dict[str, float] | None = None,
+) -> None:
+    """Assign embeddings and metrics to a single bounding box instance."""
+    if embedding_data:
+        if "embedding" in embedding_data:
+            instance[CLASSIFIER_EMBEDDING] = embedding_data["embedding"]
+        if "label" in embedding_data:
+            instance[CLASSIFIER_LABEL] = embedding_data["label"]
+        if "confidence" in embedding_data:
+            instance[CLASSIFIER_CONFIDENCE] = embedding_data["confidence"]
+
+    if metrics_data:
+        for metric_name, value in metrics_data.items():
+            instance[metric_name] = value
+
+
+def assign_data_to_segmentation_lists(
+    new_row: dict,
+    instance_column: str,
+    instance_properties_column: str,
+    embedding_data: dict[str, Any] | None = None,
+    metrics_data: dict[str, float] | None = None,
+) -> None:
+    """Append embeddings and metrics to segmentation instance property lists."""
+    instance_props = new_row[instance_column][instance_properties_column]
+
+    if embedding_data:
+        if "embedding" in embedding_data:
+            instance_props[CLASSIFIER_EMBEDDING].append(embedding_data["embedding"])
+        if "label" in embedding_data:
+            instance_props[CLASSIFIER_LABEL].append(embedding_data["label"])
+        if "confidence" in embedding_data:
+            instance_props[CLASSIFIER_CONFIDENCE].append(embedding_data["confidence"])
+
+    if metrics_data:
+        for metric_name, value in metrics_data.items():
+            instance_props[metric_name].append(value)
+
+
+def create_embedding_data(
+    embedding_idx: int,
+    embeddings_nd: np.ndarray | None,
+    labels: list[int] | None,
+    confidences_list: list[float] | None,
+    use_pretrained: bool,
+) -> dict[str, Any] | None:
+    """Create embedding data dict for assignment."""
+    if embeddings_nd is None:
+        return None
+
+    data = {"embedding": embeddings_nd[embedding_idx].tolist()}
+
+    if not use_pretrained and labels and confidences_list:
+        data["label"] = int(labels[embedding_idx])
+        data["confidence"] = float(confidences_list[embedding_idx])
+
+    return data
+
+
+def create_metrics_data(
+    embedding_idx: int,
+    image_metrics_list: list[dict[str, float]],
+) -> dict[str, float] | None:
+    """Create metrics data dict for assignment."""
+    if not image_metrics_list or embedding_idx >= len(image_metrics_list):
+        return None
+    return image_metrics_list[embedding_idx]
+
+
+def get_instances_for_row(
+    new_row: dict,
+    instance_column: str,
+    instance_type: Literal["bounding_boxes", "segmentations"],
+    instance_properties_column: str,
+) -> list[Any]:
+    """Get the list of instances for a row based on instance type."""
+    if instance_type == "bounding_boxes":
+        return cast(list[Any], new_row[instance_column][instance_properties_column])
+    elif instance_type == "segmentations":
+        return cast(list[Any], new_row[instance_column]["rles"])
+    else:
+        raise ValueError(f"Invalid instance type: {instance_type}")
+
+
+def process_instances_for_row(
+    row_index: int,
+    new_row: dict,
+    instance_type: Literal["bounding_boxes", "segmentations"],
+    instance_column: str,
+    instance_properties_column: str,
+    row_instance_to_dataset_index: dict[tuple[int, int], int],
+    add_embeddings: bool,
+    add_image_metrics: bool,
+    embeddings_nd: np.ndarray | None = None,
+    labels: list[int] | None = None,
+    confidences_list: list[float] | None = None,
+    image_metrics_list: list[dict[str, float]] | None = None,
+    use_pretrained: bool = False,
+) -> None:
+    """Process all instances for a single row and assign data."""
+    instances = get_instances_for_row(new_row, instance_column, instance_type, instance_properties_column)
+
+    # Process each instance in this row
+    for instance_index in range(len(instances)):
+        # Fast O(1) lookup to find the corresponding dataset index
+        dataset_idx = row_instance_to_dataset_index.get((row_index, instance_index))
+
+        if dataset_idx is None:
+            # This instance wasn't processed by the dataset (shouldn't happen in normal cases)
+            continue
+
+        # Create data objects
+        embedding_data = None
+        metrics_data = None
+
+        if add_embeddings:
+            embedding_data = create_embedding_data(dataset_idx, embeddings_nd, labels, confidences_list, use_pretrained)
+
+        if add_image_metrics:
+            metrics_data = create_metrics_data(dataset_idx, image_metrics_list or [])
+
+        # Assign data based on instance type
+        if instance_type == "bounding_boxes":
+            assign_data_to_bbox_instance(instances[instance_index], embedding_data, metrics_data)
+        elif instance_type == "segmentations":
+            assign_data_to_segmentation_lists(
+                new_row, instance_column, instance_properties_column, embedding_data, metrics_data
+            )
