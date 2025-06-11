@@ -208,6 +208,10 @@ class InstanceConfig:
     @property
     def instance_properties_column(self) -> str:
         """Get the instance properties column."""
+        if self.instance_type == "bounding_boxes":
+            return "bb_list"
+        elif self.instance_type == "segmentations":
+            return "instance_properties"
         if self.label_column_path is None:
             raise ValueError("Label column path is not set")
         return self.label_column_path.split(".")[-2]
