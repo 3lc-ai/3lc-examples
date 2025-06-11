@@ -11,7 +11,7 @@ import torchvision.transforms as transforms
 import tqdm
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
-from tlc_tools.common import infer_torch_device, InstanceConfig, resolve_instance_config
+from tlc_tools.common import infer_torch_device, InstanceConfig
 
 from .instance_crop_dataset import InstanceCropDataset
 from .label_utils import create_label_mappings, get_label_name
@@ -65,7 +65,7 @@ def train_model(
 
     # Resolve instance configuration for training table - backward compatibility with label_column_path
     if instance_config is None:
-        instance_config = resolve_instance_config(
+        instance_config = InstanceConfig.resolve(
             input_table=train_table,
             allow_label_free=False,  # Training always requires labels
         )
@@ -137,9 +137,8 @@ def train_model(
     )
 
     # For validation, we use the same instance_config but need to resolve it for the val_table
-    val_instance_config = resolve_instance_config(
+    val_instance_config = InstanceConfig.resolve(
         input_table=val_table,
-        label_column_path=resolved_label_column_path,
         allow_label_free=False,
     )
 

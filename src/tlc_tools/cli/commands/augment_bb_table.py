@@ -8,7 +8,7 @@ import tlc
 from tlc_tools.augment_bbs.extend_table_with_metrics import extend_table_with_metrics
 from tlc_tools.augment_bbs.finetune_on_crops import train_model
 from tlc_tools.cli import register_tool
-from tlc_tools.common import resolve_instance_config, InstanceConfig
+from tlc_tools.common import InstanceConfig
 
 
 def parse_table_list(table_string):
@@ -128,7 +128,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
 
         # Resolve instance configuration for training table
         train_table = tlc.Table.from_url(args.train_table)
-        training_instance_config = resolve_instance_config(
+        training_instance_config = InstanceConfig.resolve(
             input_table=train_table,
             instance_column=args.instance_column,
             instance_type=args.instance_type,
@@ -189,11 +189,10 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         # Resolve instance configuration for this table
         print("Resolving instance configuration...")
         try:
-            instance_config = resolve_instance_config(
+            instance_config = InstanceConfig.resolve(
                 input_table=input_table,
                 instance_column=args.instance_column,
                 instance_type=args.instance_type,
-                label_column_path=args.label_column_path,
                 allow_label_free=args.allow_label_free,
             )
             print(f"  Instance column: {instance_config.instance_column}")

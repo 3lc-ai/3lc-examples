@@ -14,7 +14,7 @@ from PIL import ImageStat
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from tlc_tools.common import InstanceConfig, validate_instance_config
+from tlc_tools.common import InstanceConfig
 
 from .instance_crop_dataset import InstanceCropDataset
 from .label_utils import create_label_mappings
@@ -99,15 +99,14 @@ def extend_table_with_metrics(
 
     # Resolve instance configuration - backward compatibility with label_column_path
     if instance_config is None:
-        from tlc_tools.common import resolve_instance_config
-
-        # Use legacy label_column_path for backward compatibility
-        instance_config = resolve_instance_config(
+        # Use factory method for new API
+        instance_config = InstanceConfig.resolve(
             input_table=input_table,
             allow_label_free=False,  # Default to requiring labels for backward compatibility
         )
     else:
-        validate_instance_config(input_table, instance_config)
+        # Ensure config is validated for this table (cached, so safe to call multiple times)
+        instance_config._ensure_validated_for_table(input_table)
 
     instance_column = instance_config.instance_column
     instance_type = instance_config.instance_type
@@ -169,8 +168,8 @@ def extend_table_with_metrics(
             # For pretrained model, we don't have custom classes
             num_classes = 1000  # Standard ImageNet classes
             label_map = {}
-            label_2_contiguous_idx = {}
-            contiguous_2_label = {}
+            label_2_contiguous_idx: dict[int, int] = {}
+            contiguous_2_label: dict[int, int] = {}
             background_label = None
             add_background = False
         else:

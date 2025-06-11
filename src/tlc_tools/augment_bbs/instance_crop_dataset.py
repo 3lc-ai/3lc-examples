@@ -12,7 +12,7 @@ from tlc.core.builtins.types.segmentation_helper import SegmentationHelper
 from torch.utils.data import Dataset
 
 from .label_utils import create_label_mappings
-from tlc_tools.common import InstanceConfig, resolve_instance_config
+from tlc_tools.common import InstanceConfig
 
 
 class InstanceCropDataset(Dataset):
@@ -49,11 +49,13 @@ class InstanceCropDataset(Dataset):
 
         # Resolve instance configuration
         if instance_config is None:
-            self.instance_config = resolve_instance_config(
+            self.instance_config = InstanceConfig.resolve(
                 input_table=table,
                 allow_label_free=False,  # Dataset creation usually requires labels
             )
         else:
+            # Ensure config is validated for this table (cached, so safe to call multiple times)
+            instance_config._ensure_validated_for_table(table)
             self.instance_config = instance_config
 
         # Get label mappings if labels are available
@@ -382,7 +384,7 @@ class InstanceCropDataset(Dataset):
         mapping = []
 
         # Group instances by row to determine instance_index_within_row
-        row_instance_counts = {}
+        row_instance_counts: dict[int, int] = {}
 
         for row_idx, instance_data in self.all_instances:
             # Get the instance index within this row (0-based)

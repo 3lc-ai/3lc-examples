@@ -4,7 +4,7 @@ from typing import Callable
 import pytest
 import tlc
 
-from tlc_tools.common import resolve_instance_config
+from tlc_tools.common import InstanceConfig
 
 test_data_dir = Path(__file__).parent.parent.parent / "data"
 
@@ -47,7 +47,7 @@ def coco_128_detection_table() -> tlc.Table:
 @pytest.mark.parametrize("table_factory", [coco_128_segmentation_table, coco_128_detection_table])
 def test_resolve_instance_config(table_factory: Callable[[], tlc.Table]) -> None:
     table, instance_column, label_column_path, task = table_factory()
-    instance_config = resolve_instance_config(table)
+    instance_config = InstanceConfig.resolve(table)
 
     assert instance_config.instance_column == instance_column
     assert instance_config.label_column_path == label_column_path
