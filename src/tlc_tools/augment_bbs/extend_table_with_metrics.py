@@ -397,7 +397,7 @@ def extend_table_with_metrics(
         embedding_schema = tlc.Schema(
             value=tlc.Float32Value(),
             size0=tlc.DimensionNumericValue(num_components, num_components),
-            size1=tlc.DimensionNumericValue(0, 1000),
+            size1=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
         )
 
         # Add schemas to instance properties
@@ -423,10 +423,10 @@ def extend_table_with_metrics(
                 label_schema = tlc.Schema(value=tlc.Int32Value(), writable=False)
 
             label_schema.writable = False
-            label_schema.size0 = tlc.DimensionNumericValue(0, 1000)
+            label_schema.size0 = tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None
 
             confidence_schema = tlc.Schema(value=tlc.Float32Value(), writable=False)
-            confidence_schema.size0 = tlc.DimensionNumericValue(0, 1000)
+            confidence_schema.size0 = tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None
 
             if CLASSIFIER_LABEL not in instance_properties_schema.values:
                 instance_properties_schema.add_sub_schema(CLASSIFIER_LABEL, label_schema)
@@ -442,7 +442,7 @@ def extend_table_with_metrics(
                 tlc.Schema(
                     value=tlc.schema.Float32Value(),
                     writable=False,
-                    size0=tlc.DimensionNumericValue(0, 1000),
+                    size0=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
                 ),
             )
         if "contrast" not in instance_properties_schema.values:
@@ -451,7 +451,7 @@ def extend_table_with_metrics(
                 tlc.Schema(
                     value=tlc.schema.Float32Value(),
                     writable=False,
-                    size0=tlc.DimensionNumericValue(0, 1000),
+                    size0=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
                 ),
             )
 
@@ -461,7 +461,7 @@ def extend_table_with_metrics(
                 tlc.Schema(
                     value=tlc.schema.Float32Value(),
                     writable=False,
-                    size0=tlc.DimensionNumericValue(0, 1000),
+                    size0=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
                 ),
             )
 
