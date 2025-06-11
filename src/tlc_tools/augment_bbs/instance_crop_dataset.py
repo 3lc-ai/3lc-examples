@@ -59,7 +59,7 @@ class InstanceCropDataset(Dataset):
             self.instance_config = instance_config
 
         # Get label mappings if labels are available
-        if self.instance_config.label_column_path:
+        if self.instance_config.label_column_path and not self.instance_config.allow_label_free:
             self.label_map = table.get_simple_value_map(self.instance_config.label_column_path)
             if not self.label_map:
                 raise ValueError(f"No label map found at path: {self.instance_config.label_column_path}")
@@ -94,18 +94,18 @@ class InstanceCropDataset(Dataset):
         for row_idx, row in enumerate(self.table.table_rows):
             if self.instance_config.instance_type == "bounding_boxes":
                 # Handle bounding boxes
-                bbs = row[self.instance_config.instance_column]["bb_list"]
+                bbs = row[self.instance_config.instance_column][self.instance_config.instance_properties_column]
                 for bb in bbs:
                     instances.append((row_idx, {"type": "bbox", "data": bb}))
 
-            elif self.instance_config.instance_type in ["segmentation_masks", "segmentation_polygons"]:
+            elif self.instance_config.instance_type == "segmentations":
                 # Handle segmentation instances
                 instance_data = row[self.instance_config.instance_column]
 
                 if "rles" in instance_data:
                     # RLE format
                     rles = instance_data["rles"]
-                    if self.instance_config.label_column_path:
+                    if self.instance_config.label_column_path and not self.instance_config.allow_label_free:
                         labels = instance_data["instance_properties"]["label"]
                         for rle, label in zip(rles, labels):
                             instances.append((row_idx, {"type": "rle", "rle": rle, "label": label}))

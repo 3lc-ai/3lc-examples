@@ -572,9 +572,10 @@ def extend_table_with_metrics(
         for key in hidden_column_names:
             new_row[key] = hidden_columns[key][row_index]
 
-    if instance_type == "segmentation":
-        seg_sample_type = new_table_schema[instance_column].sample_type_object
-        new_row[instance_column] = seg_sample_type.sample_from_row(new_row[instance_column])
+        if instance_type == "segmentations":
+            seg_sample_type = new_table_schema[instance_column].sample_type_object
+            new_row[instance_column] = seg_sample_type.sample_from_row(new_row[instance_column])
+
         table_writer.add_row(new_row)
 
     # Finalize table
