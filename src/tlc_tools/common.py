@@ -7,7 +7,7 @@ import platform
 import subprocess
 import sys
 import zipfile
-from typing import Literal, cast
+from typing import Literal
 
 import requests
 import tlc
