@@ -424,7 +424,7 @@ def extend_table_with_metrics(
                 current_pos = 0
 
                 print("Reading selected indices...")
-                for chunk_idx in tqdm(range(chunk_count)):
+                for chunk_idx in tqdm(range(chunk_count), delay=1, desc="Reading selected indices", total=chunk_count):
                     chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_idx}.npy")
                     chunk_data = np.load(chunk_path)
                     chunk_start = chunk_idx * CHUNK_SIZE
@@ -443,7 +443,7 @@ def extend_table_with_metrics(
                 current_pos = 0
 
                 print("Reading all embeddings...")
-                for chunk_idx in tqdm(range(chunk_count)):
+                for chunk_idx in tqdm(range(chunk_count), delay=1, desc="Reading all embeddings", total=chunk_count):
                     chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_idx}.npy")
                     chunk_data = np.load(chunk_path)
                     chunk_size = len(chunk_data)
@@ -464,7 +464,7 @@ def extend_table_with_metrics(
         # Process all embeddings in chunks
         print("Transforming all embeddings...")
         current_pos = 0
-        for chunk_idx in tqdm(range(chunk_count)):
+        for chunk_idx in tqdm(range(chunk_count), delay=1, desc="Transforming embeddings", total=chunk_count):
             chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_idx}.npy")
             chunk_data = np.load(chunk_path)
             chunk_embeddings = pacmap_reducer.transform(chunk_data, fit_embeddings)
@@ -536,7 +536,9 @@ def extend_table_with_metrics(
 
     # Process each row and map embeddings back
     embedding_idx = 0
-    for row_index, row in enumerate(tqdm(input_table.table_rows, desc="Processing rows")):
+    for row_index, row in enumerate(
+        tqdm(input_table.table_rows, desc="Processing rows", total=len(input_table.table_rows))
+    ):
         new_row = row.copy()
 
         # Initialize embedding/label/confidence/metrics lists for this row's instances
@@ -546,9 +548,6 @@ def extend_table_with_metrics(
                 new_row, instance_column, instance_properties_column, add_embeddings, add_image_metrics, use_pretrained
             )
             # Note: For bounding boxes, we add directly to each bb_list item (no initialization needed)
-
-        # Get instances for this row
-        instances = get_instances_for_row(new_row, instance_column, instance_type, instance_properties_column)
 
         # Process each instance in this row
         process_instances_for_row(

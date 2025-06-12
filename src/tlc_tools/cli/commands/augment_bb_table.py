@@ -33,7 +33,9 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     # General arguments
     parser.add_argument("--model_name", default="efficientnet_b0", help="Model architecture name")
     parser.add_argument(
-        "--model_checkpoint", default="./models/bb_classifier.pth", help="Path to save/load model checkpoint"
+        "--model_checkpoint",
+        default="./models/instance_classifier.pth",
+        help="Path to save/load model checkpoint (not needed for --allow_label_free mode)",
     )
     parser.add_argument("--transient_data_path", default="./", help="Path for temporary files")
 
@@ -83,7 +85,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     parser.add_argument(
         "--allow_label_free",
         action="store_true",
-        help="Allow processing tables without labels (for anonymous instances)",
+        help="Use pretrained model for embeddings (no training, no checkpoint required)",
     )
     args = parser.parse_args(tool_args)
 
@@ -107,11 +109,12 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             print("Proceeding with table processing only (skipping training)...")
             training_mode = False
 
-    # Check if model checkpoint exists when not training but adding embeddings
-    if not training_mode and not args.disable_embeddings:
+    # Check if model checkpoint exists when not training but adding embeddings (unless label-free mode)
+    if not training_mode and not args.disable_embeddings and not args.allow_label_free:
         if not os.path.exists(args.model_checkpoint):
             raise ValueError(
-                f"Model checkpoint not found at {args.model_checkpoint}. Cannot add embeddings without existing model."
+                f"Model checkpoint not found at {args.model_checkpoint}. Cannot add embeddings without existing model. "
+                f"Use --allow_label_free to use pretrained model instead."
             )
     else:  # In training mode, ensure checkpoint directory exists
         checkpoint_dir = os.path.dirname(args.model_checkpoint)
@@ -202,12 +205,22 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             print(f"Error: Failed to resolve instance configuration: {e}")
             continue
 
+        # Determine model checkpoint: None for label-free (pretrained), actual path otherwise
+        model_checkpoint_to_use = None
+        if not args.disable_embeddings:
+            if args.allow_label_free:
+                model_checkpoint_to_use = None  # Use pretrained model
+                print(f"  Using pretrained {args.model_name} model (label-free mode)")
+            else:
+                model_checkpoint_to_use = args.model_checkpoint  # Use trained model
+                print(f"  Using trained model from: {args.model_checkpoint}")
+
         output_table_url, pacmap_reducer, fit_embeddings = extend_table_with_metrics(
             input_table=input_table,
             output_table_name=output_name,
             add_embeddings=not args.disable_embeddings,  # Enable unless disabled
             add_image_metrics=not args.disable_metrics,  # Enable unless disabled
-            model_checkpoint=args.model_checkpoint if not args.disable_embeddings else None,
+            model_checkpoint=model_checkpoint_to_use,
             model_name=args.model_name,
             batch_size=args.batch_size,
             num_components=args.num_components,
