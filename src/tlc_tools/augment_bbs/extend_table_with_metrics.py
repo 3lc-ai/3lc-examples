@@ -129,19 +129,6 @@ def add_metrics_schemas_to_instance_properties(
             instance_properties_schema.add_sub_schema(metric_name, metrics_schema)
 
 
-def custom_collate_fn(batch):
-    """Custom collate function to handle PIL images alongside tensors.
-
-    :param batch: List of (pil_image, tensor, label) tuples
-    :return: (pil_images_list, tensor_batch, label_batch)
-    """
-    pil_images = [item[0] for item in batch]  # Keep PIL images in a list
-    tensors = torch.stack([item[1] for item in batch])  # Stack tensors normally
-    labels = torch.tensor([item[2] for item in batch])  # Convert labels to tensor
-
-    return pil_images, tensors, labels
-
-
 def calculate_bb_metrics(image, bb, bb_schema):
     """Calculate metrics for a single bounding box crop"""
     # Get the crop using BBCropInterface
@@ -251,7 +238,7 @@ def extend_table_with_metrics(
         shuffle=False,  # Keep deterministic order
         num_workers=num_workers,
         pin_memory=bool(device and device.type == "cuda"),
-        collate_fn=custom_collate_fn,  # Use custom collate for PIL images
+        collate_fn=InstanceCropDataset.collate_fn,  # Use custom collate for PIL images
     )
 
     # Collect embeddings and metrics if needed
@@ -328,7 +315,7 @@ def extend_table_with_metrics(
             batch_size=1,  # Just one sample to peek
             shuffle=False,
             num_workers=0,  # No multiprocessing for peek
-            collate_fn=custom_collate_fn,  # Use custom collate for PIL images
+            collate_fn=InstanceCropDataset.collate_fn,  # Use custom collate for PIL images
         )
         peek_batch = next(iter(peek_dataloader))
         _, peek_tensors, _ = peek_batch  # Unpack: pil_images, tensors, labels

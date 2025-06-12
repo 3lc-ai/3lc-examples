@@ -31,11 +31,12 @@ class InstanceCropDataset(Dataset):
         y_scale_range: tuple[float, float] = (1.0, 1.0),
         x_scale_range: tuple[float, float] = (1.0, 1.0),
         instance_config: InstanceConfig | None = None,
+        include_background_in_labels: bool | None = None,
     ):
         """
         :param table: The input table containing image and instance data.
         :param transform: Transformations to apply to cropped images.
-        :param add_background: Whether to include background patches.
+        :param add_background: Whether to include background patches (sampling behavior).
         :param background_freq: Probability of sampling a background patch.
         :param image_column_name: Name of the image column.
         :param x_max_offset: Maximum offset in the x direction for instance cropping.
@@ -43,6 +44,7 @@ class InstanceCropDataset(Dataset):
         :param y_scale_range: Range of scaling factors in the y direction for instance cropping.
         :param x_scale_range: Range of scaling factors in the x direction for instance cropping.
         :param instance_config: Instance configuration object with column/type/label info.
+        :param include_background_in_labels: Whether to include background class in label mapping (defaults to add_background).
         """
         self.table = table
         self.transform = transform
@@ -59,25 +61,31 @@ class InstanceCropDataset(Dataset):
             instance_config._ensure_validated_for_table(table)
             self.instance_config = instance_config
 
+        # Determine whether to include background in label mapping
+        if include_background_in_labels is None:
+            include_background_in_labels = add_background
+
         # Get label mappings if labels are available
         if self.instance_config.label_column_path and not self.instance_config.allow_label_free:
             self.label_map = table.get_simple_value_map(self.instance_config.label_column_path)
             if not self.label_map:
                 raise ValueError(f"No label map found at path: {self.instance_config.label_column_path}")
 
-            # Create label mappings
-            self.label_2_contiguous_idx, _, self.background_label, self.add_background = create_label_mappings(
+            # Create label mappings (separate from sampling behavior)
+            self.label_2_contiguous_idx, _, self.background_label, label_mapping_has_background = create_label_mappings(
                 self.label_map,
-                include_background=add_background,
+                include_background=include_background_in_labels,
             )
         else:
             # Label-free mode
             self.label_map = None
             self.label_2_contiguous_idx = {}
             self.background_label = None
-            self.add_background = False
+            label_mapping_has_background = False
             add_background = False  # Force disable background for label-free
 
+        # Sampling behavior: only generate background crops if requested AND label mapping supports it
+        self.add_background = add_background and label_mapping_has_background
         self.background_freq = background_freq if self.add_background else 0
         self.random_gen = random.Random(42)  # Fixed seed for reproducibility
         self.x_max_offset = x_max_offset
@@ -184,7 +192,13 @@ class InstanceCropDataset(Dataset):
                 x_scale_range=self.x_scale_range,
             )
 
-            label = instance_data["data"]["label"] if instance_data["data"].get("label") else None
+            # All bounding boxes should have labels in normal training
+            if "label" not in instance_data["data"]:
+                raise ValueError(
+                    f"Bounding box missing 'label' key. Available keys: {list(instance_data['data'].keys())}"
+                )
+
+            label = instance_data["data"]["label"]
 
         elif instance_data["type"] == "rle":
             # Handle RLE segmentation instances
@@ -198,11 +212,19 @@ class InstanceCropDataset(Dataset):
             raise ValueError(f"Unknown instance type: {instance_data['type']}")
 
         # Convert label to tensor
-        if label is not None and self.label_2_contiguous_idx:
+        if self.instance_config.allow_label_free and label is None:
+            # Label-free mode - use PyTorch's default ignore_index
+            label_tensor = torch.tensor(-100, dtype=torch.long)
+        elif label is not None and self.label_2_contiguous_idx:
+            if label not in self.label_2_contiguous_idx:
+                raise KeyError(
+                    f"Label {label} not found in mapping. Available labels: {list(self.label_2_contiguous_idx.keys())}"
+                )
             label_tensor = torch.tensor(self.label_2_contiguous_idx[label], dtype=torch.long)
         else:
-            # Label-free mode or background
-            label_tensor = torch.tensor(-1, dtype=torch.long)
+            raise ValueError(
+                f"Invalid state: label={label}, label_2_contiguous_idx={bool(self.label_2_contiguous_idx)}, allow_label_free={self.instance_config.allow_label_free}"
+            )
 
         return crop, label_tensor
 
@@ -396,6 +418,15 @@ class InstanceCropDataset(Dataset):
 
         return mapping
 
+    @staticmethod
+    def collate_fn(batch):
+        """Custom collate function for this dataset to handle PIL images alongside tensors.
 
-# Backward compatibility alias
-BBCropDataset = InstanceCropDataset
+        :param batch: List of (pil_image, tensor, label) tuples
+        :return: (pil_images_list, tensor_batch, label_batch)
+        """
+        pil_images = [item[0] for item in batch]  # Keep PIL images in a list
+        tensors = torch.stack([item[1] for item in batch])  # Stack tensors normally
+        labels = torch.tensor([item[2] for item in batch])  # Convert labels to tensor
+
+        return pil_images, tensors, labels
