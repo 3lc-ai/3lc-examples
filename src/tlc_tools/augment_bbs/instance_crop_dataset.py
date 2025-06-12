@@ -36,15 +36,22 @@ class InstanceCropDataset(Dataset):
         """
         :param table: The input table containing image and instance data.
         :param transform: Transformations to apply to cropped images.
-        :param add_background: Whether to include background patches (sampling behavior).
+        :param add_background: Whether to include background patches (sampling
+            behavior).
         :param background_freq: Probability of sampling a background patch.
         :param image_column_name: Name of the image column.
-        :param x_max_offset: Maximum offset in the x direction for instance cropping.
-        :param y_max_offset: Maximum offset in the y direction for instance cropping.
-        :param y_scale_range: Range of scaling factors in the y direction for instance cropping.
-        :param x_scale_range: Range of scaling factors in the x direction for instance cropping.
-        :param instance_config: Instance configuration object with column/type/label info.
-        :param include_background_in_labels: Whether to include background class in label mapping (defaults to add_background).
+        :param x_max_offset: Maximum offset in the x direction for instance
+            cropping.
+        :param y_max_offset: Maximum offset in the y direction for instance
+            cropping.
+        :param y_scale_range: Range of scaling factors in the y direction for
+            instance cropping.
+        :param x_scale_range: Range of scaling factors in the x direction for
+            instance cropping.
+        :param instance_config: Instance configuration object with
+            column/type/label info.
+        :param include_background_in_labels: Whether to include background class
+            in label mapping (defaults to add_background).
         """
         self.table = table
         self.transform = transform
@@ -230,7 +237,8 @@ class InstanceCropDataset(Dataset):
             label_tensor = torch.tensor(self.label_2_contiguous_idx[label], dtype=torch.long)
         else:
             raise ValueError(
-                f"Invalid state: label={label}, label_2_contiguous_idx={bool(self.label_2_contiguous_idx)}, allow_label_free={self.instance_config.allow_label_free}"
+                f"Invalid state: label={label}, label_2_contiguous_idx={bool(self.label_2_contiguous_idx)}, "
+                f"allow_label_free={self.instance_config.allow_label_free}"
             )
 
         return crop, label_tensor
@@ -325,7 +333,10 @@ class InstanceCropDataset(Dataset):
     def _generate_background(self):
         """Generate a background patch (only works with bounding box instances)."""
         if self.instance_config.instance_type != "bounding_boxes":
-            warnings.warn("Background generation only supported for bounding boxes. Returning random instance.")
+            warnings.warn(
+                "Background generation only supported for bounding boxes. Returning random instance.",
+                stacklevel=2,
+            )
             return self._get_instance_crop(self.random_gen.randint(0, len(self.all_instances) - 1))
 
         # Select a random row for background
@@ -350,7 +361,7 @@ class InstanceCropDataset(Dataset):
             for bb in bbs
         ]
 
-        for i in range(max_attempts):
+        for _attempt_idx in range(max_attempts):
             # Pick a random bounding box from all_instances (only BB instances)
             bbox_instances = [inst for inst in self.all_instances if inst[1]["type"] == "bbox"]
             if not bbox_instances:
@@ -370,7 +381,7 @@ class InstanceCropDataset(Dataset):
             if not any(self._intersects(proposed_box, gt_box) for gt_box in gt_boxes_xywh):
                 break
 
-        if i == max_attempts - 1:
+        if _attempt_idx == max_attempts - 1:
             # Return a 100x100 black square if no valid background patch is found
             warnings.warn(
                 "No valid background patch found. Returning a black square. Please check your data.",
@@ -416,7 +427,7 @@ class InstanceCropDataset(Dataset):
         # Group instances by row to determine instance_index_within_row
         row_instance_counts: dict[int, int] = {}
 
-        for row_idx, instance_data in self.all_instances:
+        for row_idx, _ in self.all_instances:
             # Get the instance index within this row (0-based)
             instance_index_within_row = row_instance_counts.get(row_idx, 0)
             row_instance_counts[row_idx] = instance_index_within_row + 1

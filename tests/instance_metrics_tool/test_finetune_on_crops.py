@@ -1,11 +1,12 @@
 """Basic integration tests for finetune_on_crops functionality"""
 
-from pathlib import Path
-import tempfile
 import os
+import tempfile
+from pathlib import Path
+
 import tlc
-from tlc_tools.augment_bbs.finetune_on_crops import train_model, count_instances, compute_instance_weights
-from tlc_tools.augment_bbs.instance_config import InstanceConfig
+
+from tlc_tools.augment_bbs.finetune_on_crops import train_model
 
 test_data_dir = Path(__file__).parent.parent.parent / "data"
 

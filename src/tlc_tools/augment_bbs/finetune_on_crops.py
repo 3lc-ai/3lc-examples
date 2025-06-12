@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 import numpy as np
+import timm
 import tlc
 import torch
 import torch.nn as nn
@@ -10,10 +11,9 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 import tqdm
 from torch.utils.data import DataLoader, WeightedRandomSampler
-import timm
 
-from tlc_tools.common import infer_torch_device
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
+from tlc_tools.common import infer_torch_device
 
 from .instance_crop_dataset import InstanceCropDataset
 from .label_utils import create_label_mappings, get_label_name
@@ -75,7 +75,7 @@ def train_model(
     if instance_config.label_column_path is None:
         raise ValueError("Training requires labels, but no label column was found")
 
-    print(f"Instance configuration for training:")
+    print("Instance configuration for training:")
     print(f"  Instance column: {instance_config.instance_column}")
     print(f"  Instance type: {instance_config.instance_type}")
     print(f"  Label column path: {instance_config.label_column_path}")

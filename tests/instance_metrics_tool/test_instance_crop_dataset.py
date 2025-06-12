@@ -112,6 +112,7 @@ def test_debug_interactive_crop_inspector():
     Usage: pytest tests/instance_metrics_tool/test_instance_crop_dataset.py::test_debug_interactive_crop_inspector -s
     """
     import matplotlib.pyplot as plt
+
     from tlc_tools.augment_bbs.label_utils import get_label_name
 
     # Configuration - removed segmentation with background
@@ -137,7 +138,7 @@ def test_debug_interactive_crop_inspector():
                 task=task,
                 project_name="Interactive",
                 dataset_name="Interactive",
-                table_name=f"interactive_{task}_{'lf' if label_free else 'normal'}_{'bg' if add_background else 'nobg'}",
+                table_name=f"interactive_{task}_{'lf' if label_free else 'norm'}_{'bg' if add_background else 'nobg'}",
             )
 
             config = InstanceConfig.resolve(
