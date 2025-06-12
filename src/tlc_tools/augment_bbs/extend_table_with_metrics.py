@@ -535,7 +535,6 @@ def extend_table_with_metrics(
     }
 
     # Process each row and map embeddings back
-    embedding_idx = 0
     for row_index, row in enumerate(
         tqdm(input_table.table_rows, desc="Processing rows", total=len(input_table.table_rows))
     ):

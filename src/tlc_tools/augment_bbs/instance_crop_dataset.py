@@ -61,6 +61,13 @@ class InstanceCropDataset(Dataset):
             instance_config._ensure_validated_for_table(table)
             self.instance_config = instance_config
 
+        # Check for unsupported combination: segmentation with background
+        if self.instance_config.instance_type == "segmentations" and add_background:
+            raise ValueError(
+                "Background generation is not supported for segmentation instances. "
+                "Background patches can only be generated for bounding box instances."
+            )
+
         # Determine whether to include background in label mapping
         if include_background_in_labels is None:
             include_background_in_labels = add_background
