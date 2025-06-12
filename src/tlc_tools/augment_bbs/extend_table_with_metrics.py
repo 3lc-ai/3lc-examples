@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from copy import deepcopy
-from typing import Any, cast, Literal
+from typing import Any, Literal, cast
 
 import cv2
 import numpy as np
@@ -14,7 +14,7 @@ from PIL import ImageStat
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from tlc_tools.common import InstanceConfig
+from tlc_tools.augment_bbs.instance_config import InstanceConfig
 
 from .instance_crop_dataset import InstanceCropDataset
 from .label_utils import create_label_mappings

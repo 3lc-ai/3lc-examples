@@ -2,11 +2,10 @@
 
 from pathlib import Path
 
-import pytest
 import tlc
 
+from tlc_tools.augment_bbs.instance_config import InstanceConfig
 from tlc_tools.augment_bbs.instance_crop_dataset import InstanceCropDataset
-from tlc_tools.common import InstanceConfig
 
 test_data_dir = Path(__file__).parent.parent.parent / "data"
 coco128_annotations_file = test_data_dir / "coco128" / "annotations.json"

@@ -1,9 +1,11 @@
 """Tests for extend_table_with_instance_metrics.py"""
 
 from pathlib import Path
+
 import tlc
+
 from tlc_tools.augment_bbs.extend_table_with_metrics import extend_table_with_metrics
-from tlc_tools.common import InstanceConfig
+from tlc_tools.augment_bbs.instance_config import InstanceConfig
 
 test_data_dir = Path(__file__).parent.parent.parent / "data"
 coco128_annotations_file = test_data_dir / "coco128" / "annotations.json"

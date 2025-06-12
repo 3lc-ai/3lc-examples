@@ -11,8 +11,9 @@ from PIL import Image
 from tlc.core.builtins.types.segmentation_helper import SegmentationHelper
 from torch.utils.data import Dataset
 
+from tlc_tools.augment_bbs.instance_config import InstanceConfig
+
 from .label_utils import create_label_mappings
-from tlc_tools.common import InstanceConfig
 
 
 class InstanceCropDataset(Dataset):

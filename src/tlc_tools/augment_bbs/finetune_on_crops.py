@@ -11,8 +11,9 @@ import torchvision.transforms as transforms
 import tqdm
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
-from tlc_tools.common import infer_torch_device, InstanceConfig
+from tlc_tools.common import infer_torch_device
 
+from .instance_config import InstanceConfig
 from .instance_crop_dataset import InstanceCropDataset
 from .label_utils import create_label_mappings, get_label_name
 
