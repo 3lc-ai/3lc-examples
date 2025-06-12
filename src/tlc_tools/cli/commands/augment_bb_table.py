@@ -18,7 +18,7 @@ def parse_table_list(table_string):
     return None
 
 
-@register_tool(description="Augment tables with bounding box embeddings and image metrics")
+@register_tool(description="Augment tables with per-instance embeddings and image metrics")
 def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     """
     Main function to process tables
@@ -26,7 +26,9 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     :param args: List of arguments. If None, will parse from command line.
     :param prog: Program name. If None, will use the tool name.
     """
-    parser = argparse.ArgumentParser(prog=prog, description="Extend tables with embeddings and image metrics")
+    parser = argparse.ArgumentParser(
+        prog=prog, description="Extend tables with per-instance embeddings and image metrics"
+    )
 
     # General arguments
     parser.add_argument("--model_name", default="efficientnet_b0", help="Model architecture name")
@@ -44,7 +46,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         "--include_background",
         action="store_true",
         default=False,
-        help="Whether to train with creating background Bounding boxes",
+        help="Whether to train with creating background instances (bounding boxes only)",
     )
 
     # Table extension arguments
@@ -74,12 +76,9 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     )
     parser.add_argument(
         "--instance_type",
-        choices=["bounding_boxes", "segmentation_masks", "segmentation_polygons", "auto"],
+        choices=["bounding_boxes", "segmentations", "auto"],
         default="auto",
         help="Type of instances to process (auto-detect by default)",
-    )
-    parser.add_argument(
-        "--label_column_path", help="Path to labels within instance column (auto-infer if not specified)"
     )
     parser.add_argument(
         "--allow_label_free",
