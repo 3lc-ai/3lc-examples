@@ -219,11 +219,11 @@ def extend_table_with_metrics(
     instance_properties_column = instance_config.instance_properties_column
 
     # Check if we have labels when needed for embeddings
-    # if add_embeddings and not instance_config.allow_label_free and instance_config.label_column_path is None:
-    #     raise ValueError("Model checkpoint required for embeddings, and labels required for training model")
-
-    # if add_embeddings and model_checkpoint is None and not instance_config.allow_label_free:
-    #     raise ValueError("Model checkpoint required for embeddings (or use allow_label_free=True for pretrained model)")
+    if add_embeddings and not instance_config.allow_label_free and instance_config.label_column_path is None:
+        raise ValueError(
+            "Model checkpoint required for embeddings, and labels required for training model "
+            "(or use allow_label_free=True for pretrained model)"
+        )
 
     # Create dataset using the refactored BBCropDataset
     image_transform = transforms.Compose(
@@ -258,6 +258,9 @@ def extend_table_with_metrics(
     labels: list[int] = []
     confidences_list: list[float] = []
     image_metrics_list: list[dict[str, float]] = []
+    embeddings_nd: np.ndarray | None = None  # Initialize outside conditional block
+    use_pretrained: bool = False  # Initialize outside conditional block
+
     if add_embeddings:
         # Load model
         if device is None:
@@ -279,6 +282,7 @@ def extend_table_with_metrics(
             add_background = False
         else:
             # Load checkpoint first to get number of classes
+            assert model_checkpoint is not None, "Model checkpoint required for embeddings"
             checkpoint = torch.load(cast(str, model_checkpoint), map_location=device, weights_only=True)
             num_classes = checkpoint["classifier.bias"].shape[0]
 
@@ -313,7 +317,7 @@ def extend_table_with_metrics(
         chunk_dir = os.path.join(os.path.expanduser("~"), ".tlc_temp_embeddings")
         os.makedirs(chunk_dir, exist_ok=True)
 
-        # Process batches and save chunks
+        # Initialize chunking variables
         current_chunk = []
         chunk_count = 0
         print("Processing batches and saving chunks...")
@@ -405,6 +409,7 @@ def extend_table_with_metrics(
                     current_chunk = current_chunk[CHUNK_SIZE:]
                     chunk_count += 1
 
+    if add_embeddings:
         # Save final chunk if any
         if current_chunk:
             chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_count}.npy")
