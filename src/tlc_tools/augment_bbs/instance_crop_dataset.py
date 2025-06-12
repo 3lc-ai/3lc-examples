@@ -212,8 +212,8 @@ class InstanceCropDataset(Dataset):
             raise ValueError(f"Unknown instance type: {instance_data['type']}")
 
         # Convert label to tensor
-        if self.instance_config.allow_label_free and label is None:
-            # Label-free mode - use PyTorch's default ignore_index
+        if self.instance_config.allow_label_free:
+            # Label-free mode - always use PyTorch's default ignore_index, regardless of actual label value
             label_tensor = torch.tensor(-100, dtype=torch.long)
         elif label is not None and self.label_2_contiguous_idx:
             if label not in self.label_2_contiguous_idx:

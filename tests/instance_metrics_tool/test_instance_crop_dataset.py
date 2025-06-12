@@ -45,7 +45,7 @@ def test_instance_crop_dataset_detection_label_free():
     )
 
     config = InstanceConfig.resolve(table, allow_label_free=True)
-    dataset = InstanceCropDataset(table, instance_config=config, label_free=True)
+    dataset = InstanceCropDataset(table, instance_config=config)
 
     assert len(dataset) > 0
     pil_image, tensor, label = dataset[0]
@@ -88,7 +88,7 @@ def test_instance_crop_dataset_segmentation_label_free():
     )
 
     config = InstanceConfig.resolve(table, allow_label_free=True)
-    dataset = InstanceCropDataset(table, instance_config=config, label_free=True)
+    dataset = InstanceCropDataset(table, instance_config=config)
 
     assert len(dataset) > 0
     pil_image, tensor, label = dataset[0]
