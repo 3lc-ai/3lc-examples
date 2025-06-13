@@ -64,7 +64,7 @@ class InstanceConfig:
         instance_column: str | None = None,
         instance_type: Literal["bounding_boxes", "segmentations", "auto"] = "auto",
         allow_label_free: bool = False,
-    ) -> "InstanceConfig":
+    ) -> InstanceConfig:
         """Resolve and validate instance configuration for a table.
 
         This is the main entry point for instance configuration. It will:
