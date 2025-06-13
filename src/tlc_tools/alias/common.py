@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+
 import pyarrow as pa
 import pyarrow.parquet as pq
 from tlc.core import Run, Table, Url, UrlAdapterRegistry

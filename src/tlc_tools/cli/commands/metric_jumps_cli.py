@@ -1,4 +1,4 @@
-"""CLI command for computing travel distances."""
+"""CLI command for computing metric jumps."""
 
 from __future__ import annotations
 
@@ -6,42 +6,43 @@ import argparse
 import logging
 
 import tlc
-from tlc_tools.travel_distance import compute_metric_travel_distances
+
 from tlc_tools.cli import register_tool
 from tlc_tools.cli.logging import setup_logging
+from tlc_tools.metric_jumps import compute_metric_jumps, compute_metric_jumps_on_run
 
 logger = logging.getLogger(__name__)
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
-    """Create and configure the argument parser for the travel distance tool.
+    """Create and configure the argument parser for the metric jumps tool.
 
     Returns:
         Configured argument parser with options.
     """
     parser = argparse.ArgumentParser(
-        prog="travel-distance",
-        description="""Compute travel distances per example per metric across the temporal column and add the results as new metrics tables on the run.
+        prog="metric-jumps",
+        description="""Compute metric jumps per example per metric across the temporal column and add the results as new metrics tables on the run.
 
 Examples:
-    # Compute travel distances for multiple metrics
-    3lc travel-distance <run_url> --metric-column-names "loss,accuracy" --temporal-column-name epoch
+    # Compute metric jumps for multiple metrics
+    3lc metric-jumps <run_url> --metric-column-names "loss,accuracy" --temporal-column-name epoch
 
     # Use a different distance metric
-    3lc travel-distance <run_url> --metric-column-names "loss" --metric cosine
+    3lc metric-jumps <run_url> --metric-column-names "loss" --metric cosine
 
     # Use default settings (euclidean distance, epoch as temporal column)
-    3lc travel-distance <run_url> --metric-column-names "loss" """,
+    3lc metric-jumps <run_url> --metric-column-names "loss" """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     # Required arguments
-    parser.add_argument("run_url", help="URL of the run to compute travel distances for")
+    parser.add_argument("run_url", help="URL of the run to compute metric jumps for")
     parser.add_argument(
         "--metric-column-names",
         "-m",
         required=True,
-        help="Comma-separated list of metric column names to compute travel distances for",
+        help="Comma-separated list of metric column names to compute metric jumps for",
     )
 
     # Optional arguments
@@ -95,9 +96,9 @@ def parse_metric_columns(columns_arg: str) -> list[str]:
     return columns
 
 
-@register_tool(name="travel_distance", description="Compute travel distances of metrics across time steps")
+@register_tool(name="metric_jumps", description="Compute metric jumps of metrics across time steps")
 def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
-    """Main function to compute travel distances.
+    """Main function to compute metric jumps.
 
     Args:
         tool_args: List of arguments. If None, will parse from command line.
@@ -116,19 +117,20 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         # Get the run
         run = tlc.Run.from_url(args.run_url)
 
-        # Compute travel distances
-        compute_metric_travel_distances(
+        # Compute metric jumps
+        compute_metric_jumps_on_run(
             run=run,
             metric_column_names=metric_names,
             temporal_column_name=args.temporal_column_name,
             distance_fn=args.metric,
         )
 
-        logger.info(f"Successfully computed travel distances for metrics: {', '.join(metric_names)}")
+        logger.info(f"Successfully computed metric jumps for metrics: {', '.join(metric_names)}")
 
     except Exception as e:
-        logger.error(f"Error computing travel distances: {str(e)}")
+        logger.error(f"Error computing metric jumps: {str(e)}")
         raise
+
 
 if __name__ == "__main__":
     main()

@@ -32,4 +32,4 @@ def setup_logging(verbosity: int = 0, quiet: bool = False, logger_name: str = "t
     logger.addHandler(console_handler)
 
     # Prevent duplicate logging
-    logger.propagate = False 
+    logger.propagate = False

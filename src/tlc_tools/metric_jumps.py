@@ -1,28 +1,28 @@
-"""Compute travel distances of metrics across time steps."""
+"""Compute metric jumps of metrics across time steps."""
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, Sequence, cast
+from typing import Any, Literal, cast
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import torch
-from tlc.core.objects.mutable_objects.run import Run
-from tlc.core.schema import Schema, Float32Value
-from tlc.core.builtins.constants.column_names import EXAMPLE_ID, RUN_STATUS, RUN_STATUS_COMPLETED
 from tlc.client.reduce.reduce import _unique_datasets
+from tlc.core.builtins.constants.column_names import EXAMPLE_ID, RUN_STATUS, RUN_STATUS_COMPLETED
+from tlc.core.objects.mutable_objects.run import Run
 from tlc.core.objects.table import Table
+from tlc.core.schema import Float32Value, Schema
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class TravelDistanceResult:
-    """Result of travel distance computation.
+class MetricJumpsResult:
+    """Result of metric jumps computation.
 
     The structure supports multiple metrics being computed in the same call.
     While we use "epoch" in variable names for clarity, this actually represents
@@ -42,13 +42,14 @@ class TravelDistanceResult:
     # The actual temporal column name used (e.g., "epoch", "step", etc.)
     temporal_column_name: str
 
-def compute_metric_travel_distances(
+
+def compute_metric_jumps_on_run(
     run: Run,
     metric_column_names: str | list[str],
     temporal_column_name: str = "epoch",
     distance_fn: Callable[[Any, Any], float] | Literal["euclidean", "cosine", "l1", "l2"] = "euclidean",
 ) -> None:
-    """Compute the travel distances of metrics across time in their original space.
+    """Compute the jumps of metrics across time in their original space.
 
     Args:
         metric_column_names: Name of the columns containing the metric values
@@ -61,8 +62,8 @@ def compute_metric_travel_distances(
         metric_column_names = [metric_column_names]
 
     try:
-        # Compute travel distances
-        results = compute_travel_distances(
+        # Compute jumps
+        results = compute_metric_jumps(
             run.metrics_tables,
             metric_column_names,
             temporal_column_name,
@@ -89,7 +90,7 @@ def compute_metric_travel_distances(
                     for metric_name in metric_column_names:
                         jump = result.metric_jumps[metric_name][example_idx, epoch_idx]
                         data[f"{metric_name}_jump"].append(jump)
-                    data["example_id"].append(example_id)
+                    data[EXAMPLE_ID].append(example_id)
                     data[temporal_column_name].append(epoch)
 
             # Create schemas for each metric's jumps
@@ -111,28 +112,28 @@ def compute_metric_travel_distances(
             urls.append(metric_infos[0]["url"])
 
         logger.info(
-            f"Travel distance jumps of {', '.join(metric_column_names)} over {temporal_column_name} computed for {len(urls)} streams"
+            f"Metric jumps of {', '.join(metric_column_names)} over {temporal_column_name} computed for {len(urls)} streams"
         )
         run.update_attribute(RUN_STATUS, RUN_STATUS_COMPLETED)
 
     except Exception as e:
-        logger.warning(f"Encountered problem when computing travel distances: {e}")
+        logger.warning(f"Encountered problem when computing metric jumps: {e}")
 
 
-def compute_travel_distances(
+def compute_metric_jumps(
     metrics_tables: list[Table],
     metric_column_names: str | Sequence[str],
     temporal_column_name: str = "epoch",
     distance_fn: Callable[[Any, Any], float] | Literal["euclidean", "cosine", "l1", "l2"] = "euclidean",
-) -> dict[str, TravelDistanceResult]:
-    """Compute travel distances for metrics across time steps.
+) -> dict[str, MetricJumpsResult]:
+    """Compute metric jumps for metrics across time steps.
 
     :param metrics_tables: List of tables containing the metrics data
     :param metric_column_names: Name or list of names of columns containing the metric values
     :param temporal_column_name: Name of the column containing the temporal information
     :param distance_fn: Either a custom distance function or a predefined metric name
 
-    :returns: A dictionary mapping foreign table URLs to TravelDistanceResult objects containing
+    :returns: A dictionary mapping foreign table URLs to MetricJumpsResult objects containing
         the computed jumps and necessary mappings for example IDs and epochs.
     """
     if isinstance(metric_column_names, str):
@@ -141,7 +142,7 @@ def compute_travel_distances(
     # Get the distance function
     dist_fn = _get_distance_function(distance_fn)
 
-    results: dict[str, TravelDistanceResult] = {}
+    results: dict[str, MetricJumpsResult] = {}
 
     for foreign_table_url, tables in _unique_datasets(metrics_tables):
         # Filter tables to only those containing required columns
@@ -228,7 +229,7 @@ def compute_travel_distances(
                     jump = dist_fn(current_value, next_value)
                     metric_jumps[metric_name][example_id_to_idx[example_id], epoch_to_idx[next_epoch]] = jump
 
-        results[str(foreign_table_url)] = TravelDistanceResult(
+        results[str(foreign_table_url)] = MetricJumpsResult(
             metric_jumps=metric_jumps,
             example_id_to_idx=example_id_to_idx,
             epoch_to_idx=epoch_to_idx,
@@ -334,6 +335,7 @@ def _l2_distance(a: Any, b: Any) -> float:
         L2 distance between a and b
     """
     return _euclidean_distance(a, b)
+
 
 def sort_tables_by_constant_column(tables: list[Table], column_name: str, reverse: bool = False) -> list[Table]:
     """Sort a list of tables by a constant column.

@@ -1,20 +1,19 @@
-"""Tests for travel distance computation."""
+"""Tests for metric jumps computation."""
 
 from typing import Any, cast
 
-import numpy as np
 import pytest
+from tlc.core.builtins.schemas.schemas import ForeignTableIdSchema
+from tlc.core.objects.table import Table
 
-from tlc_tools.travel_distance import (
-    TravelDistanceResult,
+from tlc_tools.metric_jumps import (
+    MetricJumpsResult,
     _cosine_distance,
     _euclidean_distance,
     _l1_distance,
     _l2_distance,
-    compute_travel_distances,
+    compute_metric_jumps,
 )
-from tlc.core.builtins.schemas.schemas import ForeignTableIdSchema
-from tlc.core.objects.table import Table
 
 
 def create_test_table(
@@ -64,8 +63,8 @@ def test_distance_functions() -> None:
     assert _l2_distance(a, b) == pytest.approx(5.196152422706632)
 
 
-def test_compute_travel_distances_basic() -> None:
-    """Test basic travel distance computation."""
+def test_compute_metric_jumpss_basic() -> None:
+    """Test basic metric jumps computation."""
     # Create test tables with increasing values
     tables = [
         create_test_table(1, [1.0, 2.0], [1, 2], "../train"),
@@ -73,12 +72,12 @@ def test_compute_travel_distances_basic() -> None:
         create_test_table(3, [3.0, 4.0], [1, 2], "../train"),
     ]
 
-    results = compute_travel_distances(tables, "metric", "epoch", "euclidean")
+    results = compute_metric_jumps(tables, "metric", "epoch", "euclidean")
 
     # Check that we got results for each example
     assert len(results) == 1  # One stream
     result = next(iter(results.values()))
-    assert isinstance(result, TravelDistanceResult)
+    assert isinstance(result, MetricJumpsResult)
     assert result.temporal_column_name == "epoch"
     assert result.example_ids == [1, 2]
     assert result.epochs == [1, 2, 3]
@@ -99,8 +98,8 @@ def test_compute_travel_distances_basic() -> None:
     assert result.epoch_to_idx == {1: 0, 2: 1, 3: 2}  # Maps epochs to array indices
 
 
-def test_compute_travel_distances_skips() -> None:
-    """Test that travel distance computation skips invalid tables."""
+def test_compute_metric_jumpss_skips() -> None:
+    """Test that metric jumps computation skips invalid tables."""
     # Create test tables with some invalid ones
     tables = [
         create_test_table(1, [1.0, 2.0], [1, 2], "../train"),
@@ -108,11 +107,11 @@ def test_compute_travel_distances_skips() -> None:
         create_test_table(2, [3.0, 4.0], [1, 2], "../train"),
     ]
 
-    results = compute_travel_distances(tables, "metric", "epoch", "euclidean")
+    results = compute_metric_jumps(tables, "metric", "epoch", "euclidean")
 
     # Should only compute jumps between epochs 1 and 2
     result = next(iter(results.values()))
-    assert isinstance(result, TravelDistanceResult)
+    assert isinstance(result, MetricJumpsResult)
     assert result.example_ids == [1, 2]
     assert result.epochs == [1, 2]
 
@@ -123,8 +122,8 @@ def test_compute_travel_distances_skips() -> None:
     assert metric_jumps[1, 1] == 2.0  # Example 2, epoch 2 (4-2)
 
 
-def test_compute_travel_distances_missing_columns() -> None:
-    """Test that travel distance computation handles missing columns."""
+def test_compute_metric_jumpss_missing_columns() -> None:
+    """Test that metric jumps computation handles missing columns."""
     # Create test tables with missing columns
     tables = [
         create_test_table(1, [1.0, 2.0], [1, 2], "../train"),
@@ -132,11 +131,11 @@ def test_compute_travel_distances_missing_columns() -> None:
         create_test_table(2, [3.0, 4.0], [1, 2], "../train"),
     ]
 
-    results = compute_travel_distances(tables, "metric", "epoch", "euclidean")
+    results = compute_metric_jumps(tables, "metric", "epoch", "euclidean")
 
     # Should skip the empty table and only compute jumps between epochs 1 and 2
     result = next(iter(results.values()))
-    assert isinstance(result, TravelDistanceResult)
+    assert isinstance(result, MetricJumpsResult)
     assert result.example_ids == [1, 2]
     assert result.epochs == [1, 2]
 
@@ -147,8 +146,8 @@ def test_compute_travel_distances_missing_columns() -> None:
     assert metric_jumps[1, 1] == 2.0  # Example 2, epoch 2 (4-2)
 
 
-def test_compute_travel_distances_different_example_ids() -> None:
-    """Test that travel distance computation handles different example IDs."""
+def test_compute_metric_jumpss_different_example_ids() -> None:
+    """Test that metric jumps computation handles different example IDs."""
     # Create test tables with different example IDs
     tables = [
         create_test_table(1, [1.0, 2.0], [1, 2], "../train"),
@@ -156,11 +155,11 @@ def test_compute_travel_distances_different_example_ids() -> None:
     ]
 
     with pytest.raises(ValueError, match="different example IDs"):
-        compute_travel_distances(tables, "metric", "epoch", "euclidean")
+        compute_metric_jumps(tables, "metric", "epoch", "euclidean")
 
 
-def test_compute_travel_distances_non_constant_temporal() -> None:
-    """Test that travel distance computation handles non-constant temporal values."""
+def test_compute_metric_jumpss_non_constant_temporal() -> None:
+    """Test that metric jumps computation handles non-constant temporal values."""
     # Create a table with non-constant temporal values
     table = cast(
         Table,
@@ -178,23 +177,23 @@ def test_compute_travel_distances_non_constant_temporal() -> None:
     tables = [table, create_test_table(1, [1.0, 2.0], [1, 2], "../train")]  # Need at least 2 tables
 
     with pytest.raises(ValueError, match="non-constant temporal values"):
-        compute_travel_distances(tables, "metric", "epoch", "euclidean")
+        compute_metric_jumps(tables, "metric", "epoch", "euclidean")
 
 
-def test_compute_travel_distances_missing_foreign_table_url() -> None:
-    """Test that travel distance computation handles missing foreign table URLs."""
+def test_compute_metric_jumpss_missing_foreign_table_url() -> None:
+    """Test that metric jumps computation handles missing foreign table URLs."""
     # Create test tables without foreign table URLs
     tables = [
         create_test_table(1, [1.0, 2.0], [1, 2]),  # No foreign_table_url
         create_test_table(2, [2.0, 3.0], [1, 2]),  # No foreign_table_url
     ]
 
-    results = compute_travel_distances(tables, "metric", "epoch", "euclidean")
+    results = compute_metric_jumps(tables, "metric", "epoch", "euclidean")
     assert len(results) == 0  # No results because no foreign table URLs
 
 
-def test_compute_travel_distances_repeated_example_ids() -> None:
-    """Test that travel distance computation handles repeated example IDs."""
+def test_compute_metric_jumpss_repeated_example_ids() -> None:
+    """Test that metric jumps computation handles repeated example IDs."""
     # Create test tables with repeated example IDs
     tables = [
         create_test_table(1, [1.0, 2.0], [1, 1], "../foreign_table"),  # Repeated example ID
@@ -202,4 +201,4 @@ def test_compute_travel_distances_repeated_example_ids() -> None:
     ]
 
     with pytest.raises(ValueError, match="has repeated example IDs"):
-        compute_travel_distances(tables, "metric", "epoch", "euclidean")
+        compute_metric_jumps(tables, "metric", "epoch", "euclidean")
