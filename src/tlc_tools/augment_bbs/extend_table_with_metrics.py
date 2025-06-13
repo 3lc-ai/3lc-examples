@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from copy import deepcopy
 from typing import Any, Literal, cast
@@ -13,7 +14,7 @@ import torchvision.transforms as transforms
 from PIL import ImageStat
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import logging
+
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
 
 from .instance_crop_dataset import InstanceCropDataset
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 # ========================
 # SCHEMA FACTORY FUNCTIONS
 # ========================
+
 
 def create_embedding_schema(
     instance_type: Literal["bounding_boxes", "segmentations"], num_components: int

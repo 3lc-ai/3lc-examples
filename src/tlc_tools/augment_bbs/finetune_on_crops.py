@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 
 import numpy as np
@@ -17,7 +18,6 @@ from tlc_tools.common import infer_torch_device
 
 from .instance_crop_dataset import InstanceCropDataset
 from .label_utils import create_label_mappings, get_label_name
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -325,7 +325,9 @@ def train_model(
         )
 
         if isValRun:
-            logger.info(f"  Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}, Val Mean Class Acc: {val_mean_class_acc:.4f}")
+            logger.info(
+                f"  Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}, Val Mean Class Acc: {val_mean_class_acc:.4f}"
+            )
             logger.info(
                 f"  Min Class: {min_class_name} ({val_min_class_acc:.4f}), "
                 f"Max Class: {max_class_name} ({val_max_class_acc:.4f})"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 
 import tlc
@@ -10,7 +11,6 @@ from tlc_tools.augment_bbs.finetune_on_crops import train_model
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
 from tlc_tools.cli import register_tool
 from tlc_tools.cli.logging import setup_logging
-import logging
 
 logger = logging.getLogger(__name__)
 
