@@ -8,15 +8,13 @@ import logging
 import tlc
 from tlc_tools.travel_distance import compute_metric_travel_distances
 from tlc_tools.cli import register_tool
+from tlc_tools.cli.logging import setup_logging
 
 logger = logging.getLogger(__name__)
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser for the travel distance tool.
-
-    Args:
-        prog: Optional program name to use in help text.
 
     Returns:
         Configured argument parser with options.
@@ -108,6 +106,10 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     parser = create_argument_parser()
     args = parser.parse_args(tool_args)
 
+    # Setup logging based on verbosity flags
+    setup_logging(verbosity=args.verbose, quiet=args.quiet)
+    logger.debug("Debug logging enabled")
+    return
     try:
         # Parse metric column names
         metric_names = parse_metric_columns(args.metric_column_names)

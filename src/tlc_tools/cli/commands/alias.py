@@ -6,10 +6,11 @@ from collections.abc import Sequence
 
 import tlc
 
-from tlc_tools.alias.common import get_input_object, setup_logging
+from tlc_tools.alias.common import get_input_object
 from tlc_tools.alias.list_aliases import list_aliases
 from tlc_tools.alias.replace_aliases import replace_aliases
 from tlc_tools.cli import register_tool
+from tlc_tools.cli.logging import setup_logging
 
 logger = logging.getLogger(__name__)
 
