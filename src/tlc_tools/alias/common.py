@@ -1,43 +1,10 @@
 from __future__ import annotations
 
 import io
-import logging
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 from tlc.core import Run, Table, Url, UrlAdapterRegistry
-
-# Configure logger
-logger = logging.getLogger(__name__)
-
-
-def setup_logging(verbosity: int = 0, quiet: bool = False) -> None:
-    """Configure logging for the alias tool.
-
-    Args:
-        verbosity: 0 for default (INFO), 1 for DEBUG
-        quiet: If True, only show WARNING and above
-    """
-    # Create console handler
-    console_handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(message)s")  # Simple format, just the message
-    console_handler.setFormatter(formatter)
-
-    # Set log level based on verbosity/quiet
-    if quiet:
-        level = logging.WARNING
-    elif verbosity > 0:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-
-    # Configure root logger for the alias tool
-    root_logger = logging.getLogger("tlc_tools.alias")
-    root_logger.setLevel(level)
-    root_logger.addHandler(console_handler)
-
-    # Prevent duplicate logging
-    root_logger.propagate = False
 
 
 def get_input_table(input_url: Url) -> Table:
