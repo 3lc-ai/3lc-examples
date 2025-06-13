@@ -17,6 +17,9 @@ from tlc_tools.common import infer_torch_device
 
 from .instance_crop_dataset import InstanceCropDataset
 from .label_utils import create_label_mappings, get_label_name
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def convert_to_rgb(img):
@@ -57,7 +60,7 @@ def train_model(
     """
 
     device = infer_torch_device()
-    print(f"Using device: {device}")
+    logger.info(f"Using device: {device}")
 
     # Load tables
     train_table = tlc.Table.from_url(train_table_url)
@@ -75,16 +78,16 @@ def train_model(
     if instance_config.label_column_path is None:
         raise ValueError("Training requires labels, but no label column was found")
 
-    print("Instance configuration for training:")
-    print(f"  Instance column: {instance_config.instance_column}")
-    print(f"  Instance type: {instance_config.instance_type}")
-    print(f"  Label column path: {instance_config.label_column_path}")
+    logger.info("Instance configuration for training:")
+    logger.info(f"  Instance column: {instance_config.instance_column}")
+    logger.info(f"  Instance type: {instance_config.instance_type}")
+    logger.info(f"  Label column path: {instance_config.label_column_path}")
 
     # Get schema and number of classes
     label_map = train_table.get_simple_value_map(instance_config.label_column_path)
     if not label_map:
         raise ValueError(f"Label map not found in table at path: {instance_config.label_column_path}")
-    print(f"Label map: {label_map}")
+    logger.info(f"Label map: {label_map}")
 
     # Create label mappings for training and validation
     label_2_contiguous_idx, contiguous_2_label, background_label, add_background = create_label_mappings(
@@ -93,10 +96,10 @@ def train_model(
     num_classes = len(label_2_contiguous_idx)
     background_freq = 1 / num_classes if add_background else 0
 
-    print(f"Training with {num_classes} classes")
-    print(f"Label to contiguous mapping: {label_2_contiguous_idx}")
-    print(f"Contiguous to label mapping: {contiguous_2_label}")
-    print(f"Using background: {add_background} (background_label={background_label})")
+    logger.info(f"Training with {num_classes} classes")
+    logger.info(f"Label to contiguous mapping: {label_2_contiguous_idx}")
+    logger.info(f"Contiguous to label mapping: {contiguous_2_label}")
+    logger.info(f"Using background: {add_background} (background_label={background_label})")
 
     # Setup transforms and datasets
     val_transforms = transforms.Compose(
@@ -153,19 +156,19 @@ def train_model(
     class_weights = {label: (max_count / count) for label, count in class_counts.items()}
 
     # Pre-allocate numpy array for weights
-    print(f"Training on {len(train_table)} images with {total_instances} instances")
+    logger.info(f"Training on {len(train_table)} images with {total_instances} instances")
     instance_weights = compute_instance_weights(train_table, total_instances, class_weights, instance_config)
 
     # take the sqrt of the weights with numpy, found this to be better than just using the weights
     instance_weights = np.sqrt(instance_weights)
 
     # Print Number of weights
-    print(f"Number of weights: {len(instance_weights)}")
+    logger.info(f"Number of weights: {len(instance_weights)}")
 
     sampler = WeightedRandomSampler(weights=instance_weights, num_samples=min(len(instance_weights), len(train_table)))  # type: ignore[arg-type]
 
     # print all unique weights
-    print(f"Unique weights: {list(set(instance_weights))}")
+    logger.info(f"Unique weights: {list(set(instance_weights))}")
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -307,23 +310,23 @@ def train_model(
 
             if val_mean_class_acc > best_mean_val_acc:
                 best_mean_val_acc = val_mean_class_acc
-                print(f"  New best validation mean class accuracy: {val_mean_class_acc:.4f}")
+                logger.info(f"  New best validation mean class accuracy: {val_mean_class_acc:.4f}")
                 # Save model checkpoint with original filename
                 best_checkpoint_path = model_checkpoint
                 torch.save(model.state_dict(), best_checkpoint_path)
-                print(f"  Saved model checkpoint to {best_checkpoint_path}")
+                logger.info(f"  Saved model checkpoint to {best_checkpoint_path}")
 
         scheduler.step()
 
-        print(f"Epoch {epoch + 1}/{epochs}")
-        print(
+        logger.info(f"Epoch {epoch + 1}/{epochs}")
+        logger.info(
             f"  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, "
             f"Train Mean Class Acc: {train_mean_class_acc:.4f}"
         )
 
         if isValRun:
-            print(f"  Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}, Val Mean Class Acc: {val_mean_class_acc:.4f}")
-            print(
+            logger.info(f"  Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}, Val Mean Class Acc: {val_mean_class_acc:.4f}")
+            logger.info(
                 f"  Min Class: {min_class_name} ({val_min_class_acc:.4f}), "
                 f"Max Class: {max_class_name} ({val_max_class_acc:.4f})"
             )

@@ -13,7 +13,7 @@ import torchvision.transforms as transforms
 from PIL import ImageStat
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+import logging
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
 
 from .instance_crop_dataset import InstanceCropDataset
@@ -23,11 +23,11 @@ CLASSIFIER_EMBEDDING = "classif_Embedding"
 CLASSIFIER_LABEL = "classif_Label"
 CLASSIFIER_CONFIDENCE = "classif_Confidence"
 
+logger = logging.getLogger(__name__)
 
 # ========================
 # SCHEMA FACTORY FUNCTIONS
 # ========================
-
 
 def create_embedding_schema(
     instance_type: Literal["bounding_boxes", "segmentations"], num_components: int
@@ -229,7 +229,7 @@ def extend_table_with_metrics(
     )
 
     total_instances = len(dataset)
-    print(f"Total instances to process: {total_instances}")
+    logger.info(f"Total instances to process: {total_instances}")
 
     # Create DataLoader with multi-worker support and custom collate function
     dataloader = DataLoader(
@@ -253,13 +253,13 @@ def extend_table_with_metrics(
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        print("Device: ", device)
+        logger.info("Device: ", device)
 
         # Determine if we're using a checkpoint or pretrained model
         use_pretrained = model_checkpoint is None and instance_config.allow_label_free
 
         if use_pretrained:
-            print("Using pretrained model (label-free mode)")
+            logger.info("Using pretrained model (label-free mode)")
             # For pretrained model, we don't have custom classes
             num_classes = 1000  # Standard ImageNet classes
             label_map = {}
@@ -286,10 +286,10 @@ def extend_table_with_metrics(
                 label_map, include_background=num_classes > len(label_map) if label_map else False
             )
 
-        print(f"Label map: {label_map}")
-        print(f"Using {num_classes} classes with background={add_background}")
-        print(f"Label to contiguous mapping: {label_2_contiguous_idx}")
-        print(f"Contiguous to label mapping: {contiguous_2_label}")
+        logger.info(f"Label map: {label_map}")
+        logger.info(f"Using {num_classes} classes with background={add_background}")
+        logger.info(f"Label to contiguous mapping: {label_2_contiguous_idx}")
+        logger.info(f"Contiguous to label mapping: {contiguous_2_label}")
 
         import timm
 
@@ -307,7 +307,7 @@ def extend_table_with_metrics(
         # Initialize chunking variables
         current_chunk = []
         chunk_count = 0
-        print("Processing batches and saving chunks...")
+        logger.info("Processing batches and saving chunks...")
 
         # Get first batch to determine embedding shape (peek only)
         peek_dataloader = DataLoader(
@@ -323,12 +323,12 @@ def extend_table_with_metrics(
 
         with torch.no_grad():
             peek_embedding = model.forward_features(peek_images).cpu().numpy()
-            print(f"Shape of embedding: {peek_embedding.shape[1:]}")
+            logger.info(f"Shape of embedding: {peek_embedding.shape[1:]}")
             if reduce_last_dims > 0:
                 peek_embedding = peek_embedding.mean(axis=tuple(range(-reduce_last_dims, 0)))
             if len(peek_embedding.shape) > 2:
                 peek_embedding = peek_embedding.reshape(len(peek_embedding), -1)
-            print(f"Shape of flattened embedding: {peek_embedding.shape}")
+            logger.info(f"Shape of flattened embedding: {peek_embedding.shape}")
 
     # Process all batches (for embeddings and/or metrics)
     if add_embeddings or add_image_metrics:
@@ -415,7 +415,7 @@ def extend_table_with_metrics(
         if pacmap_reducer is None:
             assert fit_embeddings is None
             if total_embeddings > max_samples:
-                print(f"Reducing embeddings from {total_embeddings} to {max_samples} samples")
+                logger.info(f"Reducing embeddings from {total_embeddings} to {max_samples} samples")
                 indices = np.random.choice(total_embeddings, size=max_samples, replace=False)
                 indices.sort()  # Sort for more efficient reading
 
@@ -423,7 +423,7 @@ def extend_table_with_metrics(
                 embeddings_reduced = np.empty((max_samples, embedding_dim), dtype=np.float32)
                 current_pos = 0
 
-                print("Reading selected indices...")
+                logger.info("Reading selected indices...")
                 for chunk_idx in tqdm(range(chunk_count), delay=1, desc="Reading selected indices", total=chunk_count):
                     chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_idx}.npy")
                     chunk_data = np.load(chunk_path)
@@ -442,7 +442,7 @@ def extend_table_with_metrics(
                 embeddings_reduced = np.empty((total_embeddings, embedding_dim), dtype=np.float32)
                 current_pos = 0
 
-                print("Reading all embeddings...")
+                logger.info("Reading all embeddings...")
                 for chunk_idx in tqdm(range(chunk_count), delay=1, desc="Reading all embeddings", total=chunk_count):
                     chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_idx}.npy")
                     chunk_data = np.load(chunk_path)
@@ -452,9 +452,9 @@ def extend_table_with_metrics(
                 max_samples = total_embeddings
 
             # Create and fit new PaCMAP reducer
-            print(f"Applying PaCMAP with {num_components} components and {n_neighbors} neighbors")
+            logger.info(f"Applying PaCMAP with {num_components} components and {n_neighbors} neighbors")
             pacmap_reducer = pacmap.PaCMAP(n_components=num_components, n_neighbors=n_neighbors)
-            print("Fitting PaCMAP on reduced embeddings")
+            logger.info("Fitting PaCMAP on reduced embeddings")
             pacmap_reducer.fit_transform(embeddings_reduced)
             fit_embeddings = embeddings_reduced
 
@@ -462,7 +462,7 @@ def extend_table_with_metrics(
         embeddings_nd = np.empty((total_embeddings, num_components), dtype=np.float32)
 
         # Process all embeddings in chunks
-        print("Transforming all embeddings...")
+        logger.info("Transforming all embeddings...")
         current_pos = 0
         for chunk_idx in tqdm(range(chunk_count), delay=1, desc="Transforming embeddings", total=chunk_count):
             chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_idx}.npy")
@@ -473,15 +473,15 @@ def extend_table_with_metrics(
             current_pos += chunk_size
 
         # Clean up temporary files
-        print("Cleaning up temporary files...")
+        logger.info("Cleaning up temporary files...")
         for chunk_idx in range(chunk_count):
             os.unlink(os.path.join(chunk_dir, f"chunk_{chunk_idx}.npy"))
         os.rmdir(chunk_dir)
 
-        print("Done with embeddings")
+        logger.info("Done with embeddings")
 
     if add_image_metrics and not add_embeddings:
-        print("Done with image metrics")
+        logger.info("Done with image metrics")
 
     # Create schema for new table
     new_table_schema = deepcopy(input_table.rows_schema)
@@ -523,7 +523,7 @@ def extend_table_with_metrics(
     hidden_column_names = [child.name for child in input_table.row_schema.sample_type_object.hidden_children]
     hidden_columns = {key: [row[key] for row in input_table.table_rows] for key in hidden_column_names}
 
-    print(f"Processing with: embeddings={add_embeddings}, image_metrics={add_image_metrics}")
+    logger.info(f"Processing with: embeddings={add_embeddings}, image_metrics={add_image_metrics}")
 
     # Get mapping from dataset index to (row_index, instance_index) using dataset's own logic
     dataset_index_to_row_instance = dataset.get_row_instance_mapping()
