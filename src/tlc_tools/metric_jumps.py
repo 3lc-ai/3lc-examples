@@ -152,7 +152,8 @@ def compute_metric_jumps(
         ]
         if len(tables) < 2:
             logger.warning(
-                f"Skipping stream for table '{foreign_table_url}' because it has less than 2 tables with required columns"
+                f"Skipping stream for table '{foreign_table_url}' because it has less "
+                f"than 2 tables with required columns"
             )
             continue
 

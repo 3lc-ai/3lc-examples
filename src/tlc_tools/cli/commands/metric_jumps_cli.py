@@ -9,7 +9,7 @@ import tlc
 
 from tlc_tools.cli import register_tool
 from tlc_tools.cli.logging import setup_logging
-from tlc_tools.metric_jumps import compute_metric_jumps, compute_metric_jumps_on_run
+from tlc_tools.metric_jumps import compute_metric_jumps_on_run
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog="metric-jumps",
-        description="""Compute metric jumps per example per metric across the temporal column and add the results as new metrics tables on the run.
+        description="""Compute metric jumps per example per metric across the temporal column and add the 
+results as new metrics tables on the run.
 
 Examples:
     # Compute metric jumps for multiple metrics
@@ -130,6 +131,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     except Exception as e:
         logger.error(f"Error computing metric jumps: {str(e)}")
         raise
+
 
 if __name__ == "__main__":
     main()
