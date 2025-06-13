@@ -10,7 +10,7 @@ This folder contains notebooks demonstrating how to modify and extend data in 3L
 | **Split Tables** | **Add new data** | **Add new data and split** |
 | [![split-tables](../images/split-tables.png)](split-tables.ipynb) | [![add-new-data](../images/add-new-data.png)](add-new-data.ipynb) | [![add-new-data-and-split](../images/add-new-data-and-split.png)](add-new-data-and-split.ipynb) |
 | Learn to split Tables into subsets based on conditions or sample splits for targeted processing. | This notebook focuses on adding new data entries, demonstrating how to expand datasets with fresh information. | This notebook provides two ways of adding new data to a dataset with existing split Tables. |
-| **Convert bounding boxes to instance segmentation masks** | | |
-| [![bbs-2-segments](../images/bb2seg.png)](add-segmentation-column.ipynb) | | |
-| This notebook demonstrates how to convert bounding boxes to instance segmentation masks using the [SAM model](https://github.com/facebookresearch/segment-anything). | | |
+| **Convert bounding boxes to instance segmentation masks** | **Auto-segment images using SAM** | |
+| [![bbs-2-segments](../images/bb2seg.png)](add-segmentation-column.ipynb) | [![autosegment-images](../images/sam-autosegment.png)](autosegment-images.ipynb) | |
+| This notebook demonstrates how to convert bounding boxes to instance segmentation masks using the [SAM model](https://github.com/facebookresearch/segment-anything). | This notebook demonstrates how to auto-segment images using the [SAM model](https://github.com/facebookresearch/segment-anything). | |
 
