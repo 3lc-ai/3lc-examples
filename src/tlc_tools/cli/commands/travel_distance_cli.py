@@ -109,7 +109,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     # Setup logging based on verbosity flags
     setup_logging(verbosity=args.verbose, quiet=args.quiet)
     logger.debug("Debug logging enabled")
-    return
     try:
         # Parse metric column names
         metric_names = parse_metric_columns(args.metric_column_names)
@@ -130,7 +129,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     except Exception as e:
         logger.error(f"Error computing travel distances: {str(e)}")
         raise
-
 
 if __name__ == "__main__":
     main()
