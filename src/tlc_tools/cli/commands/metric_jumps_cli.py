@@ -131,6 +131,5 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         logger.error(f"Error computing metric jumps: {str(e)}")
         raise
 
-
 if __name__ == "__main__":
     main()

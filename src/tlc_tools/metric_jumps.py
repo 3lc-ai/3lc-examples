@@ -61,63 +61,62 @@ def compute_metric_jumps_on_run(
     if isinstance(metric_column_names, str):
         metric_column_names = [metric_column_names]
 
-    try:
-        # Compute jumps
-        results = compute_metric_jumps(
-            run.metrics_tables,
-            metric_column_names,
-            temporal_column_name,
-            distance_fn,
-        )
+    # Compute jumps
+    results = compute_metric_jumps(
+        run.metrics_tables,
+        metric_column_names,
+        temporal_column_name,
+        distance_fn,
+    )
 
-        urls = []
-        for foreign_table_url, result in results.items():
-            # Create a table with the jumps for each example and epoch
-            data: dict[str, list[Any]] = {
-                "example_id": [],
-                temporal_column_name: [],
-            }
-            # Add columns for each metric's jumps
-            for metric_name in metric_column_names:
-                data[f"{metric_name}_jump"] = []
+    if not results:
+        raise ValueError("No metric jumps computed")
 
-            # Add jumps for each example and epoch
-            for example_id in result.example_ids:
-                example_idx = result.example_id_to_idx[example_id]
-                for epoch in result.epochs:
-                    epoch_idx = result.epoch_to_idx[epoch]
-                    # Add jumps for each metric
-                    for metric_name in metric_column_names:
-                        jump = result.metric_jumps[metric_name][example_idx, epoch_idx]
-                        data[f"{metric_name}_jump"].append(jump)
-                    data[EXAMPLE_ID].append(example_id)
-                    data[temporal_column_name].append(epoch)
+    urls = []
+    for foreign_table_url, result in results.items():
+        # Create a table with the jumps for each example and epoch
+        data: dict[str, list[Any]] = {
+            "example_id": [],
+            temporal_column_name: [],
+        }
+        # Add columns for each metric's jumps
+        for metric_name in metric_column_names:
+            data[f"{metric_name}_jump"] = []
 
-            # Create schemas for each metric's jumps
-            column_schemas = {
-                f"{metric_name}_jump": Schema(
-                    f"{metric_name}_jump",
-                    value=Float32Value(),
-                    description=f"Jump in {metric_name} value from previous {temporal_column_name}",
-                )
-                for metric_name in metric_column_names
-            }
+        # Add jumps for each example and epoch
+        for example_id in result.example_ids:
+            example_idx = result.example_id_to_idx[example_id]
+            for epoch in result.epochs:
+                epoch_idx = result.epoch_to_idx[epoch]
+                # Add jumps for each metric
+                for metric_name in metric_column_names:
+                    jump = result.metric_jumps[metric_name][example_idx, epoch_idx]
+                    data[f"{metric_name}_jump"].append(jump)
+                data[EXAMPLE_ID].append(example_id)
+                data[temporal_column_name].append(epoch)
 
-            # Write the results to a new table
-            metric_infos = run.add_metrics(
-                data,
-                column_schemas=column_schemas,
-                foreign_table_url=foreign_table_url,
+        # Create schemas for each metric's jumps
+        column_schemas = {
+            f"{metric_name}_jump": Schema(
+                f"{metric_name}_jump",
+                value=Float32Value(),
+                description=f"Jump in {metric_name} value from previous {temporal_column_name}",
             )
-            urls.append(metric_infos[0]["url"])
+            for metric_name in metric_column_names
+        }
 
-        logger.info(
-            f"Metric jumps of {', '.join(metric_column_names)} over {temporal_column_name} computed for {len(urls)} streams"
+        # Write the results to a new table
+        metric_infos = run.add_metrics(
+            data,
+            column_schemas=column_schemas,
+            foreign_table_url=foreign_table_url,
         )
-        run.update_attribute(RUN_STATUS, RUN_STATUS_COMPLETED)
+        urls.append(metric_infos[0]["url"])
 
-    except Exception as e:
-        logger.warning(f"Encountered problem when computing metric jumps: {e}")
+    logger.info(
+        f"Metric jumps of {', '.join(metric_column_names)} over {temporal_column_name} computed for {len(urls)} streams"
+    )
+    run.update_attribute(RUN_STATUS, RUN_STATUS_COMPLETED)
 
 
 def compute_metric_jumps(
@@ -152,7 +151,9 @@ def compute_metric_jumps(
             if all(metric in table.columns for metric in metric_column_names) and temporal_column_name in table.columns
         ]
         if len(tables) < 2:
-            logger.warning(f"Skipping stream '{foreign_table_url.name}' because it has less than 2 tables")
+            logger.warning(
+                f"Skipping stream for table '{foreign_table_url}' because it has less than 2 tables with required columns"
+            )
             continue
 
         # Get columns from first table for validation
