@@ -131,23 +131,6 @@ def add_metrics_schemas_to_instance_properties(
             instance_properties_schema.add_sub_schema(metric_name, metrics_schema)
 
 
-def calculate_bb_metrics(image, bb, bb_schema):
-    """Calculate metrics for a single bounding box crop"""
-    # Get the crop using BBCropInterface
-    crop = tlc.BBCropInterface.crop(
-        image, bb, bb_schema, x_max_offset=0, y_max_offset=0, x_scale_range=(1.0, 1.0), y_scale_range=(1.0, 1.0)
-    )
-
-    # Calculate metrics
-    gray_crop = crop.convert("L")
-    brightness = ImageStat.Stat(crop).mean[0]
-    contrast = ImageStat.Stat(gray_crop).stddev[0]
-    pixels = np.array(crop)
-    sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
-
-    return {"brightness": float(brightness), "contrast": float(contrast), "sharpness": float(sharpness)}
-
-
 def extend_table_with_metrics(
     input_table: tlc.Table,
     output_table_name: str,
@@ -214,7 +197,7 @@ def extend_table_with_metrics(
             "(or use allow_label_free=True for pretrained model)"
         )
 
-    # Create dataset using the refactored BBCropDataset
+    # Create image transform
     image_transform = transforms.Compose(
         [
             transforms.Resize((224, 224)),
@@ -223,7 +206,7 @@ def extend_table_with_metrics(
         ]
     )
 
-    # Create dataset - it handles the instance extraction logic
+    # Create dataset
     dataset = InstanceCropDataset(
         input_table,
         transform=image_transform,
@@ -247,15 +230,15 @@ def extend_table_with_metrics(
     labels: list[int] = []
     confidences_list: list[float] = []
     image_metrics_list: list[dict[str, float]] = []
-    embeddings_nd: np.ndarray | None = None  # Initialize outside conditional block
-    use_pretrained: bool = False  # Initialize outside conditional block
+    embeddings_nd: np.ndarray | None = None
+    use_pretrained: bool = False
 
     if add_embeddings:
         # Load model
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        logger.info("Device: ", device)
+        logger.info(f"Device: {device}")
 
         # Determine if we're using a checkpoint or pretrained model
         use_pretrained = model_checkpoint is None and instance_config.allow_label_free
@@ -537,7 +520,7 @@ def extend_table_with_metrics(
     }
 
     # Process each row and map embeddings back
-    for row_index, row in enumerate(tqdm(input_table.table_rows, desc="Processing rows", total=len(input_table))):
+    for row_index, row in enumerate(tqdm(input_table.table_rows, desc="Adding rows to new table", total=len(input_table))):
         new_row = row.copy()
 
         # Initialize embedding/label/confidence/metrics lists for this row's instances
