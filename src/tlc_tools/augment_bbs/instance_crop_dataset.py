@@ -136,19 +136,6 @@ class InstanceCropDataset(Dataset):
                         # Label-free mode
                         for rle in rles:
                             instances.append((row_idx, {"type": "rle", "rle": rle, "label": None}))
-
-                elif "masks" in instance_data:
-                    # Mask array format
-                    masks = instance_data["masks"]
-                    if self.instance_config.label_column_path:
-                        labels = instance_data["instance_properties"]["label"]
-                        for mask_idx, label in enumerate(labels):
-                            instances.append((row_idx, {"type": "mask", "mask_idx": mask_idx, "label": label}))
-                    else:
-                        # Label-free mode
-                        for mask_idx in range(masks.shape[2]):
-                            instances.append((row_idx, {"type": "mask", "mask_idx": mask_idx, "label": None}))
-
                 else:
                     raise ValueError(
                         f"Unsupported segmentation format in column {self.instance_config.instance_column}"
@@ -218,10 +205,6 @@ class InstanceCropDataset(Dataset):
             # Handle RLE segmentation instances
             crop, label = self._process_rle_instance(image, instance_data)
 
-        elif instance_data["type"] == "mask":
-            # Handle mask array segmentation instances
-            crop, label = self._process_mask_instance(image, row, instance_data)
-
         else:
             raise ValueError(f"Unknown instance type: {instance_data['type']}")
 
@@ -272,52 +255,6 @@ class InstanceCropDataset(Dataset):
         )["bb_list"]
 
         # Crop the masked image
-        crop = tlc.BBCropInterface.crop(
-            masked_image,
-            bb_dict,
-            bb_schema,
-            x_max_offset=self.x_max_offset,
-            y_max_offset=self.y_max_offset,
-            y_scale_range=self.y_scale_range,
-            x_scale_range=self.x_scale_range,
-        )
-
-        return crop, label
-
-    def _process_mask_instance(self, image, row, instance_data):
-        """Process a mask array segmentation instance."""
-        mask_idx = instance_data["mask_idx"]
-        label = instance_data.get("label")
-
-        # Get mask from the mask array
-        masks = row[self.instance_config.instance_column]["masks"]
-        mask = masks[:, :, mask_idx]
-
-        # Convert mask to bbox
-        y_indices, x_indices = np.where(mask > 0)
-        if len(y_indices) == 0:
-            # Empty mask, return a small crop
-            bbox = [0, 0, 10, 10]
-        else:
-            bbox = [x_indices.min(), y_indices.min(), x_indices.max(), y_indices.max()]
-
-        # Apply mask to image
-        image_array = np.array(image.convert("RGB"))
-        mask = mask[:, :, np.newaxis]  # Shape becomes (h, w, 1)
-        mask = np.repeat(mask, 3, axis=2)  # Shape becomes (h, w, 3)
-        masked_image = image_array * mask
-        masked_image = Image.fromarray(masked_image.astype(np.uint8), mode="RGB")
-
-        # Create bbox dict and crop
-        bb_dict = {"x0": bbox[0], "y0": bbox[1], "x1": bbox[2], "y1": bbox[3]}
-
-        # Create temporary schema for cropping
-        bb_schema = tlc.BoundingBoxListSchema(
-            {},
-            x1_number_role=tlc.NUMBER_ROLE_BB_SIZE_X,
-            y1_number_role=tlc.NUMBER_ROLE_BB_SIZE_Y,
-        )["bb_list"]
-
         crop = tlc.BBCropInterface.crop(
             masked_image,
             bb_dict,
