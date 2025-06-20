@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 
 import tlc
 
 from tlc_tools.augment_bbs.extend_table_with_metrics import extend_table_with_metrics
 from tlc_tools.augment_bbs.finetune_on_crops import train_model
+from tlc_tools.augment_bbs.instance_config import InstanceConfig
 from tlc_tools.cli import register_tool
+from tlc_tools.cli.logging import setup_logging
+
+logger = logging.getLogger(__name__)
 
 
 def parse_table_list(table_string):
@@ -17,7 +22,7 @@ def parse_table_list(table_string):
     return None
 
 
-@register_tool(description="Augment tables with bounding box embeddings and image metrics")
+@register_tool(description="Augment tables with per-instance embeddings and image metrics")
 def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     """
     Main function to process tables
@@ -25,12 +30,16 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     :param args: List of arguments. If None, will parse from command line.
     :param prog: Program name. If None, will use the tool name.
     """
-    parser = argparse.ArgumentParser(prog=prog, description="Extend tables with embeddings and image metrics")
+    parser = argparse.ArgumentParser(
+        prog=prog, description="Extend tables with per-instance embeddings and image metrics"
+    )
 
     # General arguments
     parser.add_argument("--model_name", default="efficientnet_b0", help="Model architecture name")
     parser.add_argument(
-        "--model_checkpoint", default="./models/bb_classifier.pth", help="Path to save/load model checkpoint"
+        "--model_checkpoint",
+        default="./models/instance_classifier.pth",
+        help="Path to save/load model checkpoint (not needed for --allow_label_free mode)",
     )
     parser.add_argument("--transient_data_path", default="./", help="Path for temporary files")
 
@@ -43,7 +52,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         "--include_background",
         action="store_true",
         default=False,
-        help="Whether to train with creating background Bounding boxes",
+        help="Whether to train with creating background instances (bounding boxes only)",
     )
 
     # Table extension arguments
@@ -66,7 +75,39 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         help="Number of dimensions to reduce from the end of embeddings (0 means no reduction)",
     )
     parser.add_argument("--num_workers", type=int, default=8, help="Number of workers for data loading")
+
+    # Instance handling arguments
+    parser.add_argument(
+        "--instance_column", help="Name of the column containing instances (auto-detect if not specified)"
+    )
+    parser.add_argument(
+        "--instance_type",
+        choices=["bounding_boxes", "segmentations", "auto"],
+        default="auto",
+        help="Type of instances to process (auto-detect by default)",
+    )
+    parser.add_argument(
+        "--allow_label_free",
+        action="store_true",
+        help="Use pretrained model for embeddings (no training, no checkpoint required)",
+    )
+    # Verbosity control for all commands
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase output verbosity (use -v for debug output)",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Suppress output except for warnings and errors",
+    )
     args = parser.parse_args(tool_args)
+    setup_logging(verbosity=args.verbose, quiet=args.quiet)
+    logger.debug("Debug logging enabled")
 
     # Check if we're in training mode
     training_mode = args.train_table is not None and args.val_table is not None
@@ -75,11 +116,25 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     if args.disable_embeddings and args.disable_metrics and not args.train_only:
         raise ValueError("Cannot disable both embeddings and metrics unless --train_only is specified")
 
-    # Check if model checkpoint exists when not training but adding embeddings
-    if not training_mode and not args.disable_embeddings:
+    # Check for label-free training attempt
+    if training_mode and args.allow_label_free:
+        logger.info("Warning: Training mode detected with --allow_label_free flag.")
+        logger.info("Training requires labels and cannot be performed in label-free mode.")
+        logger.info("You can either:")
+        logger.info("  1. Remove --allow_label_free to require labels for training")
+        logger.info("  2. Use --train_only=false to skip training and only process tables")
+        if args.train_only:
+            raise ValueError("Cannot train model in label-free mode. Training requires labels.")
+        else:
+            logger.info("Proceeding with table processing only (skipping training)...")
+            training_mode = False
+
+    # Check if model checkpoint exists when not training but adding embeddings (unless label-free mode)
+    if not training_mode and not args.disable_embeddings and not args.allow_label_free:
         if not os.path.exists(args.model_checkpoint):
             raise ValueError(
-                f"Model checkpoint not found at {args.model_checkpoint}. Cannot add embeddings without existing model."
+                f"Model checkpoint not found at {args.model_checkpoint}. Cannot add embeddings without existing model. "
+                f"Use --allow_label_free to use pretrained model instead."
             )
     else:  # In training mode, ensure checkpoint directory exists
         checkpoint_dir = os.path.dirname(args.model_checkpoint)
@@ -91,16 +146,29 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
 
     # Training phase if needed
     if training_mode:
-        print("=== Training Model ===")
-        print("\nTraining parameters:")
-        print(f"  Model: {args.model_name}")
-        print(f"  Epochs: {args.epochs}")
-        print(f"  Batch size: {args.batch_size}")
-        print(f"  Include background: {args.include_background}")
-        print(f"  Number of workers: {args.num_workers}")
-        print(f"  Model checkpoint: {args.model_checkpoint}")
-        print(f"  Train table: {args.train_table}")
-        print(f"  Val table: {args.val_table}\n")
+        logger.info("=== Training Model ===")
+
+        # Resolve instance configuration for training table
+        train_table = tlc.Table.from_url(args.train_table)
+        training_instance_config = InstanceConfig.resolve(
+            input_table=train_table,
+            instance_column=args.instance_column,
+            instance_type=args.instance_type,
+            allow_label_free=False,  # Training always requires labels
+        )
+
+        logger.info("\nTraining parameters:")
+        logger.info(f"  Model: {args.model_name}")
+        logger.info(f"  Epochs: {args.epochs}")
+        logger.info(f"  Batch size: {args.batch_size}")
+        logger.info(f"  Include background: {args.include_background}")
+        logger.info(f"  Number of workers: {args.num_workers}")
+        logger.info(f"  Model checkpoint: {args.model_checkpoint}")
+        logger.info(f"  Train table: {args.train_table}")
+        logger.info(f"  Val table: {args.val_table}")
+        logger.info(f"  Instance column: {training_instance_config.instance_column}")
+        logger.info(f"  Instance type: {training_instance_config.instance_type}")
+        logger.info(f"  Label column path: {training_instance_config.label_column_path}\n")
 
         _, best_checkpoint_path = train_model(
             train_table_url=args.train_table,
@@ -111,10 +179,11 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             batch_size=args.batch_size,
             include_background=args.include_background,
             num_workers=args.num_workers,
+            instance_config=training_instance_config,
         )
 
         if args.train_only:
-            print("Training complete. Exiting as --train_only was specified.")
+            logger.info("Training complete. Exiting as --train_only was specified.")
             return
 
         # Update model_checkpoint to use the best checkpoint path
@@ -124,7 +193,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     tables_to_process = args.input_tables
     if not tables_to_process and training_mode:
         tables_to_process = [args.train_table, args.val_table]
-        print(f"No input tables specified, using train and val tables: {tables_to_process}")
+        logger.info(f"No input tables specified, using train and val tables: {tables_to_process}")
     elif not tables_to_process:
         raise ValueError("Either --input_tables or both --train_table and --val_table must be specified")
 
@@ -133,18 +202,45 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     fit_embeddings = None  # Store embeddings used to fit the reducer
 
     for i, table_url in enumerate(tables_to_process):
-        print(f"\n=== Processing table {i + 1}/{len(tables_to_process)}: {table_url} ===")
+        logger.info(f"\n=== Processing table {i + 1}/{len(tables_to_process)}: {table_url} ===")
 
         # Load input table
         input_table = tlc.Table.from_url(table_url)
         output_name = f"{input_table.name}{args.output_suffix}"
+
+        # Resolve instance configuration for this table
+        logger.info("Resolving instance configuration...")
+        try:
+            instance_config = InstanceConfig.resolve(
+                input_table=input_table,
+                instance_column=args.instance_column,
+                instance_type=args.instance_type,
+                allow_label_free=args.allow_label_free,
+            )
+            logger.info(f"  Instance column: {instance_config.instance_column}")
+            logger.info(f"  Instance type: {instance_config.instance_type}")
+            logger.info(f"  Label column path: {instance_config.label_column_path}")
+            logger.info(f"  Label-free mode: {instance_config.allow_label_free}")
+        except ValueError as e:
+            logger.info(f"Error: Failed to resolve instance configuration: {e}")
+            continue
+
+        # Determine model checkpoint: None for label-free (pretrained), actual path otherwise
+        model_checkpoint_to_use = None
+        if not args.disable_embeddings:
+            if args.allow_label_free:
+                model_checkpoint_to_use = None  # Use pretrained model
+                logger.info(f"  Using pretrained {args.model_name} model (label-free mode)")
+            else:
+                model_checkpoint_to_use = args.model_checkpoint  # Use trained model
+                logger.info(f"  Using trained model from: {args.model_checkpoint}")
 
         output_table_url, pacmap_reducer, fit_embeddings = extend_table_with_metrics(
             input_table=input_table,
             output_table_name=output_name,
             add_embeddings=not args.disable_embeddings,  # Enable unless disabled
             add_image_metrics=not args.disable_metrics,  # Enable unless disabled
-            model_checkpoint=args.model_checkpoint if not args.disable_embeddings else None,
+            model_checkpoint=model_checkpoint_to_use,
             model_name=args.model_name,
             batch_size=args.batch_size,
             num_components=args.num_components,
@@ -153,9 +249,11 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             n_neighbors=args.n_neighbors,
             reduce_last_dims=args.reduce_last_dims,
             max_memory_gb=args.max_memory_gb,
+            # New instance configuration parameters
+            instance_config=instance_config,
         )
 
-        print(f"Created extended table: {output_table_url}")
+        logger.info(f"Created extended table: {output_table_url}")
 
 
 if __name__ == "__main__":
