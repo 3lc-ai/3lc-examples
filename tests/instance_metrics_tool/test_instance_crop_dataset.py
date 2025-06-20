@@ -302,10 +302,9 @@ def test_debug_custom_dataset_explorer():
 
     Usage: pytest tests/instance_metrics_tool/test_instance_crop_dataset.py::test_debug_custom_dataset_explorer -s
     """
-    # Example table URLs - replace these with your actual table URLs
+    # Example table URLs
     table_urls = [
-        "C:/Project/traffic_signs/3lc/traffic_signs/datasets/train/tables/initial",
-        "C:/Project/traffic_signs/3lc/traffic_signs/datasets/val/tables/initial"
+        # Add table URLs here
     ]
 
     datasets = []
