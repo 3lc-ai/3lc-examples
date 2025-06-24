@@ -3,6 +3,12 @@ include = [
     "src/tlc_tools/**/*.py",
     "tests/**/*.py",
 ]
+
+exclude = [
+    "**/*.ipynb",
+    "example-notebooks/",
+]
+
 line-length = 120
 indent-width = 4
 target-version = "py39"

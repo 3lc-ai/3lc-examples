@@ -2,11 +2,9 @@ repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.11.4
   hooks:
-    - id: ruff-check
-      exclude: ^example-notebooks/
+    - id: ruff
       args: [--verbose, --config=ruff.toml]
     - id: ruff-format
-      exclude: ^example-notebooks/
 
 - repo: https://github.com/kynan/nbstripout
   rev: 0.8.1
