@@ -31,7 +31,7 @@ def train_model(
     train_table_url: str,
     val_table_url: str,
     model_name: str = "efficientnet_b0",
-    model_checkpoint: str = "./instance_classifier.pth",
+    model_checkpoint: str = "./models/instance_classifier.pth",
     epochs: int = 20,
     batch_size: int = 32,
     include_background: bool = False,
@@ -39,7 +39,7 @@ def train_model(
     y_max_offset: float = 0.03,
     x_scale_range: tuple[float, float] = (0.95, 1.05),
     y_scale_range: tuple[float, float] = (0.95, 1.05),
-    num_workers: int = 8,
+    num_workers: int = 4,
     instance_config: InstanceConfig | None = None,
 ) -> tuple[nn.Module, str]:
     """Train a model on instance crops from the given tables.
@@ -200,8 +200,8 @@ def train_model(
     checkpoint_base = os.path.basename(model_checkpoint)
     run = tlc.init(
         project_name=train_table.project_name,
-        run_name="Train Bounding Box Classifier",
-        description=f"Training BB Embeddings Model - Checkpoint: {checkpoint_base} ",
+        run_name="Train Instance Classifier",
+        description=f"Training Instance Classifier - Checkpoint: {checkpoint_base} ",
     )
     # Training loop
     for epoch in range(epochs):

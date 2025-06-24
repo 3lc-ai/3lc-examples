@@ -21,75 +21,181 @@ def parse_table_list(table_string):
         return [url.strip() for url in table_string.split(",")]
     return None
 
+@register_tool(description="Deprecated: Use `3lc-tools augment-instance-table` instead", name="augment_bb_table")
+def augment_bb_table(tool_args: list[str] | None = None, prog: str | None = None) -> None:
+    raise DeprecationWarning("This tool is deprecated. Use the `3lc-tools augment-instance-table` command instead.")
 
 @register_tool(description="Augment tables with per-instance embeddings and image metrics")
 def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
     """
     Main function to process tables
 
+    This tool performs two main functions:
+    1. Train a classifier on instances (bounding boxes or segmentations) from training/validation tables
+    2. Extend tables with (optionally) embeddings (dimensionality reduced), predicted labels, and instance-level image metrics
+
+    The tool supports a "label-free" mode (--allow_label_free) which uses a pretrained ImageNet model
+    for embeddings without requiring training data or labels. This mode cannot train but allows table
+    enrichment using the pretrained model.
+
     :param args: List of arguments. If None, will parse from command line.
     :param prog: Program name. If None, will use the tool name.
     """
     parser = argparse.ArgumentParser(
-        prog=prog, description="Extend tables with per-instance embeddings and image metrics"
+        prog=prog, 
+        description="Extend tables with per-instance embeddings and image metrics. "
+                   "This tool can train a classifier on instances (bounding boxes or segmentations) "
+                   "and/or extend tables with embeddings, predicted labels, and instance-level metrics. "
+                   "Supports label-free mode using pretrained ImageNet models for embedding extraction.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Train model and process tables
+  3lc-tools run augment-instance-table --train_table s3://path/to/train --val_table s3://path/to/val
+
+  # Train model only
+  3lc-tools run augment-instance-table --train_table s3://path/to/train --val_table s3://path/to/val --train_only
+
+  # Process existing tables with trained model
+  3lc-tools run augment-instance-table --input_tables "s3://path/to/table1,s3://path/to/table2"
+
+  # Use label-free mode with pretrained model (no training required)
+  3lc-tools run augment-instance-table --input_tables "s3://path/to/table" --allow_label_free
+
+  # Only add embeddings (disable metrics)
+  3lc-tools run augment-instance-table --input_tables "s3://path/to/table" --disable_metrics
+
+  # Only add metrics (disable embeddings)
+  3lc-tools run augment-instance-table --input_tables "s3://path/to/table" --disable_embeddings
+        """
     )
 
     # General arguments
-    parser.add_argument("--model_name", default="efficientnet_b0", help="Model architecture name")
+    parser.add_argument(
+        "--model_name", 
+        default="efficientnet_b0", 
+        help="Model architecture name (must be available in timm library, default: efficientnet_b0)"
+    )
     parser.add_argument(
         "--model_checkpoint",
         default="./models/instance_classifier.pth",
-        help="Path to save/load model checkpoint (not needed for --allow_label_free mode)",
+        help="Path to save/load model checkpoint. Not needed for --allow_label_free mode as it uses pretrained model",
     )
-    parser.add_argument("--transient_data_path", default="./", help="Path for temporary files")
 
     # Training arguments
-    parser.add_argument("--train_table", help="Training table URL")
-    parser.add_argument("--val_table", help="Validation table URL")
-    parser.add_argument("--train_only", action="store_true", help="Only train the model, don't add metrics")
-    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+    parser.add_argument(
+        "--train_table", 
+        help="Training table URL containing labeled instances for model training"
+    )
+    parser.add_argument(
+        "--val_table", 
+        help="Validation table URL containing labeled instances for model validation during training"
+    )
+    parser.add_argument(
+        "--train_only", 
+        action="store_true", 
+        help="Only train the model, don't add metrics to tables. Useful for training models separately from table processing"
+    )
+    parser.add_argument(
+        "--epochs", 
+        type=int, 
+        default=20, 
+        help="Number of training epochs for the classifier (default: 20)"
+    )
     parser.add_argument(
         "--include_background",
         action="store_true",
         default=False,
-        help="Whether to train with creating background instances (bounding boxes only)",
+        help="Whether to train with creating background instances (bounding boxes only). "
+             "Creates additional instances from background regions for more robust training",
     )
 
     # Table extension arguments
     parser.add_argument(
-        "--input_tables", type=parse_table_list, help="Comma-separated list of tables to extend with metrics"
+        "--input_tables", 
+        type=parse_table_list, 
+        help="Comma-separated list of tables to extend with metrics. "
+             "If not specified and training mode is active, will use train and val tables"
     )
-    parser.add_argument("--disable_embeddings", action="store_true", help="Disable adding embeddings to tables")
-    parser.add_argument("--disable_metrics", action="store_true", help="Disable adding image metrics to tables")
-    parser.add_argument("--output_suffix", default="_extended", help="Suffix for output table names")
-    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training and embedding collection")
-    parser.add_argument("--num_components", type=int, default=3, help="Number of PaCMAP components")
-    parser.add_argument("--n_neighbors", type=int, default=10, help="Number of neighbors to consider in PaCMAP")
     parser.add_argument(
-        "--max_memory_gb", type=int, default=8, help="Maximum memory in GB to use for embeddings processing"
+        "--disable_embeddings", 
+        action="store_true", 
+        help="Disable adding embeddings to tables. Use when only image metrics are needed"
+    )
+    parser.add_argument(
+        "--disable_metrics", 
+        action="store_true", 
+        help="Disable adding image metrics to tables. Use when only embeddings are needed"
+    )
+    parser.add_argument(
+        "--output_suffix", 
+        default="_extended", 
+        help="Suffix for output table names (default: _extended). "
+             "Output tables will be named as {original_name}{suffix}"
+    )
+    parser.add_argument(
+        "--batch_size", 
+        type=int, 
+        default=32, 
+        help="Batch size for training and embedding collection (default: 32). "
+             "Reduce if running out of memory"
+    )
+    parser.add_argument(
+        "--num_components", 
+        type=int, 
+        default=3, 
+        help="Number of PaCMAP components for dimensionality reduction of embeddings (default: 3). "
+             "Higher values preserve more information but increase output size"
+    )
+    parser.add_argument(
+        "--n_neighbors", 
+        type=int, 
+        default=10, 
+        help="Number of neighbors to consider in PaCMAP dimensionality reduction (default: 10). "
+             "Affects the quality of the reduced embeddings"
+    )
+    parser.add_argument(
+        "--max_memory_gb", 
+        type=int, 
+        default=8, 
+        help="Maximum memory in GB to use for embeddings processing (default: 8). "
+             "Reduce if running out of memory during processing"
     )
     parser.add_argument(
         "--reduce_last_dims",
         type=int,
-        default=0,
-        help="Number of dimensions to reduce from the end of embeddings (0 means no reduction)",
+        default=2,
+        help="Number of dimensions to reduce from the end of embeddings (default: 2). "
+             "Takes the mean of the last N dimensions. Useful for reducing embedding size "
+             "when models output high-dimensional features"
     )
-    parser.add_argument("--num_workers", type=int, default=8, help="Number of workers for data loading")
+    parser.add_argument(
+        "--num_workers", 
+        type=int, 
+        default=4, 
+        help="Number of workers for data loading (default: 4). "
+             "Increase for faster data loading, decrease if experiencing memory issues"
+    )
 
     # Instance handling arguments
     parser.add_argument(
-        "--instance_column", help="Name of the column containing instances (auto-detect if not specified)"
+        "--instance_column", 
+        help="Name of the column containing instances (auto-detect if not specified). "
+             "The tool will automatically detect the instance column if not provided"
     )
     parser.add_argument(
         "--instance_type",
         choices=["bounding_boxes", "segmentations", "auto"],
         default="auto",
-        help="Type of instances to process (auto-detect by default)",
+        help="Type of instances to process (default: auto). "
+             "Auto-detect by default, or specify 'bounding_boxes' or 'segmentations' explicitly"
     )
     parser.add_argument(
         "--allow_label_free",
         action="store_true",
-        help="Use pretrained model for embeddings (no training, no checkpoint required)",
+        help="Use pretrained ImageNet model for embeddings without requiring training or labels. "
+             "Cannot be used for training (requires --train_table and --val_table to be None). "
+             "Useful for quick table enrichment with pretrained features",
     )
     # Verbosity control for all commands
     parser.add_argument(
@@ -97,7 +203,7 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         "--verbose",
         action="count",
         default=0,
-        help="Increase output verbosity (use -v for debug output)",
+        help="Increase output verbosity (use -v for debug output, -vv for more verbose)",
     )
     parser.add_argument(
         "-q",
@@ -140,9 +246,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         checkpoint_dir = os.path.dirname(args.model_checkpoint)
         if checkpoint_dir:  # Only create directory if path has a directory component
             os.makedirs(checkpoint_dir, exist_ok=True)
-
-    # Create transient data directory if it doesn't exist
-    os.makedirs(args.transient_data_path, exist_ok=True)
 
     # Training phase if needed
     if training_mode:
@@ -238,8 +341,8 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
         output_table_url, pacmap_reducer, fit_embeddings = extend_table_with_metrics(
             input_table=input_table,
             output_table_name=output_name,
-            add_embeddings=not args.disable_embeddings,  # Enable unless disabled
-            add_image_metrics=not args.disable_metrics,  # Enable unless disabled
+            add_embeddings=not args.disable_embeddings,
+            add_image_metrics=not args.disable_metrics,
             model_checkpoint=model_checkpoint_to_use,
             model_name=args.model_name,
             batch_size=args.batch_size,
@@ -249,7 +352,6 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
             n_neighbors=args.n_neighbors,
             reduce_last_dims=args.reduce_last_dims,
             max_memory_gb=args.max_memory_gb,
-            # New instance configuration parameters
             instance_config=instance_config,
         )
 
