@@ -22,3 +22,6 @@ select = [
     "SIM",
     "I",
 ]
+
+[lint.isort]
+known-first-party = ["tlc"]
