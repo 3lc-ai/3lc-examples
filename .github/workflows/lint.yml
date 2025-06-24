@@ -35,11 +35,11 @@ jobs:
         echo "uv run pytest version: $(uv run pytest --version)"
         echo "uv run pre-commit version: $(uv run pre-commit --version)"
 
-    - name: Run ruff check
-      run: uv run ruff check .
+    # - name: Run ruff check
+    #   run: uv run ruff check .
 
-    - name: Run ruff format
-      run: uv run ruff format --check .
+    # - name: Run ruff format
+    #   run: uv run ruff format --check .
 
     - name: Run pre-commit on all files
       run: uv run pre-commit run --verbose --all-files
