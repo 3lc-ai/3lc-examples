@@ -14,7 +14,7 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v5
       with:
-        version: "0.5.25"
+        version: "0.7.13"
         enable-cache: true
         cache-dependency-glob: "uv.lock"
 
@@ -29,9 +29,11 @@ jobs:
     - name: Print version info
       run: |
         echo "uv version: $(uv --version)"
+        echo "python version: $(uv run python --version)"
         echo "uv run ruff version: $(uv run ruff --version)"
         echo "uv run mypy version: $(uv run mypy --version)"
         echo "uv run pytest version: $(uv run pytest --version)"
+        echo "uv run pre-commit version: $(uv run pre-commit --version)"
 
     - name: Run pre-commit on all files
       run: uv run pre-commit run --all-files
