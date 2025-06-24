@@ -5,10 +5,10 @@ import typing
 from collections import defaultdict
 from typing import Any, Callable
 
+import tlc
 from PIL import Image
 from tqdm.auto import tqdm
 
-import tlc
 from tlc_tools.metrics import IMAGE_METRICS, compute_image_metrics
 
 _SampleTypeStructure = typing.Union[

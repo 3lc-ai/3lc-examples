@@ -1,13 +1,13 @@
 import io
 
 import numpy as np
+import tlc
 import torch
 import tqdm
 from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
-
-import tlc
 from tlc.core.builtins.types.bounding_box import XYXYBoundingBox
+
 from tlc_tools.add_columns_to_table import add_columns_to_table
 
 from .common import check_is_bb_column, infer_torch_device

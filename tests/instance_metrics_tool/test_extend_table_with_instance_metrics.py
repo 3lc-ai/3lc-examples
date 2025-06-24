@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import tlc
+
 from tlc_tools.augment_bbs.extend_table_with_metrics import extend_table_with_metrics
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
 

@@ -8,13 +8,13 @@ from typing import Any, Literal, cast
 import cv2
 import numpy as np
 import pacmap
+import tlc
 import torch
 import torchvision.transforms as transforms
 from PIL import ImageStat
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import tlc
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
 
 from .instance_crop_dataset import InstanceCropDataset

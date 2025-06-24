@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import tlc
+
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
 
 test_data_dir = Path(__file__).parent.parent.parent / "data"

@@ -6,11 +6,10 @@ from typing import Literal, get_args
 
 import cv2
 import numpy as np
+import tlc
 from PIL import Image, ImageStat
 from scipy.spatial.distance import pdist, squareform
 from sklearn.cluster import KMeans
-
-import tlc
 
 
 def diversity(labels: list | np.ndarray, embeddings: np.ndarray) -> list[int]:

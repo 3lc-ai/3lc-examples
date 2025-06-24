@@ -4,8 +4,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pytest
-
 import tlc
+
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
 from tlc_tools.augment_bbs.instance_crop_dataset import InstanceCropDataset
 from tlc_tools.augment_bbs.label_utils import get_label_name

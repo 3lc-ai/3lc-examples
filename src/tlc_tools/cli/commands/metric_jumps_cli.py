@@ -6,6 +6,7 @@ import argparse
 import logging
 
 import tlc
+
 from tlc_tools.cli import register_tool
 from tlc_tools.cli.logging import setup_logging
 from tlc_tools.metric_jumps import compute_metric_jumps_on_run

@@ -10,10 +10,9 @@ import zipfile
 from typing import Literal
 
 import requests
+import tlc
 import torch
 from packaging import version
-
-import tlc
 
 
 def infer_torch_device() -> torch.device:
