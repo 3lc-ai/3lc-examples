@@ -4,8 +4,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pytest
-import tlc
 
+import tlc
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
 from tlc_tools.augment_bbs.instance_crop_dataset import InstanceCropDataset
 from tlc_tools.augment_bbs.label_utils import get_label_name
@@ -21,7 +21,7 @@ class DatasetExplorer:
     def __init__(self, datasets):
         """
         Initialize the dataset explorer.
-        
+
         Args:
             datasets: List of tuples containing (dataset, name, label_map)
         """
@@ -38,7 +38,13 @@ class DatasetExplorer:
         dataset, scenario_name, label_map = self.datasets[self.current_scenario]
         if dataset is None or len(dataset) == 0:
             self.ax.text(
-                0.5, 0.5, f"No data for\n{scenario_name}", ha="center", va="center", transform=self.ax.transAxes, fontsize=16
+                0.5,
+                0.5,
+                f"No data for\n{scenario_name}",
+                ha="center",
+                va="center",
+                transform=self.ax.transAxes,
+                fontsize=16,
             )
             self.ax.set_title(f"{scenario_name} - No Data")
             plt.draw()
@@ -241,6 +247,7 @@ def test_instance_crop_dataset_segmentation_label_free():
 # DEBUGGING/VISUAL INSPECTION TEST
 # Run with: pytest -k debug -s --tb=short
 # ============================================================================
+
 
 @pytest.mark.skip(reason="Interactive debugging test - run manually with pytest -k debug_interactive_crop_inspector -s")
 def test_debug_interactive_crop_inspector():

@@ -52,6 +52,7 @@ def run_tool(tools: dict[str, ToolInfo], tool_name: str, args: list) -> None:
     except Exception as e:
         print(f"Tool '{display_name(normalized_name)}' failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

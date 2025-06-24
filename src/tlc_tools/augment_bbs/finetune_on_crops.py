@@ -5,7 +5,6 @@ import os
 
 import numpy as np
 import timm
-import tlc
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,6 +12,7 @@ import torchvision.transforms as transforms
 import tqdm
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
+import tlc
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
 from tlc_tools.common import infer_torch_device
 
