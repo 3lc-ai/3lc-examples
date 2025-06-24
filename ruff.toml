@@ -3,6 +3,11 @@ include = [
     "src/tlc_tools/**/*.py",
     "tests/**/*.py",
 ]
+
+exclude = [
+    "example-notebooks/",
+]
+
 line-length = 120
 indent-width = 4
 target-version = "py39"
@@ -16,3 +21,6 @@ select = [
     "SIM",
     "I",
 ]
+
+[lint.isort]
+known-third-party = ["tlc"]

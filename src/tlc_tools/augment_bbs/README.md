@@ -2,7 +2,7 @@
 
 Before running this script, make sure you have installed the `tlc_tools` package. Refer to the [README.md](../../README.md) for how do this.
 
-A tool for training bounding box classifiers and extending tables with embeddings and image metrics.
+A tool for training instance (bounding boxes or segmentations) classifiers and extending tables with per-instance embeddings and image metrics.
 
 ## Usage
 
@@ -30,9 +30,8 @@ A tool for training bounding box classifiers and extending tables with embedding
 
 General arguments:
 
-- `--model_name`: Model architecture name (default: "efficientnet_b0")
-- `--model_checkpoint`: Path to save/load model checkpoint (default: "./models/bb_classifier.pth")
-- `--transient_data_path`: Path for temporary files (default: "./")
+- `--model_name`: Model architecture name (must be available in timm library, default: "efficientnet_b0")
+- `--model_checkpoint`: Path to save/load model checkpoint (default: "./models/instance_classifier.pth")
 
 Training arguments:
 
@@ -59,6 +58,5 @@ Embedding reduction arguments:
 ### Notes
 
 - If `--train_table` and `--val_table` are provided, the script will train a model first
-- Model checkpoint is required when adding embeddings without training (default: "./models/bb_classifier.pth")
 - If you run out of memory during embedding processing, try reducing the `--max_memory_gb` parameter
 - Use `--reduce_last_dims` to trim dimensions from the end of embeddings if needed, takes the mean of the last dimensions
