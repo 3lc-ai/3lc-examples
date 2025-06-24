@@ -39,7 +39,7 @@ jobs:
       run: uv run ruff check .
 
     - name: Run ruff format
-      run: uv run ruff format .
+      run: uv run ruff format --check .
 
     - name: Run pre-commit on all files
       run: uv run pre-commit run --verbose --all-files
