@@ -3,7 +3,7 @@ repos:
   rev: v0.11.4
   hooks:
     - id: ruff
-      args: [--verbose, --config=ruff.toml]
+      args: ["--fix"]
     - id: ruff-format
 
 - repo: https://github.com/kynan/nbstripout

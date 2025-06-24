@@ -5,7 +5,6 @@ include = [
 ]
 
 exclude = [
-    "**/*.ipynb",
     "example-notebooks/",
 ]
 
