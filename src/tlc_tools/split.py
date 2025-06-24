@@ -9,9 +9,10 @@ from typing import Any, Callable, Literal
 
 import fpsample
 import numpy as np
-import tlc
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle as sk_shuffle
+
+import tlc
 
 
 class _SplitStrategy(abc.ABC):
