@@ -33,7 +33,8 @@ def main(tool_args: list[str] | None = None, prog: str | None = None) -> None:
 
     This tool performs two main functions:
     1. Train a classifier on instances (bounding boxes or segmentations) from training/validation tables
-    2. Extend tables with (optionally) embeddings (dimensionality reduced), predicted labels, and instance-level image metrics
+    2. Extend tables with (optionally) embeddings (dimensionality reduced), predicted labels, and instance-level "
+    "image metrics"
 
     The tool supports a "label-free" mode (--allow_label_free) which uses a pretrained ImageNet model
     for embeddings without requiring training data or labels. This mode cannot train but allows table
@@ -91,7 +92,8 @@ Examples:
     parser.add_argument(
         "--train_only",
         action="store_true",
-        help="Only train the model, don't add metrics to tables. Useful for training models separately from table processing",
+        help="Only train the model, don't add metrics to tables. Useful for training models separately from table "
+        "processing",
     )
     parser.add_argument(
         "--epochs", type=int, default=20, help="Number of training epochs for the classifier (default: 20)"
