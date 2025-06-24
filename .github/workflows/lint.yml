@@ -29,8 +29,9 @@ jobs:
     - name: Print version info
       run: |
         echo "uv version: $(uv --version)"
-        echo "ruff version: $(ruff --version)"
-        echo "python version: $(python --version)"
+        echo "uv run ruff version: $(uv run ruff --version)"
+        echo "uv run mypy version: $(uv run mypy --version)"
+        echo "uv run pytest version: $(uv run pytest --version)"
 
     - name: Run pre-commit on all files
       run: uv run pre-commit run --all-files
