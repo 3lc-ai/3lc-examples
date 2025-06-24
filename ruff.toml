@@ -23,4 +23,4 @@ select = [
 ]
 
 [lint.isort]
-known-first-party = ["tlc"]
+known-third-party = ["tlc"]
