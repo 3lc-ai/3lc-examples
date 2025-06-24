@@ -3,13 +3,13 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Callable
 
-import tlc
 import torch
 import torch.utils.data
 import tqdm
 from torchvision import transforms
 from transformers import ViTImageProcessor, ViTModel
 
+import tlc
 from tlc_tools import add_columns_to_table
 from tlc_tools.common import infer_torch_device
 

@@ -7,8 +7,8 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from tlc.core import EditedTable, ObjectRegistry, Table, TableFromParquet, TableFromPydict, Url
 
+from tlc.core import EditedTable, ObjectRegistry, Table, TableFromParquet, TableFromPydict, Url
 from tlc_tools.alias.common import get_input_object
 from tlc_tools.alias.list_aliases import (
     find_aliases_in_column,

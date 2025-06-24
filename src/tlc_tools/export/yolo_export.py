@@ -5,11 +5,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
 
-import tlc
 import yaml
-from tlc.core.builtins.types.bounding_box import CenteredXYWHBoundingBox
 from tqdm import tqdm
 
+import tlc
+from tlc.core.builtins.types.bounding_box import CenteredXYWHBoundingBox
 from tlc_tools.common import is_windows
 
 

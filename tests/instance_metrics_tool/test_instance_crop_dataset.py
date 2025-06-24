@@ -321,12 +321,12 @@ def test_debug_custom_dataset_explorer():
             config = InstanceConfig.resolve(table)
             label_map = table.get_simple_value_map(config.label_column_path)
             dataset = InstanceCropDataset(table, instance_config=config)
-            datasets.append((dataset, f"Dataset {i+1}", label_map))
-            print(f"Loaded Dataset {i+1}: {len(dataset)} samples")
+            datasets.append((dataset, f"Dataset {i + 1}", label_map))
+            print(f"Loaded Dataset {i + 1}: {len(dataset)} samples")
 
         except Exception as e:
-            print(f"Failed to load Dataset {i+1}: {e}")
-            datasets.append((None, f"Dataset {i+1}", {}))
+            print(f"Failed to load Dataset {i + 1}: {e}")
+            datasets.append((None, f"Dataset {i + 1}", {}))
 
     if not any(ds[0] for ds in datasets):
         print("No datasets loaded successfully!")

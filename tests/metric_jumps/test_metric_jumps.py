@@ -3,9 +3,9 @@
 from typing import Any, cast
 
 import pytest
+
 from tlc.core.builtins.schemas.schemas import ForeignTableIdSchema
 from tlc.core.objects.table import Table
-
 from tlc_tools.metric_jumps import (
     MetricJumpsResult,
     _cosine_distance,

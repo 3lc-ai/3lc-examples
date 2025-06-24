@@ -1,5 +1,4 @@
 import tlc
-
 from tlc_tools.common import check_is_segmentation_column
 
 

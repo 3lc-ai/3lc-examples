@@ -133,7 +133,7 @@ Examples:
         "--batch_size",
         type=int,
         default=32,
-        help="Batch size for training and embedding collection (default: 32). " "Reduce if running out of memory",
+        help="Batch size for training and embedding collection (default: 32). Reduce if running out of memory",
     )
     parser.add_argument(
         "--num_components",
