@@ -36,7 +36,7 @@ jobs:
         echo "uv run pre-commit version: $(uv run pre-commit --version)"
 
     - name: Run pre-commit on all files
-      run: uv run pre-commit run --all-files
+      run: uv run pre-commit run --verbose --all-files
 
     - name: Run mypy type checker
       run: uv run mypy .

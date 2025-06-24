@@ -4,7 +4,7 @@ repos:
   hooks:
     - id: ruff-check
       exclude: ^example-notebooks/
-      args: [--config=ruff.toml]
+      args: [--verbose, --config=ruff.toml]
     - id: ruff-format
       exclude: ^example-notebooks/
 
