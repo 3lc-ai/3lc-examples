@@ -16,6 +16,7 @@ from sklearn.utils import shuffle as sk_shuffle
 
 class _SplitStrategy(abc.ABC):
     requires_split_by = False
+    allows_shuffle = True
 
     def __init__(self, seed: int = 0):
         self.seed = seed
@@ -35,6 +36,8 @@ class _SplitStrategy(abc.ABC):
 
 
 class _RandomSplitStrategy(_SplitStrategy):
+    allows_shuffle = True
+
     def split(
         self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
     ) -> dict[str, np.ndarray]:
@@ -45,6 +48,7 @@ class _RandomSplitStrategy(_SplitStrategy):
 
 class _StratifiedSplitStrategy(_SplitStrategy):
     requires_split_by = True
+    allows_shuffle = True
 
     def split(
         self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
@@ -63,6 +67,7 @@ class _StratifiedSplitStrategy(_SplitStrategy):
 
 class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
     requires_split_by = True
+    allows_shuffle = False  # FPS sampling should not be shuffled
 
     def split(
         self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
@@ -104,10 +109,129 @@ class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
         return {s: np.array(split_indices[s]) for s in splits}
 
 
+class _BalancedGreedySplitStrategy(_SplitStrategy):
+    requires_split_by = True
+    allows_shuffle = True
+
+    def split(
+        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+    ) -> dict[str, np.ndarray]:
+        if by_column is None:
+            msg = "Balanced greedy split requires a column to balance by."
+            raise ValueError(msg)
+
+        # Get split sizes based on proportions
+        split_names = list(splits.keys())
+
+        # Initialize result dictionary
+        split_indices: dict[str, list[int]] = {name: [] for name in split_names}
+
+        # Group indices by class
+        _, class_indices = np.unique(by_column, return_inverse=True)
+        class_groups: dict[int, list[int]] = {}
+        for i, class_idx in enumerate(class_indices):
+            if class_idx not in class_groups:
+                class_groups[class_idx] = []
+            class_groups[class_idx].append(indices[i])
+
+        # Sort classes by frequency (rarest first)
+        class_frequencies = [(class_idx, len(indices_list)) for class_idx, indices_list in class_groups.items()]
+        class_frequencies.sort(key=lambda x: x[1])
+
+        # For each class, distribute instances proportionally across splits
+        for class_idx, class_count in class_frequencies:
+            class_indices_list = class_groups[class_idx]
+
+            # Shuffle the indices for this class
+            np.random.seed(self.seed + class_idx)  # Different seed per class for reproducibility
+            shuffled_class_indices = np.random.permutation(class_indices_list)
+
+            # Calculate proportional distribution for this class
+            current_idx = 0
+            for split_name, split_proportion in splits.items():
+                # Calculate how many instances this split should get for this class
+                instances_for_this_split = int(class_count * split_proportion)
+
+                # Add instances to this split
+                end_idx = current_idx + instances_for_this_split
+                if current_idx < len(shuffled_class_indices):
+                    split_indices[split_name].extend(
+                        shuffled_class_indices[current_idx : min(end_idx, len(shuffled_class_indices))]
+                    )
+                current_idx = end_idx
+
+                # If we've used all instances for this class, break
+                if current_idx >= len(shuffled_class_indices):
+                    break
+
+        # Convert lists to numpy arrays
+        return {name: np.array(indices_list) for name, indices_list in split_indices.items()}
+
+
+class _UndersampledBalancedSplitStrategy(_SplitStrategy):
+    requires_split_by = True
+    allows_shuffle = True
+
+    def split(
+        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+    ) -> dict[str, np.ndarray]:
+        if by_column is None:
+            msg = "Undersampled balanced split requires a column to balance by."
+            raise ValueError(msg)
+
+        # Group indices by class
+        unique_classes, class_indices = np.unique(by_column, return_inverse=True)
+        class_groups: dict[int, list[int]] = {}
+        for i, class_idx in enumerate(class_indices):
+            if class_idx not in class_groups:
+                class_groups[class_idx] = []
+            class_groups[class_idx].append(indices[i])
+
+        # Find the rarest class size
+        min_class_size = min(len(indices_list) for indices_list in class_groups.values())
+
+        # Calculate how many instances each split should get per class
+        split_names = list(splits.keys())
+        instances_per_class_per_split = {}
+        for split_name, split_proportion in splits.items():
+            instances_per_class_per_split[split_name] = int(min_class_size * split_proportion)
+
+        # Initialize result dictionary
+        split_indices: dict[str, list[int]] = {name: [] for name in split_names}
+
+        # For each class, sample equal numbers for each split
+        for class_idx, class_indices_list in class_groups.items():
+            # Shuffle the indices for this class
+            np.random.seed(self.seed + class_idx)  # Different seed per class for reproducibility
+            shuffled_class_indices = np.random.permutation(class_indices_list)
+
+            # Sample equal numbers for each split
+            current_idx = 0
+            for split_name in split_names:
+                instances_for_this_split = instances_per_class_per_split[split_name]
+
+                # Add instances to this split
+                end_idx = current_idx + instances_for_this_split
+                if current_idx < len(shuffled_class_indices):
+                    split_indices[split_name].extend(
+                        shuffled_class_indices[current_idx : min(end_idx, len(shuffled_class_indices))]
+                    )
+                current_idx = end_idx
+
+                # If we've used all instances for this class, break
+                if current_idx >= len(shuffled_class_indices):
+                    break
+
+        # Convert lists to numpy arrays
+        return {name: np.array(indices_list) for name, indices_list in split_indices.items()}
+
+
 _STRATEGY_MAP = {
     "random": _RandomSplitStrategy,
     "stratified": _StratifiedSplitStrategy,
     "traversal_index": _TraversalIndexSplitStrategy,
+    "balanced_greedy": _BalancedGreedySplitStrategy,
+    "undersampled_balanced": _UndersampledBalancedSplitStrategy,
 }
 
 
@@ -115,7 +239,9 @@ def split_table(
     table: tlc.Table,
     splits: dict[str, float] | None = None,
     random_seed: int = 0,
-    split_strategy: Literal["random", "stratified", "traversal_index"] = "random",
+    split_strategy: Literal[
+        "random", "stratified", "traversal_index", "balanced_greedy", "undersampled_balanced"
+    ] = "random",
     shuffle: bool = True,
     split_by: int | str | Callable[[Any], int] | None = None,
 ) -> dict[str, tlc.Table]:
@@ -127,11 +253,13 @@ def split_table(
         is {"train": 0.8, "val": 0.2}. Any number of splits can be requested. Proportions are normalized if they do not
         sum to 1.
     :param random_seed: Seed for reproducibility.
-    :param split_strategy: "random", "stratified" (requires `split_by`), or "traversal_index" (requires `split_by`).
+    :param split_strategy: "random", "stratified" (requires `split_by`), "traversal_index" (requires `split_by`),
+        "balanced_greedy" (requires `split_by`), or "undersampled_balanced" (requires `split_by`).
     :param shuffle: Shuffle data for "random" split. Default is True.
-    :param split_by: Column or property to use for splitting. Required for "stratified" and "traversal_index"
-        strategies. Provide a string if the rows are dictionaries, or an integer if the rows are tuples/lists. If a
-        callable is provided it will be called with each row and should return the value on which to split.
+    :param split_by: Column or property to use for splitting. Required for "stratified", "traversal_index", and
+        "balanced_greedy" strategies. Provide a string if the rows are dictionaries, or an integer if the rows are
+        tuples/lists. If a callable is provided it will be called with each row and should return the value on which
+        to split.
 
     :returns: Split tables as per requested strategy.
     """
@@ -150,10 +278,6 @@ def split_table(
 
     indices = np.arange(len(table))
 
-    # Regular splitting
-    if shuffle and split_strategy == "random":
-        indices = sk_shuffle(indices, random_state=random_seed)
-
     strategy_class = _STRATEGY_MAP.get(split_strategy)
     if strategy_class is None:
         available_strategies = ", ".join(_STRATEGY_MAP.keys())
@@ -169,22 +293,24 @@ def split_table(
             raise ValueError(msg)
         kwargs["by_column"] = _get_column(table, split_by)
 
+    # Apply shuffling only if the strategy allows it
+    if shuffle and strategy.allows_shuffle:
+        indices = sk_shuffle(indices, random_state=random_seed)
+
     splits_indices = strategy.split(indices, splits, **kwargs)
 
     # Return dictionary with tables based on final split indices
     return {
-        split_name: keep_indices(
-            table,
-            split_indices.tolist(),
-            table_name=split_name,
-        )
+        split_name: keep_indices(table, split_indices.tolist(), table_name=split_name)
         for split_name, split_indices in splits_indices.items()
     }
 
 
 def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.ndarray:
-    # TODO: Use more performant `tlc.get_column` when available
-    if isinstance(column, (int, str)):
+    if isinstance(column, str):
+        return table.get_column(column).to_numpy()
+
+    if isinstance(column, int):
         return np.array([row[column] for row in table])
 
     elif callable(column):
@@ -193,6 +319,39 @@ def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.
     else:
         msg = f"Invalid column type: {type(column)}"
         raise ValueError(msg)
+
+
+def set_value_in_column_to_fixed_value(
+    table: tlc.Table,
+    column: str,
+    indices: list[int],
+    value: Any,
+) -> tlc.Table:
+    """Set a fixed value in a column for a given list of indices.
+
+    e.g. set_value_in_column_to_fixed_value(table, "weight", [0, 3, 4, 6, ...], value=0)
+
+    :param table: The table to modify.
+    :param column: The column name to set values in.
+    :param indices: The indices to set the value for.
+    :param value: The value to set.
+    :returns: The modified table.
+    """
+    runs = tlc.EditedTable.indices_to_run(indices)
+
+    edits = {
+        column: {"runs_and_values": [runs, value]},
+    }
+
+    edited_table = tlc.EditedTable(
+        url=table.url.create_sibling(f"set_{column}_to_0_in_{len(indices)}_rows").create_unique(),
+        input_table_url=table,
+        edits=edits,
+        row_cache_url="./row_cache.parquet",
+    )
+    edited_table.ensure_fully_defined()
+    edited_table.write_to_url()
+    return edited_table
 
 
 def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = None) -> tlc.Table:
@@ -218,4 +377,82 @@ def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = 
         row_cache_url="./row_cache.parquet",
     )
     edited_table.ensure_fully_defined()
+    edited_table.write_to_url()
     return edited_table
+
+
+def get_balanced_coreset_indices(
+    table: tlc.Table,
+    size: float = 1.0,
+    split_by: int | str | Callable[[Any], int] = "label",
+    random_seed: int = 0,
+) -> tuple[list[int], list[int]]:
+    """
+    Returns indices for both coreset and non-coreset samples.
+
+    This function creates a balanced coreset by sampling an equal number of instances
+    from each class, based on the size of the rarest class. The coreset maintains
+    class balance while maximizing the number of samples used.
+
+    :param table: The table to create a coreset from.
+    :param size: Proportion of the RAREST class to include (0.0 to 1.0).
+        ⚠️  IMPORTANT: This is NOT the proportion of total dataset!
+        Example: If rarest class has 100 samples and size=0.5, each class gets 50 samples.
+        To use ALL samples from the rarest class, use size=1.0.
+    :param split_by: Column or property to use for balancing. Provide a string if
+        the rows are dictionaries, or an integer if the rows are tuples/lists.
+        If a callable is provided it will be called with each row and should
+        return the value on which to balance.
+    :param random_seed: Seed for reproducibility.
+
+    :returns: Tuple of (coreset_indices, non_coreset_indices).
+
+    :example:
+        # Get both coreset and non-coreset indices
+        coreset_indices, non_coreset_indices = get_balanced_coreset_indices(
+            table=my_table,
+            size=1.0,  # Use ALL samples from rarest class
+            split_by="label_column"
+        )
+        # This will give you all samples from the rarest class for each class
+    """
+    if size <= 0 or size > 1:
+        msg = f"Invalid coreset size: {size}, must be between 0 and 1."
+        raise ValueError(msg)
+
+    # Group indices by class
+    by_column = _get_column(table, split_by)
+    _, class_indices = np.unique(by_column, return_inverse=True)
+    class_groups: dict[int, list[int]] = {}
+    for i, class_idx in enumerate(class_indices):
+        if class_idx not in class_groups:
+            class_groups[class_idx] = []
+        class_groups[class_idx].append(i)  # Use row index directly
+
+    # Find the rarest class size
+    min_class_size = min(len(indices_list) for indices_list in class_groups.values())
+
+    # Calculate how many instances each class should contribute to the coreset
+    instances_per_class = int(min_class_size * size)
+
+    # Initialize result lists
+    coreset_indices: list[int] = []
+    non_coreset_indices: list[int] = []
+
+    # For each class, sample the required number of instances
+    for class_idx, class_indices_list in class_groups.items():
+        # Shuffle the indices for this class
+        np.random.seed(random_seed + class_idx)  # Different seed per class for reproducibility
+        shuffled_class_indices = np.random.permutation(class_indices_list)
+
+        # Take the first instances_per_class for coreset
+        coreset_indices.extend(shuffled_class_indices[:instances_per_class])
+
+        # Add the rest to non-coreset
+        non_coreset_indices.extend(shuffled_class_indices[instances_per_class:])
+
+    # Convert numpy integers to Python integers
+    coreset_indices = [int(idx) for idx in coreset_indices]
+    non_coreset_indices = [int(idx) for idx in non_coreset_indices]
+
+    return coreset_indices, non_coreset_indices
