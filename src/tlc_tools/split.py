@@ -308,7 +308,7 @@ def split_table(
 
 def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.ndarray:
     if isinstance(column, str):
-        return table.get_column(column).to_numpy()
+        return table.get_column(column).to_numpy()  # type: ignore[no-any-return]
 
     if isinstance(column, int):
         return np.array([row[column] for row in table])
