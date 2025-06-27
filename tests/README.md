@@ -84,7 +84,7 @@ Tools tests are organized by functionality:
 
 - `alias_tool/` - Tests for alias management functionality
 - `instance_metrics_tool/` - Tests for instance segmentation metrics
-- `metric_jumps/` - Tests for metric jump detection
+- `metric_jumps/` - Tests for metric jump calculations
 
 To run tests for a specific tool:
 
