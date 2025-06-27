@@ -32,8 +32,8 @@ jobs:
     - name: Run mypy type checker
       run: uv run mypy .
 
-    - name: Run CLI tests
-      run: uv run pytest tests/cli/
+    - name: Run tests
+      run: uv run pytest tests/ -m "not slow and not dependent"
       env:
         TLC_API_KEY: ${{ secrets.TLC_API_KEY}}
         ${{ secrets.RUNTIME_NAME }}: ${{ secrets.RUNTIME_VALUE }}
