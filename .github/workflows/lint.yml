@@ -33,7 +33,7 @@ jobs:
       run: uv run mypy .
 
     - name: Run tests
-      run: uv run pytest tests/ -m "not slow and not dependent"
+      run: uv run pytest tests/ -m "not slow and not dependent" --durations=0 -v
       env:
         TLC_API_KEY: ${{ secrets.TLC_API_KEY}}
         ${{ secrets.RUNTIME_NAME }}: ${{ secrets.RUNTIME_VALUE }}
