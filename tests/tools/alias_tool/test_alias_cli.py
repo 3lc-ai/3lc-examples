@@ -149,7 +149,7 @@ def test_main_no_process_parents(mocker):
 
 def test_list_command_basic(mocker):
     """Test basic list command with minimal arguments."""
-    mock_list_aliases = mocker.patch("tlc_tools.cli.commands.alias.list_aliases")
+    mock_list_aliases = mocker.patch("tlc_tools.cli.commands.alias.find_aliases")
     mock_get_input = mocker.patch("tlc_tools.cli.commands.alias.get_input_object")
 
     main(["list", "table.parquet"])
@@ -162,7 +162,7 @@ def test_list_command_basic(mocker):
 
 def test_list_command_with_columns(mocker):
     """Test list command with specific columns."""
-    mock_list_aliases = mocker.patch("tlc_tools.cli.commands.alias.list_aliases")
+    mock_list_aliases = mocker.patch("tlc_tools.cli.commands.alias.find_aliases")
     mock_get_input = mocker.patch("tlc_tools.cli.commands.alias.get_input_object")
 
     # Run the list command with columns

@@ -10,7 +10,7 @@ import pytest
 from tlc.core import EditedTable, ObjectRegistry, Table, TableFromParquet, TableFromPydict, Url
 
 from tlc_tools.alias.common import get_input_object
-from tlc_tools.alias.list_aliases import (
+from tlc_tools.alias.find_aliases import (
     find_aliases_in_column,
     list_aliases,
 )
@@ -269,7 +269,7 @@ def test_list_pa_table_basic(tmp_parquet, mocker):
         }
     )
 
-    mock_logger = mocker.patch("tlc_tools.alias.list_aliases.logger")
+    mock_logger = mocker.patch("tlc_tools.alias.find_aliases.logger")
     input_url = Url(tmp_parquet)
     list_aliases(table, [], input_url=input_url)
 
@@ -298,7 +298,7 @@ def test_list_pa_table_selected_columns(tmp_parquet, mocker):
         }
     )
 
-    mock_logger = mocker.patch("tlc_tools.alias.list_aliases.logger")
+    mock_logger = mocker.patch("tlc_tools.alias.find_aliases.logger")
     list_aliases(table, ["col1"], input_url=Url(tmp_parquet))
 
     # Verify only aliases from selected column were found
@@ -323,7 +323,7 @@ def test_list_pa_table_no_aliases(tmp_parquet, mocker):
         }
     )
 
-    mock_logger = mocker.patch("tlc_tools.alias.list_aliases.logger")
+    mock_logger = mocker.patch("tlc_tools.alias.find_aliases.logger")
     list_aliases(table, [], input_url=Url(tmp_parquet))
 
     # Verify no aliases were found
@@ -333,7 +333,7 @@ def test_list_pa_table_no_aliases(tmp_parquet, mocker):
 
 def test_list_tlc_table_basic(sample_table: Table, mocker) -> None:
     """Test listing aliases in a TLC table."""
-    mock_logger = mocker.patch("tlc_tools.alias.list_aliases.logger")
+    mock_logger = mocker.patch("tlc_tools.alias.find_aliases.logger")
     list_aliases(sample_table, [])
 
     # Verify correct aliases were found and logged
