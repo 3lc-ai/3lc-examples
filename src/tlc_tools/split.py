@@ -49,10 +49,7 @@ class _RandomSplitStrategy(_SplitStrategy):
     ) -> dict[str, np.ndarray]:
         split_sizes = self._get_split_sizes(len(indices), splits)
         splits_indices = np.split(indices, np.cumsum(split_sizes[:-1]))
-        return {
-            split_name: split_indices
-            for split_name, split_indices in zip(splits, splits_indices)
-        }
+        return {split_name: split_indices for split_name, split_indices in zip(splits, splits_indices)}
 
 
 class _StratifiedSplitStrategy(_SplitStrategy):
@@ -79,10 +76,7 @@ class _StratifiedSplitStrategy(_SplitStrategy):
             stratify=by_column,
             random_state=self.seed,
         )
-        return {
-            split_name: split_indices
-            for split_name, split_indices in zip(splits, splits_indices)
-        }
+        return {split_name: split_indices for split_name, split_indices in zip(splits, splits_indices)}
 
 
 class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
@@ -115,9 +109,7 @@ class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
 
             # Perform sampling on the current subset of remaining indices
             sampled_indices = fpsample.bucket_fps_kdtree_sampling(
-                by_column[
-                    remaining_indices
-                ],  # Subset of `by_column` corresponding to remaining indices
+                by_column[remaining_indices],  # Subset of `by_column` corresponding to remaining indices
                 split_size,
             ).tolist()
 
@@ -125,9 +117,7 @@ class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
             split_indices[split_name] = [remaining_indices[i] for i in sampled_indices]
 
             # Update remaining indices by removing the sampled ones
-            remaining_indices = [
-                idx for idx in remaining_indices if idx not in split_indices[split_name]
-            ]
+            remaining_indices = [idx for idx in remaining_indices if idx not in split_indices[split_name]]
 
         # Add the remaining indices to the largest split
         split_indices[largest_split_name] = remaining_indices
@@ -165,10 +155,7 @@ class _BalancedGreedySplitStrategy(_SplitStrategy):
             class_groups[class_idx].append(indices[i])
 
         # Sort classes by frequency (rarest first)
-        class_frequencies = [
-            (class_idx, len(indices_list))
-            for class_idx, indices_list in class_groups.items()
-        ]
+        class_frequencies = [(class_idx, len(indices_list)) for class_idx, indices_list in class_groups.items()]
         class_frequencies.sort(key=lambda x: x[1])
 
         # For each class, distribute instances proportionally across splits
@@ -176,9 +163,7 @@ class _BalancedGreedySplitStrategy(_SplitStrategy):
             class_indices_list = class_groups[class_idx]
 
             # Shuffle the indices for this class
-            np.random.seed(
-                self.seed + class_idx
-            )  # Different seed per class for reproducibility
+            np.random.seed(self.seed + class_idx)  # Different seed per class for reproducibility
             shuffled_class_indices = np.random.permutation(class_indices_list)
 
             # Calculate proportional distribution for this class
@@ -191,9 +176,7 @@ class _BalancedGreedySplitStrategy(_SplitStrategy):
                 end_idx = current_idx + instances_for_this_split
                 if current_idx < len(shuffled_class_indices):
                     split_indices[split_name].extend(
-                        shuffled_class_indices[
-                            current_idx : min(end_idx, len(shuffled_class_indices))
-                        ]
+                        shuffled_class_indices[current_idx : min(end_idx, len(shuffled_class_indices))]
                     )
                 current_idx = end_idx
 
@@ -202,9 +185,7 @@ class _BalancedGreedySplitStrategy(_SplitStrategy):
                     break
 
         # Convert lists to numpy arrays
-        return {
-            name: np.array(indices_list) for name, indices_list in split_indices.items()
-        }
+        return {name: np.array(indices_list) for name, indices_list in split_indices.items()}
 
 
 class _UndersampledBalancedSplitStrategy(_SplitStrategy):
@@ -230,17 +211,13 @@ class _UndersampledBalancedSplitStrategy(_SplitStrategy):
             class_groups[class_idx].append(indices[i])
 
         # Find the rarest class size
-        min_class_size = min(
-            len(indices_list) for indices_list in class_groups.values()
-        )
+        min_class_size = min(len(indices_list) for indices_list in class_groups.values())
 
         # Calculate how many instances each split should get per class
         split_names = list(splits.keys())
         instances_per_class_per_split = {}
         for split_name, split_proportion in splits.items():
-            instances_per_class_per_split[split_name] = int(
-                min_class_size * split_proportion
-            )
+            instances_per_class_per_split[split_name] = int(min_class_size * split_proportion)
 
         # Initialize result dictionary
         split_indices: dict[str, list[int]] = {name: [] for name in split_names}
@@ -248,9 +225,7 @@ class _UndersampledBalancedSplitStrategy(_SplitStrategy):
         # For each class, sample equal numbers for each split
         for class_idx, class_indices_list in class_groups.items():
             # Shuffle the indices for this class
-            np.random.seed(
-                self.seed + class_idx
-            )  # Different seed per class for reproducibility
+            np.random.seed(self.seed + class_idx)  # Different seed per class for reproducibility
             shuffled_class_indices = np.random.permutation(class_indices_list)
 
             # Sample equal numbers for each split
@@ -262,9 +237,7 @@ class _UndersampledBalancedSplitStrategy(_SplitStrategy):
                 end_idx = current_idx + instances_for_this_split
                 if current_idx < len(shuffled_class_indices):
                     split_indices[split_name].extend(
-                        shuffled_class_indices[
-                            current_idx : min(end_idx, len(shuffled_class_indices))
-                        ]
+                        shuffled_class_indices[current_idx : min(end_idx, len(shuffled_class_indices))]
                     )
                 current_idx = end_idx
 
@@ -273,9 +246,7 @@ class _UndersampledBalancedSplitStrategy(_SplitStrategy):
                     break
 
         # Convert lists to numpy arrays
-        return {
-            name: np.array(indices_list) for name, indices_list in split_indices.items()
-        }
+        return {name: np.array(indices_list) for name, indices_list in split_indices.items()}
 
 
 _STRATEGY_MAP = {
@@ -411,9 +382,7 @@ def set_value_in_column_to_fixed_value(
     }
 
     edited_table = tlc.EditedTable(
-        url=table.url.create_sibling(
-            f"set_{column}_to_0_in_{len(indices)}_rows"
-        ).create_unique(),
+        url=table.url.create_sibling(f"set_{column}_to_0_in_{len(indices)}_rows").create_unique(),
         input_table_url=table,
         edits=edits,
         row_cache_url="./row_cache.parquet",
@@ -423,9 +392,7 @@ def set_value_in_column_to_fixed_value(
     return edited_table
 
 
-def keep_indices(
-    table: tlc.Table, indices: list[int], table_name: str | None = None
-) -> tlc.Table:
+def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = None) -> tlc.Table:
     """Keep only the rows with the specified indices in the table.
 
     :param table: The table to filter.
@@ -513,9 +480,7 @@ def get_balanced_coreset_indices(
     # For each class, sample the required number of instances
     for class_idx, class_indices_list in class_groups.items():
         # Shuffle the indices for this class
-        np.random.seed(
-            random_seed + class_idx
-        )  # Different seed per class for reproducibility
+        np.random.seed(random_seed + class_idx)  # Different seed per class for reproducibility
         shuffled_class_indices = np.random.permutation(class_indices_list)
 
         # Take the first instances_per_class for coreset
