@@ -14,7 +14,7 @@ from tlc_tools.alias.find_aliases import (
     find_aliases_in_column,
     list_aliases,
 )
-from tlc_tools.alias.replace_aliases import (
+from tlc_tools.alias.replace import (
     replace_aliases_in_pa_table,
     replace_aliases_in_tlc_table,
 )
@@ -407,7 +407,7 @@ def test_replace_pa_table_backup_none_changed(mocker):
         }
     )
 
-    mock_backup = mocker.patch("tlc_tools.alias.replace_aliases.backup_file")
+    mock_backup = mocker.patch("tlc_tools.alias.replace.backup_file")
     mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
 
     # Process with rewrites that won't affect anything
@@ -426,10 +426,10 @@ def test_replace_pa_table_backup_on_error(mocker):
         }
     )
 
-    mock_backup = mocker.patch("tlc_tools.alias.replace_aliases.backup_file")
+    mock_backup = mocker.patch("tlc_tools.alias.replace.backup_file")
     mock_backup.return_value = Url("test.parquet.backup")
 
-    mock_restore = mocker.patch("tlc_tools.alias.replace_aliases.restore_from_backup")
+    mock_restore = mocker.patch("tlc_tools.alias.replace.restore_from_backup")
 
     # Make write fail
     mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
