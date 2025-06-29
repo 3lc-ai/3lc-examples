@@ -90,6 +90,7 @@ dependencies = [
 
 [package.optional-dependencies]
 huggingface = [
+    { name = "accelerate" },
     { name = "datasets" },
     { name = "evaluate" },
     { name = "transformers" },
@@ -135,6 +136,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "3lc", specifier = ">=2.14.0,<3.0.0" },
+    { name = "accelerate", marker = "extra == 'huggingface'", specifier = ">=1.8.1" },
     { name = "datasets", marker = "extra == 'huggingface'", specifier = ">=2.17.0" },
     { name = "evaluate", marker = "extra == 'huggingface'", specifier = ">=0.4.1,<1.0.0" },
     { name = "fpsample", specifier = ">=0.3.3,<1.0.0" },
@@ -167,6 +169,25 @@ dev = [
     { name = "ruff", specifier = ">=0.9.0,<1.0.0" },
     { name = "types-requests", specifier = ">=2.31.0.6" },
     { name = "types-tabulate", specifier = ">=0.9.0.20241207" },
+]
+
+[[package]]
+name = "accelerate"
+version = "1.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "numpy", version = "2.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "packaging" },
+    { name = "psutil" },
+    { name = "pyyaml" },
+    { name = "safetensors" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bd/c2/b9e33ad13232606dded4c546e654fb06a15f1dbcbd95d81c9f9dd3ccc771/accelerate-1.8.1.tar.gz", hash = "sha256:f60df931671bc4e75077b852990469d4991ce8bd3a58e72375c3c95132034db9", size = 380872, upload-time = "2025-06-20T15:36:14.618Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/91/d9/e044c9d42d8ad9afa96533b46ecc9b7aea893d362b3c52bd78fb9fe4d7b3/accelerate-1.8.1-py3-none-any.whl", hash = "sha256:c47b8994498875a2b1286e945bd4d20e476956056c7941d512334f4eb44ff991", size = 365338, upload-time = "2025-06-20T15:36:12.71Z" },
 ]
 
 [[package]]

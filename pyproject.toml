@@ -34,6 +34,7 @@ huggingface = [
     "datasets>=2.17.0",
     "transformers<5.0.0,>=4.30.2",
     "evaluate<1.0.0,>=0.4.1",
+    "accelerate>=1.8.1",
 ]
 umap = [
     "umap-learn<1.0.0,>=0.5.4",
