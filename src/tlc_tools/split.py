@@ -23,7 +23,10 @@ class _SplitStrategy(abc.ABC):
 
     @abc.abstractmethod
     def split(
-        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+        self,
+        indices: np.ndarray,
+        splits: dict[str, float],
+        by_column: np.ndarray | None = None,
     ) -> dict[str, np.ndarray]:
         """Split the indices into the specified splits."""
         ...
@@ -39,7 +42,10 @@ class _RandomSplitStrategy(_SplitStrategy):
     allows_shuffle = True
 
     def split(
-        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+        self,
+        indices: np.ndarray,
+        splits: dict[str, float],
+        by_column: np.ndarray | None = None,
     ) -> dict[str, np.ndarray]:
         split_sizes = self._get_split_sizes(len(indices), splits)
         splits_indices = np.split(indices, np.cumsum(split_sizes[:-1]))
@@ -51,7 +57,10 @@ class _StratifiedSplitStrategy(_SplitStrategy):
     allows_shuffle = True
 
     def split(
-        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+        self,
+        indices: np.ndarray,
+        splits: dict[str, float],
+        by_column: np.ndarray | None = None,
     ) -> dict[str, np.ndarray]:
         if by_column is None:
             msg = "Stratified split requires a column to stratify by."
@@ -61,7 +70,12 @@ class _StratifiedSplitStrategy(_SplitStrategy):
             msg = "Stratified split requires exactly two splits."
             raise ValueError(msg)
         split_sizes = self._get_split_sizes(len(indices), splits)
-        splits_indices = train_test_split(indices, test_size=split_sizes[1], stratify=by_column, random_state=self.seed)
+        splits_indices = train_test_split(
+            indices,
+            test_size=split_sizes[1],
+            stratify=by_column,
+            random_state=self.seed,
+        )
         return {split_name: split_indices for split_name, split_indices in zip(splits, splits_indices)}
 
 
@@ -70,7 +84,10 @@ class _TraversalIndexSplitStrategy(_RandomSplitStrategy):
     allows_shuffle = False  # FPS sampling should not be shuffled
 
     def split(
-        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+        self,
+        indices: np.ndarray,
+        splits: dict[str, float],
+        by_column: np.ndarray | None = None,
     ) -> dict[str, np.ndarray]:
         if by_column is None:
             msg = "Traversal index split requires a column to traverse by."
@@ -114,7 +131,10 @@ class _BalancedGreedySplitStrategy(_SplitStrategy):
     allows_shuffle = True
 
     def split(
-        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+        self,
+        indices: np.ndarray,
+        splits: dict[str, float],
+        by_column: np.ndarray | None = None,
     ) -> dict[str, np.ndarray]:
         if by_column is None:
             msg = "Balanced greedy split requires a column to balance by."
@@ -173,7 +193,10 @@ class _UndersampledBalancedSplitStrategy(_SplitStrategy):
     allows_shuffle = True
 
     def split(
-        self, indices: np.ndarray, splits: dict[str, float], by_column: np.ndarray | None = None
+        self,
+        indices: np.ndarray,
+        splits: dict[str, float],
+        by_column: np.ndarray | None = None,
     ) -> dict[str, np.ndarray]:
         if by_column is None:
             msg = "Undersampled balanced split requires a column to balance by."
@@ -240,7 +263,11 @@ def split_table(
     splits: dict[str, float] | None = None,
     random_seed: int = 0,
     split_strategy: Literal[
-        "random", "stratified", "traversal_index", "balanced_greedy", "undersampled_balanced"
+        "random",
+        "stratified",
+        "traversal_index",
+        "balanced_greedy",
+        "undersampled_balanced",
     ] = "random",
     shuffle: bool = True,
     split_by: int | str | Callable[[Any], int] | None = None,
@@ -308,7 +335,18 @@ def split_table(
 
 def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.ndarray:
     if isinstance(column, str):
-        return table.get_column(column).to_numpy()  # type: ignore[no-any-return]
+        pa_column = table.get_column(column)
+
+        # Handle FixedSizeListType specifically
+        if hasattr(pa_column.type, "list_size"):
+            # Use PyArrow's flatten() method to get the underlying values
+            # then reshape to the correct dimensions
+            fixed_size = pa_column.type.list_size
+            flattened_array = pa_column.flatten().to_numpy(zero_copy_only=False)
+            return flattened_array.reshape(-1, fixed_size)  # type: ignore[no-any-return]
+
+        # Fallback for other column types
+        return pa_column.flatten().to_numpy(zero_copy_only=False)  # type: ignore[no-any-return]
 
     if isinstance(column, int):
         return np.array([row[column] for row in table])

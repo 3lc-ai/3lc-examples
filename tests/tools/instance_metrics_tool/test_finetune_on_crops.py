@@ -8,7 +8,7 @@ import tlc
 
 from tlc_tools.augment_bbs.finetune_on_crops import train_model
 
-test_data_dir = Path(__file__).parent.parent.parent / "data"
+test_data_dir = Path(__file__).parent.parent.parent.parent / "data"
 
 coco128_annotations_file = test_data_dir / "coco128" / "annotations.json"
 coco128_images_dir = test_data_dir / "coco128" / "images"

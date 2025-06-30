@@ -7,7 +7,7 @@ import tlc
 from tlc_tools.augment_bbs.extend_table_with_metrics import extend_table_with_metrics
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
 
-test_data_dir = Path(__file__).parent.parent.parent / "data"
+test_data_dir = Path(__file__).parent.parent.parent.parent / "data"
 coco128_annotations_file = test_data_dir / "coco128" / "annotations.json"
 coco128_images_dir = test_data_dir / "coco128" / "images"
 

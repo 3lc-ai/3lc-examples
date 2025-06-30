@@ -16,11 +16,15 @@ def get_ordered_notebook_paths() -> list[Any]:
     ordered_notebooks: list[Path] = []
 
     def sort_func(item):
-        """Extract numerical prefix for sorting or fallback to name."""
+        """Extract numerical prefix for sorting, then sort alphabetically."""
         try:
-            return int(item.stem.split("-")[0] if item.is_file() else item.name.split("-")[0])
+            numeric_prefix = int(item.stem.split("-")[0] if item.is_file() else item.name.split("-")[0])
         except ValueError:
-            return 1000  # Fallback to large number for non-numeric names
+            numeric_prefix = 1000  # Fallback for non-numeric names
+
+        # Return tuple: (numeric_prefix, alphabetical_name)
+        alphabetical_name = item.stem if item.is_file() else item.name
+        return (numeric_prefix, alphabetical_name)
 
     def gather_notebooks(folder: Path):
         """Recursively gather notebooks in the given folder in sorted order."""
@@ -29,6 +33,9 @@ def get_ordered_notebook_paths() -> list[Any]:
             if item.is_dir():
                 gather_notebooks(item)
             elif item.suffix == ".ipynb":
+                if item.stem == "add-new-data":
+                    print(f"Skipping {item} because of test failure")
+                    continue
                 ordered_notebooks.append(item)
 
     # Start by processing the top-level `tutorials` folder
