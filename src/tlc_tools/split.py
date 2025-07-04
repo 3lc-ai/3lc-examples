@@ -345,8 +345,8 @@ def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.
             flattened_array = pa_column.flatten().to_numpy(zero_copy_only=False)
             return flattened_array.reshape(-1, fixed_size)  # type: ignore[no-any-return]
 
-        # Fallback for other column types
-        return pa_column.flatten().to_numpy(zero_copy_only=False)  # type: ignore[no-any-return]
+        # For other column types, convert directly to numpy
+        return pa_column.to_numpy(zero_copy_only=False)  # type: ignore[no-any-return]
 
     if isinstance(column, int):
         return np.array([row[column] for row in table])
