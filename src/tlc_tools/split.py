@@ -140,52 +140,59 @@ class _BalancedGreedySplitStrategy(_SplitStrategy):
             msg = "Balanced greedy split requires a column to balance by."
             raise ValueError(msg)
 
-        # Get split sizes based on proportions
+        # Memory-optimized implementation using numpy operations
+        unique_classes, class_indices = np.unique(by_column, return_inverse=True)
         split_names = list(splits.keys())
+        
+        # Pre-calculate split proportions as numpy array for vectorized operations
+        split_proportions = np.array(list(splits.values()))
+        
+        # Initialize result lists - use lists for efficient appending
+        split_indices = {name: [] for name in split_names}
 
-        # Initialize result dictionary
-        split_indices: dict[str, list[int]] = {name: [] for name in split_names}
+        # Process each class using vectorized operations where possible
+        for class_idx in range(len(unique_classes)):
+            # Use boolean indexing instead of creating intermediate lists
+            class_mask = class_indices == class_idx
+            class_positions = np.where(class_mask)[0]
+            class_count = len(class_positions)
+            
+            if class_count == 0:
+                continue
+                
+            # Vectorized shuffle using numpy
+            rng = np.random.default_rng(self.seed + class_idx)
+            shuffled_positions = rng.permutation(class_positions)
+            
+            # Calculate split sizes using vectorized operations
+            split_sizes = (class_count * split_proportions).astype(int)
+            
+            # Ensure we don't exceed available samples
+            total_assigned = split_sizes.sum()
+            if total_assigned < class_count:
+                # Add remaining samples to the first split
+                split_sizes[0] += class_count - total_assigned
+            elif total_assigned > class_count:
+                # Reduce from the largest splits first
+                excess = total_assigned - class_count
+                for i in np.argsort(split_sizes)[::-1]:
+                    reduction = min(excess, split_sizes[i])
+                    split_sizes[i] -= reduction
+                    excess -= reduction
+                    if excess == 0:
+                        break
+            
+            # Assign indices using cumulative splitting
+            split_boundaries = np.cumsum(np.concatenate([[0], split_sizes[:-1]]))
+            
+            for i, (split_name, start_idx) in enumerate(zip(split_names, split_boundaries)):
+                end_idx = start_idx + split_sizes[i]
+                if start_idx < len(shuffled_positions) and split_sizes[i] > 0:
+                    selected_positions = shuffled_positions[start_idx:end_idx]
+                    split_indices[split_name].extend(indices[selected_positions])
 
-        # Group indices by class
-        _, class_indices = np.unique(by_column, return_inverse=True)
-        class_groups: dict[int, list[int]] = {}
-        for i, class_idx in enumerate(class_indices):
-            if class_idx not in class_groups:
-                class_groups[class_idx] = []
-            class_groups[class_idx].append(indices[i])
-
-        # Sort classes by frequency (rarest first)
-        class_frequencies = [(class_idx, len(indices_list)) for class_idx, indices_list in class_groups.items()]
-        class_frequencies.sort(key=lambda x: x[1])
-
-        # For each class, distribute instances proportionally across splits
-        for class_idx, class_count in class_frequencies:
-            class_indices_list = class_groups[class_idx]
-
-            # Shuffle the indices for this class
-            np.random.seed(self.seed + class_idx)  # Different seed per class for reproducibility
-            shuffled_class_indices = np.random.permutation(class_indices_list)
-
-            # Calculate proportional distribution for this class
-            current_idx = 0
-            for split_name, split_proportion in splits.items():
-                # Calculate how many instances this split should get for this class
-                instances_for_this_split = int(class_count * split_proportion)
-
-                # Add instances to this split
-                end_idx = current_idx + instances_for_this_split
-                if current_idx < len(shuffled_class_indices):
-                    split_indices[split_name].extend(
-                        shuffled_class_indices[current_idx : min(end_idx, len(shuffled_class_indices))]
-                    )
-                current_idx = end_idx
-
-                # If we've used all instances for this class, break
-                if current_idx >= len(shuffled_class_indices):
-                    break
-
-        # Convert lists to numpy arrays
-        return {name: np.array(indices_list) for name, indices_list in split_indices.items()}
+        # Convert to numpy arrays efficiently
+        return {name: np.array(idx_list, dtype=indices.dtype) for name, idx_list in split_indices.items()}
 
 
 class _UndersampledBalancedSplitStrategy(_SplitStrategy):
