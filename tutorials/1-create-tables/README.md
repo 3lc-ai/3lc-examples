@@ -19,26 +19,26 @@ The `tlc` Python package provides several helper functions for creating Tables f
 | [![instance-segmentation][instance-segmentation-img]][instance-segmentation-masks-link] | [![instance-segmentation][instance-segmentation-bitmaps-img]][instance-segmentation-bitmaps-link] | [![instance-segmentation][instance-segmentation-custom-rle-img]][instance-segmentation-custom-rle-link] |
 | Create a Table from instance segmentation masks. | Create a Table a set of PNG grayscale masks for each class. | Create a Table from masks in a custom RLE format. |
 
-[image-classification-img]: ../images/create-image-classification-table.png
+[image-classification-img]: ../images/create-image-classification-table.jpg
 [image-classification-link]: create-image-classification-table.ipynb
-[custom-img]: ../images/create-custom-table.png
+[custom-img]: ../images/create-custom-table.jpg
 [custom-link]: create-custom-table.ipynb
-[bb-img]: ../images/create-bb-table.png
+[bb-img]: ../images/create-bb-table.jpg
 [bb-link]: create-bb-table.ipynb
 [yolo-img]: ../images/create-yolo-table.png
 [yolo-link]: create-yolo-table.ipynb
-[semseg-img]: ../images/ade-20-semseg.png
+[semseg-img]: ../images/ade-20-semseg.jpg
 [semseg-link]: create-semantic-segmentation-table.ipynb
-[video-img]: ../images/create-video-thumbnail-table.png
+[video-img]: ../images/create-video-thumbnail-table.jpg
 [video-link]: create-video-thumbnail-table.ipynb
 [torch-img]: ../images/from-torch.png
 [torch-link]: create-table-from-torch.ipynb
-[coco-img]: ../images/coco.png
+[coco-img]: ../images/coco.jpg
 [coco-link]: create-table-from-coco.ipynb
-[instance-segmentation-img]: ../images/instance-segmentation.png
+[instance-segmentation-img]: ../images/instance-segmentation.jpg
 [instance-segmentation-polygons-link]: create-instance-segmentation-polygons-table.ipynb
 [instance-segmentation-masks-link]: create-instance-segmentation-masks-table.ipynb
 [instance-segmentation-bitmaps-link]: create-instance-segmentations-from-masks.ipynb
 [instance-segmentation-custom-rle-link]: create-instance-segmentations-from-custom.ipynb
-[instance-segmentation-custom-rle-img]: ../images/cell-segmentations.png
-[instance-segmentation-bitmaps-img]: ../images/LIACi.png
+[instance-segmentation-custom-rle-img]: ../images/cell-segmentations.jpg
+[instance-segmentation-bitmaps-img]: ../images/LIACi.jpg
