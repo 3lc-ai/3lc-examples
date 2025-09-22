@@ -36,17 +36,6 @@ class _SplitStrategy(abc.ABC):
         if sum(split_sizes) < total_count:
             split_sizes[0] += total_count - sum(split_sizes)
         return split_sizes
-    
-    @staticmethod
-    def _prepare_split_by_column(by_column: np.ndarray) -> np.ndarray:
-        # Ensure that the split by column is a 1D numpy array
-        ret = []
-        for value in by_column:
-            if isinstance(value, np.ndarray):
-                ret.append(value[0].item())
-            else:
-                ret.append(value)
-        return np.array(ret)
 
 
 class _RandomSplitStrategy(_SplitStrategy):
@@ -80,11 +69,10 @@ class _StratifiedSplitStrategy(_SplitStrategy):
         if len(splits) != 2:
             msg = "Stratified split requires exactly two splits."
             raise ValueError(msg)
-        test_size = list(splits.values())[1]
-        by_column = self._prepare_split_by_column(by_column)
+        split_sizes = self._get_split_sizes(len(indices), splits)
         splits_indices = train_test_split(
             indices,
-            test_size=test_size,
+            test_size=split_sizes[1],
             stratify=by_column,
             random_state=self.seed,
         )
@@ -283,7 +271,6 @@ def split_table(
     ] = "random",
     shuffle: bool = True,
     split_by: int | str | Callable[[Any], int] | None = None,
-    if_exists: Literal["reuse", "overwrite", "rename"] = "reuse",
 ) -> dict[str, tlc.Table]:
     """
     Splits a table into two or more tables based on the specified strategy.
@@ -299,28 +286,12 @@ def split_table(
     :param split_by: Column or property to use for splitting. Required for "stratified", "traversal_index", and
         "balanced_greedy" strategies. Provide a string if the rows are dictionaries, or an integer if the rows are
         tuples/lists. If a callable is provided it will be called with each row and should return the value on which
-        to split. If the returned column is a jagged array (e.g. instance labels), the first element will be used.
-    :param if_exists: What to do if the split tables already exist. Default is "reuse". Note: reusability is determined
-        solely by the input table url and the split names. To be certain that new tables are created, use "rename".
+        to split.
 
     :returns: Split tables as per requested strategy.
     """
     if not splits or splits is None:
         splits = {"train": 0.8, "val": 0.2}
-
-    if if_exists not in ["reuse", "overwrite", "rename"]:
-        msg = f"Invalid if_exists value: {if_exists}, must be one of 'reuse', 'overwrite', or 'rename'."
-        raise ValueError(msg)
-
-    if if_exists == "reuse":
-        exist_count = 0
-        for split_name, _ in splits.items():
-            exist_count += 1 if table.url.create_sibling(split_name).exists() else 0
-        if exist_count == len(splits):
-            return {split_name: tlc.Table.from_url(table.url.create_sibling(split_name)) for split_name in splits}
-        elif exist_count > 0:
-            msg = f"Some split tables already exist: {exist_count}. Use 'overwrite' or 'rename' to proceed."
-            raise ValueError(msg)
 
     for _, split_proportion in splits.items():
         if split_proportion < 0 or split_proportion > 1:
@@ -357,7 +328,7 @@ def split_table(
 
     # Return dictionary with tables based on final split indices
     return {
-        split_name: keep_indices(table, split_indices.tolist(), table_name=split_name, if_exists=if_exists)
+        split_name: keep_indices(table, split_indices.tolist(), table_name=split_name)
         for split_name, split_indices in splits_indices.items()
     }
 
@@ -421,12 +392,7 @@ def set_value_in_column_to_fixed_value(
     return edited_table
 
 
-def keep_indices(
-    table: tlc.Table,
-    indices: list[int],
-    table_name: str | None = None,
-    if_exists: Literal["overwrite", "rename", "reuse"] = "rename",
-) -> tlc.Table:
+def keep_indices(table: tlc.Table, indices: list[int], table_name: str | None = None) -> tlc.Table:
     """Keep only the rows with the specified indices in the table.
 
     :param table: The table to filter.
@@ -442,12 +408,8 @@ def keep_indices(
     edits = {
         tlc.SHOULD_DELETE: {"runs_and_values": runs_and_values},
     }
-    table_url = table.url.create_sibling(table_name or "remove")
-    if if_exists == "rename":
-        table_url = table_url.create_unique()
-
     edited_table = tlc.EditedTable(
-        url=table_url,
+        url=table.url.create_sibling(table_name or "remove").create_unique(),
         input_table_url=table,
         edits=edits,
         row_cache_url="./row_cache.parquet",
