@@ -1,6 +1,6 @@
 # 3LC Tools & Tutorials Tests
 
-We have tests in tools, cli and notebooks. 
+We have tests in tools, cli and notebooks.
 
 Notebooks that are long running or dependent on external data are marked with `slow` or `dependent` in the notebook metadata.
 
