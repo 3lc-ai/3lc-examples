@@ -18,9 +18,9 @@ The `tlc` Python package provides several helper functions for creating Tables f
 | **Instance segmentation - Masks** | **Instance segmentation - Bitmaps** | **Instance segmentation - Custom RLE** |
 | [![instance-segmentation][instance-segmentation-img]][instance-segmentation-masks-link] | [![instance-segmentation][instance-segmentation-bitmaps-img]][instance-segmentation-bitmaps-link] | [![instance-segmentation][instance-segmentation-custom-rle-img]][instance-segmentation-custom-rle-link]
 | Create a Table from instance segmentation masks. | Create a Table a set of PNG grayscale masks for each class. | Create a Table from masks in a custom RLE format. |
-| **Keypoints 2D** | **Oriented Bounding Boxes** |  |
-| [![keypoints-2d][keypoints-2d-img]][keypoints-2d-link] | [![oriented-bboxes][oriented-bboxes-img]][oriented-bboxes-link] |  |
-| Create a Table from a custom keypoints 2D dataset. | Create a Table from a custom oriented bounding boxes dataset. |  |
+| **Cusotm Keypoints 2D** | **Custom Oriented Bounding Boxes** | **COCO Keypoints** |
+| [![keypoints-2d][keypoints-2d-img]][keypoints-2d-link] | [![oriented-bboxes][oriented-bboxes-img]][oriented-bboxes-link] | [![coco-keypoints][coco-keypoints-img]][coco-keypoints-link] |
+| Create a Table from a custom keypoints 2D dataset. | Create a Table from a custom oriented bounding boxes dataset. | Create a Table from a COCO keypoints dataset. |
 
 [image-classification-img]: ../images/create-image-classification-table.jpg
 [image-classification-link]: create-image-classification-table.ipynb
@@ -49,4 +49,5 @@ The `tlc` Python package provides several helper functions for creating Tables f
 [keypoints-2d-link]: create-custom-keypoints-table.ipynb
 [oriented-bboxes-img]: ../images/hrsc2016-ms.png
 [oriented-bboxes-link]: create-custom-obb-table.ipynb
-
+[coco-keypoints-img]: ../images/coco-keypoints.png
+[coco-keypoints-link]: create-table-from-coco-keypoints.ipynb
