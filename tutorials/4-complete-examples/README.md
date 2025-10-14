@@ -10,6 +10,6 @@ This folder contains notebooks showcasing complete examples of training and eval
 | **PyTorch Lightning classifier** | **Collect instance segmentation metrics** | **Train YOLO pose estimator** |
 | [![lightning](../images/lightning.jpg)](pytorch-lightning-classification.ipynb) | [![instance-segmentation](../images/collect-segmentations.jpg)](collect-instance-segmentation-metrics.ipynb) | [![train-yolo-pose](../images/animalpose-run.png)](train-yolo-pose.ipynb) |
 | Adds Table creation and metrics collection to a PyTorch Lightning module using the 3LC decorator | Collect instance segmentation metrics from a pre-trained Hugging Face model (Mask2Former) | Train a YOLO pose estimator on a custom keypoints dataset |
-| **Train YOLO OBB detector** |  |  |
-| [![train-yolo-obb](../images/hrsc2016-ms-run.png)](train-yolo-obb.ipynb) |  |  |
-| Train a YOLO OBB detector on a custom OBB dataset |  |  |
+| **Train YOLO OBB detector** | **Train SuperGradients pose estimator** |  |
+| [![train-yolo-obb](../images/hrsc2016-ms-run.png)](train-yolo-obb.ipynb) | [![train-supergradients-pose](../images/sg-animalpose.png)](train-supergradients-pose.ipynb) |  |
+| Train a YOLO OBB detector on a custom OBB dataset | Train a YOLO-NAS pose estimator using SuperGradients |  |
