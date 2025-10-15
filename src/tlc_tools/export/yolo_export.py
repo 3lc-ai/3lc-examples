@@ -7,7 +7,7 @@ from typing import Literal
 
 import tlc
 import yaml
-from tlc.core.builtins.types.bounding_box import CenteredXYWHBoundingBox
+from tlc.core.data_formats.bounding_boxes import CenteredXYWHBoundingBox
 from tqdm import tqdm
 
 from tlc_tools.common import is_windows

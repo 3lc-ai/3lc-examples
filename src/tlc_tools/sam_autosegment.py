@@ -6,7 +6,7 @@ import torch
 import tqdm
 from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
-from tlc.core.builtins.types.bounding_box import XYXYBoundingBox
+from tlc.core.data_formats.bounding_boxes import XYXYBoundingBox
 
 from tlc_tools.add_columns_to_table import add_columns_to_table
 
