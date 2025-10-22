@@ -8,7 +8,7 @@ import numpy as np
 import tlc
 import torch
 from PIL import Image
-from tlc.core.builtins.types.segmentation_helper import SegmentationHelper
+from tlc.core.helpers.segmentation_helper import SegmentationHelper
 from torch.utils.data import Dataset
 
 from tlc_tools.augment_bbs.instance_config import InstanceConfig

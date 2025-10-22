@@ -182,5 +182,19 @@ and TensorFlow
 **Year**: 2023
 **URL**: [Website](https://data.sintef.no/product/details/dp-9e112cec-3a59-4b58-86b3-ecb1f2878c60)
 
+**Title**: MSSDet: Multi-Scale Ship-Detection Framework in Optical Remote-Sensing Images and New Benchmark  
+**Authors**: W. Chen, B. Han, Z. Yang, X. Gao  
+**Journal**: Remote Sensing  
+**Year**: 2022  
+**Volume**: 14  
+**Article**: 5460  
+**URL**: [https://doi.org/10.3390/rs14215460](https://doi.org/10.3390/rs14215460)
+
+**Title**: Cross-Domain Adaptation for Animal Pose Estimation  
+**Authors**: J. Cao, H. Tang, H.-S. Fang, X. Shen, C. Lu, and Y.-W. Tai  
+**Journal**: arXiv preprint  
+**Year**: 2019  
+**URL**: [https://arxiv.org/abs/1908.05806](https://arxiv.org/abs/1908.05806)
+
 We also use the first 128 images from the [COCO](https://cocodataset.org/#home)
 dataset.
