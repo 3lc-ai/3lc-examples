@@ -347,10 +347,10 @@ if __name__ == "__main__":
     table = load_pandaset(
         dataset_root=DATASET_ROOT,
         tlc_project_root=TLC_PROJECT_ROOT,
-        max_sequences=None,
+        max_sequences=1,
         max_frames=10,
         table_name="pandaset",
-        dataset_name="pandaset-test",
+        dataset_name="pandaset-test-2",
         project_name="pandaset",
     )
     print(table)
