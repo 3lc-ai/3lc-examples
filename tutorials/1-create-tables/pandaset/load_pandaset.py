@@ -2,15 +2,22 @@
 
 # pip install git+https://github.com/scaleapi/pandaset-devkit.git
 
+import gc
 from pathlib import Path
 
 import numpy as np
+import pandaset
+import psutil
 import tlc
 import tqdm
-from pandaset import DataSet
-from pandaset.geometry import _heading_position_to_mat
 
 bounds = tlc.GeometryHelper.create_isotropic_bounds_3d(-175, 175, -175, 175, -10, 20)
+
+
+def print_memory_usage():
+    process = psutil.Process()
+    print(f"Memory usage: {process.memory_info().rss / 1024 / 1024 / 1024:.2f} GB")
+
 
 semseg_classes = {
     1: "Smoke",
@@ -110,26 +117,6 @@ def get_bb_schema() -> tlc.Schema:
     return schema
 
 
-def quat_xyzw_to_rotmat(q: np.ndarray) -> np.ndarray:
-    qx, qy, qz, qw = q.astype(np.float64, copy=False)
-    norm = np.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
-    if norm == 0.0:
-        return np.eye(3, dtype=np.float32)
-    qx, qy, qz, qw = qx / norm, qy / norm, qz / norm, qw / norm
-    xx, yy, zz = qx * qx, qy * qy, qz * qz
-    xy, xz, yz = qx * qy, qx * qz, qy * qz
-    wx, wy, wz = qw * qx, qw * qy, qw * qz
-    R = np.array(
-        [
-            [1.0 - 2.0 * (yy + zz), 2.0 * (xy - wz), 2.0 * (xz + wy)],
-            [2.0 * (xy + wz), 1.0 - 2.0 * (xx + zz), 2.0 * (yz - wx)],
-            [2.0 * (xz - wy), 2.0 * (yz + wx), 1.0 - 2.0 * (xx + yy)],
-        ],
-        dtype=np.float32,
-    )
-    return R
-
-
 def rotmat_from_yaw(yaw: float) -> np.ndarray:
     c = float(np.cos(yaw))
     s = float(np.sin(yaw))
@@ -143,7 +130,7 @@ def rotmat_from_yaw(yaw: float) -> np.ndarray:
     )
 
 
-def load_car() -> tuple[tlc.Geometry3DInstances, tlc.Schema]:
+def load_car() -> tuple[dict, tlc.Schema]:
     car_obj_path = tlc.Url("<TEST_DATA>/data/car/NormalCar2.obj").to_absolute().to_str()
     scale = 1.25
     transform = np.array(
@@ -167,7 +154,7 @@ def load_car() -> tuple[tlc.Geometry3DInstances, tlc.Schema]:
         },
         is_bulk_data=True,
     )
-    return car_geometry, car_schema
+    return car_geometry.to_row(), car_schema
 
 
 def load_pandaset(
@@ -176,11 +163,12 @@ def load_pandaset(
     max_frames: int | None = None,
     tlc_project_root: str | None = None,
 ) -> tlc.Table:
-    dataset = DataSet(dataset_root)
-    car_geometry, car_schema = load_car()
+    dataset = pandaset.DataSet(dataset_root)
+    car, car_schema = load_car()
+
     table_writer = tlc.TableWriter(
         table_name="pandaset",
-        dataset_name="pandaset",
+        dataset_name="pandaset-test",
         project_name="pandaset",
         column_schemas={
             "lidar": get_lidar_schema(),
@@ -195,16 +183,22 @@ def load_pandaset(
         },
         root_url=tlc_project_root,
     )
-    car = car_geometry.to_row()
 
     sequences = dataset.sequences(with_semseg=True)[:max_sequences]
+
     for sequence_idx, sequence_id in enumerate(sequences):
-        print(f"Processing sequence {sequence_idx} of {len(sequences)}")
         # Load sequence
-        sequence = dataset[sequence_id].load()
+        print(f"Loading sequence {sequence_idx + 1}/{len(sequences)}... ", end=" ")
+        sequence = dataset[sequence_id]
+        sequence.lidar.set_sensor(0)
+        sequence.load_lidar()
+        sequence.load_cuboids()
+        sequence.load_semseg()
+        sequence.load_camera()
+        print("[DONE]")
+        print_memory_usage()
 
         # LiDAR 0 (mechanical 360° LiDAR)
-        sequence.lidar.set_sensor(0)
         pc_all = sequence.lidar[:max_frames]
         lidar_poses_all = sequence.lidar.poses[:max_frames]
 
@@ -222,21 +216,6 @@ def load_pandaset(
         left_camera_all = list(Path(sequence.camera["left_camera"]._directory).glob("*.jpg"))[:max_frames]
         right_camera_all = list(Path(sequence.camera["right_camera"]._directory).glob("*.jpg"))[:max_frames]
 
-        # Poses
-
-        # Assert length of all lists is the same
-        assert (
-            len(pc_all)
-            == len(semseg_all)
-            == len(cuboids_all)
-            == len(back_camera_all)
-            == len(front_camera_all)
-            == len(front_left_camera_all)
-            == len(front_right_camera_all)
-            == len(left_camera_all)
-            == len(right_camera_all)
-            == len(lidar_poses_all)
-        )
         sequence_length = len(pc_all)
 
         for frame_id, (
@@ -268,12 +247,12 @@ def load_pandaset(
                 desc=f"Processing sequence {sequence_id}",
             )
         ):
-            pose_position = lidar_pose["position"]
-            heading = lidar_pose["heading"]
-            pose_mat = _heading_position_to_mat(heading, pose_position)
+            lidar_position = lidar_pose["position"]
+            lidar_heading = lidar_pose["heading"]
+            pose_mat = pandaset.geometry._heading_position_to_mat(lidar_heading, lidar_position)
             T_inv = np.linalg.inv(pose_mat)
-            R_inv = T_inv[:3, :3]
-            t_inv = T_inv[:3, 3]
+            R_inv = T_inv[:3, :3]  # 3x3 rotation matrix
+            t_inv = T_inv[:3, 3]  # 3x1 translation vector
 
             verts = pc.values[:, :3].astype(np.float32, copy=False)
             verts = (R_inv @ verts.T + t_inv.reshape(3, 1)).T.astype(np.float32, copy=False)
@@ -312,6 +291,8 @@ def load_pandaset(
                     "car": car,
                 }
             )
+
+        dataset.unload(sequence_id)
 
     table = table_writer.finalize()
 
@@ -366,12 +347,14 @@ def load_cuboids(cuboids, R_inv, t_inv):
         }
         cuboid_dict["instances"].append({"oriented_bbs_3d": [bb]})
         label_int = cuboid_classes.get(label, -1)
+        if label_int == -1:
+            raise ValueError(f"Label {label} not found in cuboid_classes")
         cuboid_dict["instances_additional_data"]["label"].append(label_int)
     return cuboid_dict
 
 
 if __name__ == "__main__":
-    TLC_PROJECT_ROOT = "D:/Data/projects"
+    TLC_PROJECT_ROOT = "D:/Data/3LC-projects"
     DATASET_ROOT = Path("D:/Data/pandaset")
     table = load_pandaset(
         dataset_root=DATASET_ROOT,
