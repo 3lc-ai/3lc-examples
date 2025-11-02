@@ -183,7 +183,7 @@ def load_pandaset(
         root_url=tlc_project_root,
     )
 
-    sequences = dataset.sequences(with_semseg=True)[:max_sequences]
+    sequences = dataset.sequences(with_semseg=True)[:max_sequences]  # 103 sequences total, 76 with semseg
     total_sequences = len(sequences)
 
     # Progress bar uses sequences as the main unit for stable ETA
@@ -309,6 +309,16 @@ def load_pandaset(
 
 
 def load_cuboids(cuboids, R_inv, t_inv) -> tlc.OBB3DInstances:
+    # cuboids["uuid"]
+    # cuboids["stationary"] (bool)
+    # cuboids["camera_used"]
+    # cuboids["attributes"]["object_motion"] (Parked Stopped Moving)
+    # cuboids["attributes"]["rider_status"] (With Rider Without Rider)
+    # cuboids["attributes"]["pedestrian_behavior"] (Sitting Lying Walking Standing)
+    # cuboids["attributes"]["pedestrian_age"] (Adult Child)
+    # cuboids["sensor_id"]
+    # cuboids["sibling_id"]
+
     # Vectorized world->ego transform for centers and yaw
     labels_int = [cuboid_classes.get(str(lbl)) for lbl in cuboids["label"].values]
 
