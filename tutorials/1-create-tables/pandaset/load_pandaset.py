@@ -155,15 +155,18 @@ def load_pandaset(
     dataset_root: Path,
     max_sequences: int | None = None,
     max_frames: int | None = None,
+    table_name: str = "pandaset",
+    dataset_name: str = "pandaset",
+    project_name: str = "pandaset",
     tlc_project_root: str | None = None,
 ) -> tlc.Table:
     dataset = pandaset.DataSet(dataset_root)
     car, car_schema = load_car()
 
     table_writer = tlc.TableWriter(
-        table_name="pandaset",
-        dataset_name="pandaset-test",
-        project_name="pandaset",
+        table_name=table_name,
+        dataset_name=dataset_name,
+        project_name=project_name,
         column_schemas={
             "lidar": get_lidar_schema(),
             "bbs": get_bb_schema(),
@@ -181,14 +184,14 @@ def load_pandaset(
     sequences = dataset.sequences(with_semseg=True)[:max_sequences]
     total_sequences = len(sequences)
 
-    # Global progress bar with known total frames
+    # Progress bar uses sequences as the main unit for stable ETA
     frames_per_seq_effective = frames_per_sequence if max_frames is None else min(frames_per_sequence, max_frames)
-    total_frames = total_sequences * frames_per_seq_effective
-    pbar = tqdm.tqdm(total=total_frames, desc="Processing sequences", unit="frame")
+    pbar = tqdm.tqdm(total=total_sequences, desc="Sequences", unit="seq")
 
     for sequence_idx, sequence_id in enumerate(sequences):
-        # Update description per sequence
+        # Update description per sequence and show loading state
         pbar.set_description(f"Seq {sequence_idx + 1}/{total_sequences} ({sequence_id})")
+        pbar.set_postfix_str(f"loading… 0/{frames_per_seq_effective} frames")
         sequence = dataset[sequence_id]
         sequence.lidar.set_sensor(0)
         sequence.load_lidar()
@@ -214,8 +217,6 @@ def load_pandaset(
         left_camera_all = list(Path(sequence.camera["left_camera"]._directory).glob("*.jpg"))[:max_frames]
         right_camera_all = list(Path(sequence.camera["right_camera"]._directory).glob("*.jpg"))[:max_frames]
 
-        # Define the iterator separately for readability
-
         frame_iter = zip(
             pc_all,
             lidar_poses_all,
@@ -228,6 +229,8 @@ def load_pandaset(
             left_camera_all,
             right_camera_all,
         )
+        frames_total = len(pc_all)
+        pbar.set_postfix_str(f"frames 0/{frames_total}")
 
         for frame_id, (
             pc,
@@ -241,9 +244,8 @@ def load_pandaset(
             left_camera_path,
             right_camera_path,
         ) in enumerate(frame_iter):
-            lidar_position = lidar_pose["position"]
-            lidar_heading = lidar_pose["heading"]
-            pose_mat = pandaset.geometry._heading_position_to_mat(lidar_heading, lidar_position)
+            # Create world to ego transform from position and heading
+            pose_mat = pandaset.geometry._heading_position_to_mat(lidar_pose["heading"], lidar_pose["position"])
             T_inv = np.linalg.inv(pose_mat)
             R_inv = T_inv[:3, :3]  # 3x3 world to ego rotation matrix
             t_inv = T_inv[:3, 3]  # 3x1 world to ego translation vector
@@ -272,89 +274,78 @@ def load_pandaset(
             )
 
             # Transform cuboids from world to ego coordinates and prepare for table writing
-            cuboid_dict = load_cuboids(cuboids, R_inv, t_inv)
+            obbs = load_cuboids(cuboids, R_inv, t_inv)
 
-            # table_writer.add_row(
-            #     {
-            #         "sequence_id": sequence_id,
-            #         "frame_id": frame_id,
-            #         "lidar": geometry.to_row(),
-            #         "bbs": cuboid_dict,
-            #         "back_camera": back_camera_path.as_posix(),
-            #         "front_camera": front_camera_path.as_posix(),
-            #         "front_left_camera": front_left_camera_path.as_posix(),
-            #         "front_right_camera": front_right_camera_path.as_posix(),
-            #         "left_camera": left_camera_path.as_posix(),
-            #         "right_camera": right_camera_path.as_posix(),
-            #         "car": car,
-            #     }
-            # )
+            table_writer.add_row(
+                {
+                    "sequence_id": sequence_id,
+                    "frame_id": frame_id,
+                    "lidar": geometry.to_row(),
+                    "bbs": obbs.to_row(),
+                    "back_camera": back_camera_path.as_posix(),
+                    "front_camera": front_camera_path.as_posix(),
+                    "front_left_camera": front_left_camera_path.as_posix(),
+                    "front_right_camera": front_right_camera_path.as_posix(),
+                    "left_camera": left_camera_path.as_posix(),
+                    "right_camera": right_camera_path.as_posix(),
+                    "car": car,
+                }
+            )
 
-            # Advance global progress
-            pbar.update(1)
+            # Update frame progress within the current sequence (does not advance the bar)
+            pbar.set_postfix_str(f"frames {frame_id + 1}/{frames_total}")
 
         dataset.unload(sequence_id)
+        # Advance the bar by one completed sequence
+        pbar.update(1)
 
     pbar.close()
 
-    # table = table_writer.finalize()
-    table = None  # table writing disabled
+    table = table_writer.finalize()
 
     return table
 
 
-def load_cuboids(cuboids, R_inv, t_inv):
-    # cuboids = tlc.OrientedBoundingBoxes3DInstances.create_empty(*bounds, per_instance_extras_keys=["label"])
-    cuboid_dict = {
-        "instances": [],
-        "instances_additional_data": {
-            "label": [],
-        },
-        "x_min": bounds[0],
-        "x_max": bounds[1],
-        "y_min": bounds[2],
-        "y_max": bounds[3],
-        "z_min": bounds[4],
-        "z_max": bounds[5],
-    }
+def load_cuboids(cuboids, R_inv, t_inv) -> tlc.core.data_formats.obb.OBB3DInstances:
+    # Vectorized world->ego transform for centers and yaw
+    obbs = tlc.core.data_formats.obb.OBB3DInstances.create_empty(*bounds, include_instance_labels=True)
+    labels = cuboids["label"].values
+    centers_world = np.stack(
+        [
+            cuboids["position.x"].values,
+            cuboids["position.y"].values,
+            cuboids["position.z"].values,
+        ],
+        axis=1,
+    )
+    sizes = np.stack(
+        [
+            cuboids["dimensions.x"].values,
+            cuboids["dimensions.y"].values,
+            cuboids["dimensions.z"].values,
+        ],
+        axis=1,
+    )
+    yaw_world = cuboids["yaw"].values.astype(np.float32, copy=False)
 
-    for label, x, y, z, length, width, height, yaw in zip(
-        cuboids["label"].values,
-        cuboids["position.x"].values,
-        cuboids["position.y"].values,
-        cuboids["position.z"].values,
-        cuboids["dimensions.x"].values,
-        cuboids["dimensions.y"].values,
-        cuboids["dimensions.z"].values,
-        cuboids["yaw"].values,
-    ):
-        # world -> ego for centers, using the same transform as lidar_points_to_ego
-        x, y, z = (
-            R_inv[0, 0] * x + R_inv[0, 1] * y + R_inv[0, 2] * z + t_inv[0],
-            R_inv[1, 0] * x + R_inv[1, 1] * y + R_inv[1, 2] * z + t_inv[1],
-            R_inv[2, 0] * x + R_inv[2, 1] * y + R_inv[2, 2] * z + t_inv[2],
+    # Apply world->ego: X_e = R_inv * X_w + t_inv (vectorized as row-vectors)
+    centers_ego = centers_world @ R_inv.T + t_inv.reshape(1, 3)
+
+    # Yaw in ego: yaw_e = yaw_w + yaw(R_inv)
+    yaw_offset = float(np.arctan2(R_inv[1, 0], R_inv[0, 0]))
+    yaw_ego = yaw_world + yaw_offset
+
+    # Map labels to ints, validate
+    labels_int = [cuboid_classes.get(str(lbl), -1) for lbl in labels]
+
+    # Pack dictionaries
+    for (cx, cy, cz), (sx, sy, sz), yaw_val, label_val in zip(centers_ego, sizes, yaw_ego, labels_int):
+        obbs.add_instance(
+            obb=np.array([cx, cy, cz, sx, sy, sz, yaw_val, np.nan, np.nan]),
+            label=label_val,
         )
 
-        R_box_w = rotmat_from_yaw(float(yaw))
-        R_box_e = R_inv @ R_box_w
-        yaw = float(np.arctan2(R_box_e[1, 0], R_box_e[0, 0]))
-        bb = {
-            "center_x": x,
-            "center_y": y,
-            "center_z": z,
-            "size_x": length,
-            "size_y": width,
-            "size_z": height,
-            "yaw": yaw,
-            "pitch": np.nan,
-            "roll": np.nan,
-        }
-        cuboid_dict["instances"].append({"oriented_bbs_3d": [bb]})
-        label_int = cuboid_classes.get(label, -1)
-        if label_int == -1:
-            raise ValueError(f"Label {label} not found in cuboid_classes")
-        cuboid_dict["instances_additional_data"]["label"].append(label_int)
-    return cuboid_dict
+    return obbs
 
 
 if __name__ == "__main__":
@@ -365,5 +356,8 @@ if __name__ == "__main__":
         tlc_project_root=TLC_PROJECT_ROOT,
         max_sequences=None,
         max_frames=None,
+        table_name="pandaset",
+        dataset_name="pandaset",
+        project_name="pandaset",
     )
     print(table)
