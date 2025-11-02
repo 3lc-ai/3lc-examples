@@ -329,7 +329,15 @@ def load_cuboids(cuboids, R_inv, t_inv) -> tlc.OBB3DInstances:
     yaw_offset = float(np.arctan2(R_inv[1, 0], R_inv[0, 0]))
     yaw_ego = yaw_world + yaw_offset
 
-    obbs = tlc.OBB3DInstances.create_empty(*bounds, include_instance_labels=True)
+    obbs = tlc.OBB3DInstances.create_empty(
+        x_min=bounds[0],
+        x_max=bounds[1],
+        y_min=bounds[2],
+        y_max=bounds[3],
+        z_min=bounds[4],
+        z_max=bounds[5],
+        include_instance_labels=True,
+    )
 
     # Pack dictionaries
     for (cx, cy, cz), (sx, sy, sz), yaw_val, label_val in zip(centers_ego, sizes, yaw_ego, labels_int):
@@ -350,7 +358,7 @@ if __name__ == "__main__":
         max_sequences=1,
         max_frames=10,
         table_name="pandaset",
-        dataset_name="pandaset-test-2",
+        dataset_name="pandaset",
         project_name="pandaset",
     )
     print(table)
