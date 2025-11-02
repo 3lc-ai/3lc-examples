@@ -111,17 +111,18 @@ def get_bb_schema() -> tlc.Schema:
     return schema
 
 
-def rotmat_from_yaw(yaw: float) -> np.ndarray:
-    c = float(np.cos(yaw))
-    s = float(np.sin(yaw))
-    return np.array(
-        [
-            [c, -s, 0.0],
-            [s, c, 0.0],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype=np.float32,
-    )
+def load_intrinsics(dataset: pandaset.DataSet) -> dict[str, dict[str, float]]:
+    sequence = dataset.sequences(with_semseg=True)[0]
+    dataset[sequence].load_camera()
+    return {
+        name: {
+            "fx": cam.intrinsics.fx,
+            "fy": cam.intrinsics.fy,
+            "cx": cam.intrinsics.cx,
+            "cy": cam.intrinsics.cy,
+        }
+        for name, cam in dataset[sequence].camera.items()
+    }
 
 
 def load_car() -> tuple[dict, tlc.Schema]:
@@ -162,6 +163,7 @@ def load_pandaset(
 ) -> tlc.Table:
     dataset = pandaset.DataSet(dataset_root)
     car, car_schema = load_car()
+    intrinsics = load_intrinsics(dataset)
 
     table_writer = tlc.TableWriter(
         table_name=table_name,
@@ -170,12 +172,12 @@ def load_pandaset(
         column_schemas={
             "lidar": get_lidar_schema(),
             "bbs": get_bb_schema(),
-            "back_camera": tlc.ImageUrlSchema(),
-            "front_camera": tlc.ImageUrlSchema(),
-            "front_left_camera": tlc.ImageUrlSchema(),
-            "front_right_camera": tlc.ImageUrlSchema(),
-            "left_camera": tlc.ImageUrlSchema(),
-            "right_camera": tlc.ImageUrlSchema(),
+            "back_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["back_camera"]}),
+            "front_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["front_camera"]}),
+            "front_left_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["front_left_camera"]}),
+            "front_right_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["front_right_camera"]}),
+            "left_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["left_camera"]}),
+            "right_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["right_camera"]}),
             "car": car_schema,
         },
         root_url=tlc_project_root,
@@ -306,24 +308,16 @@ def load_pandaset(
     return table
 
 
-def load_cuboids(cuboids, R_inv, t_inv) -> tlc.core.data_formats.obb.OBB3DInstances:
+def load_cuboids(cuboids, R_inv, t_inv) -> tlc.OBB3DInstances:
     # Vectorized world->ego transform for centers and yaw
-    obbs = tlc.core.data_formats.obb.OBB3DInstances.create_empty(*bounds, include_instance_labels=True)
-    labels = cuboids["label"].values
+    labels_int = [cuboid_classes.get(str(lbl)) for lbl in cuboids["label"].values]
+
     centers_world = np.stack(
-        [
-            cuboids["position.x"].values,
-            cuboids["position.y"].values,
-            cuboids["position.z"].values,
-        ],
+        [cuboids["position.x"].values, cuboids["position.y"].values, cuboids["position.z"].values],
         axis=1,
     )
     sizes = np.stack(
-        [
-            cuboids["dimensions.x"].values,
-            cuboids["dimensions.y"].values,
-            cuboids["dimensions.z"].values,
-        ],
+        [cuboids["dimensions.x"].values, cuboids["dimensions.y"].values, cuboids["dimensions.z"].values],
         axis=1,
     )
     yaw_world = cuboids["yaw"].values.astype(np.float32, copy=False)
@@ -335,8 +329,7 @@ def load_cuboids(cuboids, R_inv, t_inv) -> tlc.core.data_formats.obb.OBB3DInstan
     yaw_offset = float(np.arctan2(R_inv[1, 0], R_inv[0, 0]))
     yaw_ego = yaw_world + yaw_offset
 
-    # Map labels to ints, validate
-    labels_int = [cuboid_classes.get(str(lbl), -1) for lbl in labels]
+    obbs = tlc.OBB3DInstances.create_empty(*bounds, include_instance_labels=True)
 
     # Pack dictionaries
     for (cx, cy, cz), (sx, sy, sz), yaw_val, label_val in zip(centers_ego, sizes, yaw_ego, labels_int):
@@ -349,15 +342,15 @@ def load_cuboids(cuboids, R_inv, t_inv) -> tlc.core.data_formats.obb.OBB3DInstan
 
 
 if __name__ == "__main__":
-    TLC_PROJECT_ROOT = "D:/Data/3LC-projects"
+    TLC_PROJECT_ROOT = "D:/3LC-projects"
     DATASET_ROOT = Path("D:/Data/pandaset")
     table = load_pandaset(
         dataset_root=DATASET_ROOT,
         tlc_project_root=TLC_PROJECT_ROOT,
         max_sequences=None,
-        max_frames=None,
+        max_frames=10,
         table_name="pandaset",
-        dataset_name="pandaset",
+        dataset_name="pandaset-test",
         project_name="pandaset",
     )
     print(table)
