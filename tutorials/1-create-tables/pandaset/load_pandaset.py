@@ -2,22 +2,16 @@
 
 # pip install git+https://github.com/scaleapi/pandaset-devkit.git
 
-import gc
 from pathlib import Path
 
 import numpy as np
 import pandaset
-import psutil
 import tlc
 import tqdm
 
+# Each pandaset sequence contains 80 frames (8 seconds at 10 fps)
+frames_per_sequence = 80
 bounds = tlc.GeometryHelper.create_isotropic_bounds_3d(-175, 175, -175, 175, -10, 20)
-
-
-def print_memory_usage():
-    process = psutil.Process()
-    print(f"Memory usage: {process.memory_info().rss / 1024 / 1024 / 1024:.2f} GB")
-
 
 semseg_classes = {
     1: "Smoke",
@@ -185,18 +179,22 @@ def load_pandaset(
     )
 
     sequences = dataset.sequences(with_semseg=True)[:max_sequences]
+    total_sequences = len(sequences)
+
+    # Global progress bar with known total frames
+    frames_per_seq_effective = frames_per_sequence if max_frames is None else min(frames_per_sequence, max_frames)
+    total_frames = total_sequences * frames_per_seq_effective
+    pbar = tqdm.tqdm(total=total_frames, desc="Processing sequences", unit="frame")
 
     for sequence_idx, sequence_id in enumerate(sequences):
-        # Load sequence
-        print(f"Loading sequence {sequence_idx + 1}/{len(sequences)}... ", end=" ")
+        # Update description per sequence
+        pbar.set_description(f"Seq {sequence_idx + 1}/{total_sequences} ({sequence_id})")
         sequence = dataset[sequence_id]
         sequence.lidar.set_sensor(0)
         sequence.load_lidar()
         sequence.load_cuboids()
         sequence.load_semseg()
         sequence.load_camera()
-        print("[DONE]")
-        print_memory_usage()
 
         # LiDAR 0 (mechanical 360° LiDAR)
         pc_all = sequence.lidar[:max_frames]
@@ -216,7 +214,20 @@ def load_pandaset(
         left_camera_all = list(Path(sequence.camera["left_camera"]._directory).glob("*.jpg"))[:max_frames]
         right_camera_all = list(Path(sequence.camera["right_camera"]._directory).glob("*.jpg"))[:max_frames]
 
-        sequence_length = len(pc_all)
+        # Define the iterator separately for readability
+
+        frame_iter = zip(
+            pc_all,
+            lidar_poses_all,
+            semseg_all,
+            cuboids_all,
+            back_camera_all,
+            front_camera_all,
+            front_left_camera_all,
+            front_right_camera_all,
+            left_camera_all,
+            right_camera_all,
+        )
 
         for frame_id, (
             pc,
@@ -229,38 +240,24 @@ def load_pandaset(
             front_right_camera_path,
             left_camera_path,
             right_camera_path,
-        ) in enumerate(
-            tqdm.tqdm(
-                zip(
-                    pc_all,
-                    lidar_poses_all,
-                    semseg_all,
-                    cuboids_all,
-                    back_camera_all,
-                    front_camera_all,
-                    front_left_camera_all,
-                    front_right_camera_all,
-                    left_camera_all,
-                    right_camera_all,
-                ),
-                total=sequence_length,
-                desc=f"Processing sequence {sequence_id}",
-            )
-        ):
+        ) in enumerate(frame_iter):
             lidar_position = lidar_pose["position"]
             lidar_heading = lidar_pose["heading"]
             pose_mat = pandaset.geometry._heading_position_to_mat(lidar_heading, lidar_position)
             T_inv = np.linalg.inv(pose_mat)
-            R_inv = T_inv[:3, :3]  # 3x3 rotation matrix
-            t_inv = T_inv[:3, 3]  # 3x1 translation vector
+            R_inv = T_inv[:3, :3]  # 3x3 world to ego rotation matrix
+            t_inv = T_inv[:3, 3]  # 3x1 world to ego translation vector
 
+            # Transform LiDAR points from world to ego coordinates
             verts = pc.values[:, :3].astype(np.float32, copy=False)
             verts = (R_inv @ verts.T + t_inv.reshape(3, 1)).T.astype(np.float32, copy=False)
 
+            # Extract intensity, distance, and semantic segmentation values (per-vertex)
             intensities = pc.values[:, 3].astype(np.float32, copy=False)
             distances = pc.values[:, 5].astype(np.float32, copy=False)
             semseg_values = semseg.values.astype(np.int32, copy=False).reshape(-1)[: len(verts)]
 
+            # Create a new geometry object to store the transformed LiDAR points
             geometry = tlc.Geometry3DInstances.create_empty(
                 *bounds,
                 per_vertex_extras_keys=["intensity", "distance", "semseg"],
@@ -274,27 +271,34 @@ def load_pandaset(
                 },
             )
 
+            # Transform cuboids from world to ego coordinates and prepare for table writing
             cuboid_dict = load_cuboids(cuboids, R_inv, t_inv)
 
-            table_writer.add_row(
-                {
-                    "sequence_id": sequence_id,
-                    "frame_id": frame_id,
-                    "lidar": geometry.to_row(),
-                    "bbs": cuboid_dict,
-                    "back_camera": back_camera_path.as_posix(),
-                    "front_camera": front_camera_path.as_posix(),
-                    "front_left_camera": front_left_camera_path.as_posix(),
-                    "front_right_camera": front_right_camera_path.as_posix(),
-                    "left_camera": left_camera_path.as_posix(),
-                    "right_camera": right_camera_path.as_posix(),
-                    "car": car,
-                }
-            )
+            # table_writer.add_row(
+            #     {
+            #         "sequence_id": sequence_id,
+            #         "frame_id": frame_id,
+            #         "lidar": geometry.to_row(),
+            #         "bbs": cuboid_dict,
+            #         "back_camera": back_camera_path.as_posix(),
+            #         "front_camera": front_camera_path.as_posix(),
+            #         "front_left_camera": front_left_camera_path.as_posix(),
+            #         "front_right_camera": front_right_camera_path.as_posix(),
+            #         "left_camera": left_camera_path.as_posix(),
+            #         "right_camera": right_camera_path.as_posix(),
+            #         "car": car,
+            #     }
+            # )
+
+            # Advance global progress
+            pbar.update(1)
 
         dataset.unload(sequence_id)
 
-    table = table_writer.finalize()
+    pbar.close()
+
+    # table = table_writer.finalize()
+    table = None  # table writing disabled
 
     return table
 
