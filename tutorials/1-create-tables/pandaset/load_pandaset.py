@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pandaset
 import tlc
 import tqdm
@@ -12,6 +13,14 @@ import tqdm
 # Each pandaset sequence contains 80 frames (8 seconds at 10 fps)
 frames_per_sequence = 80
 bounds = tlc.GeometryHelper.create_isotropic_bounds_3d(-175, 175, -175, 175, -10, 20)
+R_align = np.array(
+    [
+        [0.0, 1.0, 0.0],  # x' = y
+        [1.0, 0.0, 0.0],  # y' = x
+        [0.0, 0.0, 1.0],  # z' = z
+    ],
+    dtype=np.float32,
+)
 
 semseg_classes = {
     1: "Smoke",
@@ -88,6 +97,33 @@ cuboid_classes = {
     "Tram / Subway": 27,
 }
 
+object_motion_classes = {
+    "N/A": -1,
+    "Parked": 0,
+    "Stopped": 1,
+    "Moving": 2,
+}
+
+rider_status_classes = {
+    "N/A": -1,
+    "With Rider": 0,
+    "Without Rider": 1,
+}
+
+pedestrian_behavior_classes = {
+    "N/A": -1,
+    "Sitting": 0,
+    "Lying": 1,
+    "Walking": 2,
+    "Standing": 3,
+}
+
+pedestrian_age_classes = {
+    "N/A": -1,
+    "Adult": 0,
+    "Child": 1,
+}
+
 
 def get_lidar_schema() -> tlc.Schema:
     schema = tlc.Geometry3DSchema(
@@ -106,6 +142,19 @@ def get_lidar_schema() -> tlc.Schema:
 def get_bb_schema() -> tlc.Schema:
     schema = tlc.OrientedBoundingBoxes3DSchema(
         classes=cuboid_classes.keys(),
+        per_instance_schemas={
+            "uuid": tlc.StringListSchema(writable=False),
+            "stationary": tlc.BoolListSchema(),
+            "camera_used": tlc.Int32ListSchema(writable=False),
+            "object_motion": tlc.CategoricalLabelListSchema({v: k for k, v in object_motion_classes.items()}),
+            "rider_status": tlc.CategoricalLabelListSchema({v: k for k, v in rider_status_classes.items()}),
+            "pedestrian_behavior": tlc.CategoricalLabelListSchema(
+                {v: k for k, v in pedestrian_behavior_classes.items()}
+            ),
+            "pedestrian_age": tlc.CategoricalLabelListSchema({v: k for k, v in pedestrian_age_classes.items()}),
+            "sensor_id": tlc.Int32ListSchema(writable=False),
+            "sibling_id": tlc.StringListSchema(writable=False),
+        },
     )
 
     return schema
@@ -130,9 +179,9 @@ def load_car() -> tuple[dict, tlc.Schema]:
     scale = 1.25
     transform = np.array(
         [
+            [0.0, 0.0, 1.0, 0.0],  # z' = z
             [1.0, 0.0, 0.0, 0.0],  # x' = x
-            [0.0, 0.0, 1.0, 0.0],  # y' = -z (rotate 90 deg around x)
-            [0.0, 1.0, 0.0, 0.0],  # z' = y
+            [0.0, 1.0, 0.0, 0.0],  # y' = y
             [0.0, 0.0, 0.0, 1.0],  # homogeneous row
         ],
         dtype=np.float32,
@@ -170,7 +219,8 @@ def load_pandaset(
         dataset_name=dataset_name,
         project_name=project_name,
         column_schemas={
-            "lidar": get_lidar_schema(),
+            "lidar_0": get_lidar_schema(),
+            "lidar_1": get_lidar_schema(),
             "bbs": get_bb_schema(),
             "back_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["back_camera"]}),
             "front_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["front_camera"]}),
@@ -194,16 +244,21 @@ def load_pandaset(
         # Update description per sequence and show loading state
         pbar.set_description(f"Seq {sequence_idx + 1}/{total_sequences} ({sequence_id})")
         pbar.set_postfix_str(f"loading… 0/{frames_per_seq_effective} frames")
+
         sequence = dataset[sequence_id]
-        sequence.lidar.set_sensor(0)
         sequence.load_lidar()
         sequence.load_cuboids()
         sequence.load_semseg()
         sequence.load_camera()
 
         # LiDAR 0 (mechanical 360° LiDAR)
+        sequence.lidar.set_sensor(0)
         pc_all = sequence.lidar[:max_frames]
         lidar_poses_all = sequence.lidar.poses[:max_frames]
+
+        # LiDAR 1 (front-facing long range)
+        sequence.lidar.set_sensor(1)
+        pc_all_1 = sequence.lidar[:max_frames]
 
         # Semantic Segmentation
         semseg_all = sequence.semseg[:max_frames]
@@ -222,6 +277,7 @@ def load_pandaset(
         frame_iter = zip(
             pc_all,
             lidar_poses_all,
+            pc_all_1,
             semseg_all,
             cuboids_all,
             back_camera_all,
@@ -237,6 +293,7 @@ def load_pandaset(
         for frame_id, (
             pc,
             lidar_pose,
+            pc_1,
             semseg,
             cuboids,
             back_camera_path,
@@ -249,22 +306,36 @@ def load_pandaset(
             # Create world to ego transform from position and heading
             pose_mat = pandaset.geometry._heading_position_to_mat(lidar_pose["heading"], lidar_pose["position"])
             T_inv = np.linalg.inv(pose_mat)
+
             R_inv = T_inv[:3, :3]  # 3x3 world to ego rotation matrix
             t_inv = T_inv[:3, 3]  # 3x1 world to ego translation vector
+
+            # Align ego so the vehicle drives along +X (dataset forward is -Y)
+
+            R_inv = R_align @ R_inv
+            t_inv = R_align @ t_inv
 
             # Transform LiDAR points from world to ego coordinates
             verts = pc.values[:, :3].astype(np.float32, copy=False)
             verts = (R_inv @ verts.T + t_inv.reshape(3, 1)).T.astype(np.float32, copy=False)
 
+            verts_1 = pc_1.values[:, :3].astype(np.float32, copy=False)
+            verts_1 = (R_inv @ verts_1.T + t_inv.reshape(3, 1)).T.astype(np.float32, copy=False)
+
             # Extract intensity, distance, and semantic segmentation values (per-vertex)
             intensities = pc.values[:, 3].astype(np.float32, copy=False)
             distances = pc.values[:, 5].astype(np.float32, copy=False)
+            intensities_1 = pc_1.values[:, 3].astype(np.float32, copy=False)
+            distances_1 = pc_1.values[:, 5].astype(np.float32, copy=False)
             semseg_values = semseg.values.astype(np.int32, copy=False).reshape(-1)[: len(verts)]
+            semseg_values_1 = semseg.values.astype(np.int32, copy=False).reshape(-1)[len(verts) :]
 
             # Create a new geometry object to store the transformed LiDAR points
             geometry = tlc.Geometry3DInstances.create_empty(
-                *bounds,
-                per_vertex_extras_keys=["intensity", "distance", "semseg"],
+                *bounds, per_vertex_extras_keys=["intensity", "distance", "semseg"]
+            )
+            geometry_1 = tlc.Geometry3DInstances.create_empty(
+                *bounds, per_vertex_extras_keys=["intensity", "distance", "semseg"]
             )
             geometry.add_instance(
                 verts,
@@ -274,15 +345,24 @@ def load_pandaset(
                     "semseg": semseg_values,
                 },
             )
+            geometry_1.add_instance(
+                verts_1,
+                per_vertex_extras={
+                    "intensity": intensities_1,
+                    "distance": distances_1,
+                    "semseg": semseg_values_1,
+                },
+            )
 
             # Transform cuboids from world to ego coordinates and prepare for table writing
-            obbs = load_cuboids(cuboids, R_inv, t_inv)
+            obbs = transform_cuboids(cuboids, R_inv, t_inv)
 
             table_writer.add_row(
                 {
                     "sequence_id": sequence_id,
                     "frame_id": frame_id,
-                    "lidar": geometry.to_row(),
+                    "lidar_0": geometry.to_row(),
+                    "lidar_1": geometry_1.to_row(),
                     "bbs": obbs.to_row(),
                     "back_camera": back_camera_path.as_posix(),
                     "front_camera": front_camera_path.as_posix(),
@@ -308,20 +388,8 @@ def load_pandaset(
     return table
 
 
-def load_cuboids(cuboids, R_inv, t_inv) -> tlc.OBB3DInstances:
-    # cuboids["uuid"]
-    # cuboids["stationary"] (bool)
-    # cuboids["camera_used"]
-    # cuboids["attributes"]["object_motion"] (Parked Stopped Moving)
-    # cuboids["attributes"]["rider_status"] (With Rider Without Rider)
-    # cuboids["attributes"]["pedestrian_behavior"] (Sitting Lying Walking Standing)
-    # cuboids["attributes"]["pedestrian_age"] (Adult Child)
-    # cuboids["sensor_id"]
-    # cuboids["sibling_id"]
-
+def transform_cuboids(cuboids: pd.DataFrame, R_inv: np.ndarray, t_inv: np.ndarray) -> tlc.OBB3DInstances:
     # Vectorized world->ego transform for centers and yaw
-    labels_int = [cuboid_classes.get(str(lbl)) for lbl in cuboids["label"].values]
-
     centers_world = np.stack(
         [cuboids["position.x"].values, cuboids["position.y"].values, cuboids["position.z"].values],
         axis=1,
@@ -335,9 +403,14 @@ def load_cuboids(cuboids, R_inv, t_inv) -> tlc.OBB3DInstances:
     # Apply world->ego: X_e = R_inv * X_w + t_inv (vectorized as row-vectors)
     centers_ego = centers_world @ R_inv.T + t_inv.reshape(1, 3)
 
-    # Yaw in ego: yaw_e = yaw_w + yaw(R_inv)
-    yaw_offset = float(np.arctan2(R_inv[1, 0], R_inv[0, 0]))
-    yaw_ego = yaw_world + yaw_offset
+    # Robust yaw transform: rotate the unit x-axis by yaw_w in world, transform by R_inv, then extract yaw
+    # Handles reflections/axis flips in R_inv (determinant may be -1)
+    cos_w = np.cos(yaw_world, dtype=np.float64)
+    sin_w = np.sin(yaw_world, dtype=np.float64)
+    zeros_w = np.zeros_like(yaw_world, dtype=np.float64)
+    dir_world = np.stack([cos_w, sin_w, zeros_w], axis=1)
+    dir_ego = dir_world @ R_inv.T
+    yaw_ego = np.arctan2(dir_ego[:, 1], dir_ego[:, 0]).astype(np.float32, copy=False)
 
     obbs = tlc.OBB3DInstances.create_empty(
         x_min=bounds[0],
@@ -347,13 +420,63 @@ def load_cuboids(cuboids, R_inv, t_inv) -> tlc.OBB3DInstances:
         z_min=bounds[4],
         z_max=bounds[5],
         include_instance_labels=True,
+        instance_extras_keys=[
+            "uuid",
+            "stationary",
+            "camera_used",
+            "object_motion",
+            "rider_status",
+            "pedestrian_behavior",
+            "pedestrian_age",
+            "sensor_id",
+            "sibling_id",
+        ],
     )
 
     # Pack dictionaries
-    for (cx, cy, cz), (sx, sy, sz), yaw_val, label_val in zip(centers_ego, sizes, yaw_ego, labels_int):
+    for (
+        (cx, cy, cz),
+        (sx, sy, sz),
+        yaw_val,
+        label,
+        uuid,
+        stationary,
+        camera_used,
+        object_motion,
+        rider_status,
+        pedestrian_behavior,
+        pedestrian_age,
+        sensor_id,
+        sibling_id,
+    ) in zip(
+        centers_ego,
+        sizes,
+        yaw_ego,
+        cuboids["label"].values,
+        cuboids["uuid"].values,
+        cuboids["stationary"].values,
+        cuboids["camera_used"].values,
+        cuboids["attributes.object_motion"].values,
+        cuboids["attributes.rider_status"].values,
+        cuboids["attributes.pedestrian_behavior"].values,
+        cuboids["attributes.pedestrian_age"].values,
+        cuboids["cuboids.sensor_id"].values,
+        cuboids["cuboids.sibling_id"].values,
+    ):
         obbs.add_instance(
             obb=np.array([cx, cy, cz, sx, sy, sz, yaw_val, np.nan, np.nan]),
-            label=label_val,
+            label=cuboid_classes.get(label),
+            instance_extras={
+                "uuid": str(uuid),
+                "stationary": bool(stationary),
+                "camera_used": int(camera_used),
+                "object_motion": object_motion_classes.get(object_motion, -1),
+                "rider_status": rider_status_classes.get(rider_status, -1),
+                "pedestrian_behavior": pedestrian_behavior_classes.get(pedestrian_behavior, -1),
+                "pedestrian_age": pedestrian_age_classes.get(pedestrian_age, -1),
+                "sensor_id": int(sensor_id),
+                "sibling_id": str(sibling_id),
+            },
         )
 
     return obbs
@@ -365,8 +488,8 @@ if __name__ == "__main__":
     table = load_pandaset(
         dataset_root=DATASET_ROOT,
         tlc_project_root=TLC_PROJECT_ROOT,
-        max_sequences=1,
-        max_frames=10,
+        max_sequences=None,
+        max_frames=None,
         table_name="pandaset",
         dataset_name="pandaset",
         project_name="pandaset",
