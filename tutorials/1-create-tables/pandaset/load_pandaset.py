@@ -413,12 +413,7 @@ def transform_cuboids(cuboids: pd.DataFrame, R_inv: np.ndarray, t_inv: np.ndarra
     yaw_ego = np.arctan2(dir_ego[:, 1], dir_ego[:, 0]).astype(np.float32, copy=False)
 
     obbs = tlc.OBB3DInstances.create_empty(
-        x_min=bounds[0],
-        x_max=bounds[1],
-        y_min=bounds[2],
-        y_max=bounds[3],
-        z_min=bounds[4],
-        z_max=bounds[5],
+        *bounds,
         include_instance_labels=True,
         instance_extras_keys=[
             "uuid",
