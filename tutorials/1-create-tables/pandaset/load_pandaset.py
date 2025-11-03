@@ -243,7 +243,7 @@ def load_pandaset(
     for sequence_idx, sequence_id in enumerate(sequences):
         # Update description per sequence and show loading state
         pbar.set_description(f"Seq {sequence_idx + 1}/{total_sequences} ({sequence_id})")
-        pbar.set_postfix_str(f"loading… 0/{frames_per_seq_effective} frames")
+        pbar.set_postfix_str(f"loading sequence… 0/{frames_per_seq_effective} frames")
 
         sequence = dataset[sequence_id]
         sequence.load_lidar()
@@ -433,6 +433,11 @@ def transform_cuboids(cuboids: pd.DataFrame, R_inv: np.ndarray, t_inv: np.ndarra
         ],
     )
 
+    rider_statuses = (
+        cuboids["attributes.rider_status"].values
+        if "attributes.rider_status" in cuboids.columns
+        else [-1] * len(cuboids)
+    )
     # Pack dictionaries
     for (
         (cx, cy, cz),
@@ -457,7 +462,7 @@ def transform_cuboids(cuboids: pd.DataFrame, R_inv: np.ndarray, t_inv: np.ndarra
         cuboids["stationary"].values,
         cuboids["camera_used"].values,
         cuboids["attributes.object_motion"].values,
-        cuboids["attributes.rider_status"].values,
+        rider_statuses,
         cuboids["attributes.pedestrian_behavior"].values,
         cuboids["attributes.pedestrian_age"].values,
         cuboids["cuboids.sensor_id"].values,
