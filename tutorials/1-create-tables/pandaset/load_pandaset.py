@@ -2,6 +2,7 @@
 
 # pip install git+https://github.com/scaleapi/pandaset-devkit.git
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -10,9 +11,18 @@ import pandaset
 import tlc
 import tqdm
 
-# Each pandaset sequence contains 80 frames (8 seconds at 10 fps)
-frames_per_sequence = 80
-bounds = tlc.GeometryHelper.create_isotropic_bounds_3d(-175, 175, -175, 175, -10, 20)
+with open(Path(__file__).parent / "pandaset_scan_summary.json") as f:
+    scan_summary = json.load(f)
+
+bounds = tlc.GeometryHelper.create_bounds_3d(
+    scan_summary["bounds_world"]["x"]["min"],
+    scan_summary["bounds_world"]["x"]["max"],
+    scan_summary["bounds_world"]["y"]["min"],
+    scan_summary["bounds_world"]["y"]["max"],
+    scan_summary["bounds_world"]["z"]["min"],
+    scan_summary["bounds_world"]["z"]["max"],
+)
+
 R_align = np.array(
     [
         [0.0, 1.0, 0.0],  # x' = y

@@ -4,7 +4,7 @@ import argparse
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, dict, list
+from typing import Any
 
 import numpy as np
 import pandaset
@@ -167,7 +167,8 @@ def scan_pandaset(
         for sensor_idx in (0, 1):
             try:
                 seq.lidar.set_sensor(sensor_idx)
-            except Exception:
+            except Exception as e:
+                print(f"Error setting lidar sensor {sensor_idx} for sequence {seq_id}: {e}")
                 continue
             pc_frames = seq.lidar[:max_frames]
             for pc in pc_frames:
@@ -178,40 +179,40 @@ def scan_pandaset(
         cub_frames = seq.cuboids[:max_frames]
         for df in cub_frames:
             if df is None or "label" not in df or len(df) == 0:
+                print(f"No cuboids found for sequence {seq_id}")
                 continue
             labels = df["label"].values
             if labels.size == 0:
+                print(f"No cuboid labels found for sequence {seq_id}")
                 continue
             for lbl in labels:
                 if isinstance(lbl, str) and len(lbl) > 0:
                     unique_cuboid_labels.add(lbl)
 
-        # Extrinsics per camera relative to lidar sensors
+        # Extrinsics per camera relative to lidar sensor 0 only
         camera_names = list(seq.camera.keys())
-        lidar_poses_by_sensor: dict[int, list[dict]] = {}
-        for sensor_idx in (0, 1):
-            try:
-                seq.lidar.set_sensor(sensor_idx)
-            except Exception:
-                continue
-            lidar_poses_by_sensor[sensor_idx] = list(seq.lidar.poses[:max_frames])
+        try:
+            seq.lidar.set_sensor(0)
+            lidar_poses0 = list(seq.lidar.poses[:max_frames])
+        except Exception:
+            lidar_poses0 = []
 
         for cam_name in camera_names:
             cam_poses = list(seq.camera[cam_name].poses[:max_frames])
-            for sensor_idx, lidar_poses in lidar_poses_by_sensor.items():
-                n = min(len(cam_poses), len(lidar_poses))
-                if n == 0:
-                    continue
-                acc = extrinsics_accum.setdefault(cam_name, {}).setdefault(sensor_idx, {"R": [], "t": []})
-                for i in range(n):
-                    cam_pose = cam_poses[i]
-                    lidar_pose = lidar_poses[i]
-                    world_T_cam = _heading_position_to_mat(cam_pose["heading"], cam_pose["position"])  # 4x4
-                    world_T_lidar = _heading_position_to_mat(lidar_pose["heading"], lidar_pose["position"])  # 4x4
-                    cam_T_world = np.linalg.inv(world_T_cam)
-                    cam_T_lidar = cam_T_world @ world_T_lidar  # camera_from_lidar
-                    acc["R"].append(cam_T_lidar[:3, :3])
-                    acc["t"].append(cam_T_lidar[:3, 3])
+            n = min(len(cam_poses), len(lidar_poses0))
+            if n == 0:
+                print(f"No extrinsics found for camera {cam_name}")
+                continue
+            acc = extrinsics_accum.setdefault(cam_name, {}).setdefault(0, {"R": [], "t": []})
+            for i in range(n):
+                cam_pose = cam_poses[i]
+                lidar_pose = lidar_poses0[i]
+                world_T_cam = _heading_position_to_mat(cam_pose["heading"], cam_pose["position"])  # 4x4
+                world_T_lidar = _heading_position_to_mat(lidar_pose["heading"], lidar_pose["position"])  # 4x4
+                cam_T_world = np.linalg.inv(world_T_cam)
+                cam_T_lidar = cam_T_world @ world_T_lidar  # camera_from_lidar
+                acc["R"].append(cam_T_lidar[:3, :3])
+                acc["t"].append(cam_T_lidar[:3, 3])
 
         dataset.unload(seq_id)
 
@@ -275,7 +276,7 @@ def main() -> None:
         )
     )
     parser.add_argument("--root", type=str, default="D:/Data/pandaset", help="Path to Pandaset root directory")
-    parser.add_argument("--max-sequences", type=int, default=10, help="Optional limit on number of sequences")
+    parser.add_argument("--max-sequences", type=int, default=None, help="Optional limit on number of sequences")
     parser.add_argument("--max-frames", type=int, default=None, help="Optional limit on frames per sequence")
     parser.add_argument(
         "--output",
