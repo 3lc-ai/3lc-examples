@@ -154,6 +154,19 @@ def scan_pandaset(
     bounds = Bounds3D()
     unique_cuboid_labels: set[str] = set()
 
+    # Scan-once globals
+    camera_intrinsics: dict[str, dict[str, float]] | None = None
+    semseg_classes: Any | None = None
+
+    # Track unique values seen for selected cuboid attributes
+    attr_keys = [
+        "attributes.pedestrian_behavior",
+        "attributes.pedestrian_age",
+        "attributes.object_motion",
+        "attributes.rider_status",
+    ]
+    cuboid_attr_values: dict[str, set[str]] = {k: set() for k in attr_keys}
+
     # camera_name -> sensor_index -> {"R": [..], "t": [..]}
     extrinsics_accum: dict[str, dict[int, dict[str, list[np.ndarray]]]] = {}
 
@@ -162,6 +175,34 @@ def scan_pandaset(
         seq.load_lidar()
         seq.load_camera()
         seq.load_cuboids()
+
+        # Intrinsics (read once; constants per camera across dataset)
+        if camera_intrinsics is None:
+            try:
+                # cameras are already loaded above
+                camera_intrinsics = {
+                    name: {
+                        "fx": cam.intrinsics.fx,
+                        "fy": cam.intrinsics.fy,
+                        "cx": cam.intrinsics.cx,
+                        "cy": cam.intrinsics.cy,
+                    }
+                    for name, cam in seq.camera.items()
+                }
+            except Exception as e:
+                print(f"Error reading camera intrinsics for sequence {seq_id}: {e}")
+
+        # Semseg classes (read once from dataset files)
+        if semseg_classes is None:
+            try:
+                classes_path = Path(dataset_root) / str(seq_id) / "annotations" / "semseg" / "classes.json"
+                if classes_path.exists():
+                    with classes_path.open("r", encoding="utf-8") as f:
+                        semseg_classes = json.load(f)
+                else:
+                    print(f"Semseg classes.json not found for sequence {seq_id} at {classes_path}")
+            except Exception as e:
+                print(f"Error reading semseg classes for sequence {seq_id}: {e}")
 
         # Lidar bounds (world coordinates) across both sensors if present
         for sensor_idx in (0, 1):
@@ -188,6 +229,20 @@ def scan_pandaset(
             for lbl in labels:
                 if isinstance(lbl, str) and len(lbl) > 0:
                     unique_cuboid_labels.add(lbl)
+
+            # Attribute values (collect unique strings per requested key, if present)
+            for key in attr_keys:
+                if key in df.columns:
+                    col_vals = df[key].values
+                    for v in col_vals:
+                        if v is None:
+                            continue
+                        # skip NaN
+                        if isinstance(v, float) and np.isnan(v):
+                            continue
+                        s = str(v)
+                        if len(s) > 0:
+                            cuboid_attr_values[key].add(s)
 
         # Extrinsics per camera relative to lidar sensor 0 only
         camera_names = list(seq.camera.keys())
@@ -229,6 +284,9 @@ def scan_pandaset(
         "bounds_world": bounds.to_dict(),
         "unique_cuboid_labels": sorted(unique_cuboid_labels),
         "extrinsics_cam_from_lidar": extrinsics_stats,
+        "camera_intrinsics": camera_intrinsics or {},
+        "cuboid_attribute_values": {k: sorted(list(v)) for k, v in cuboid_attr_values.items()},
+        "semseg_classes": semseg_classes,
     }
     return result
 

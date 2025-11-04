@@ -14,6 +14,7 @@ import tqdm
 with open(Path(__file__).parent / "pandaset_scan_summary.json") as f:
     scan_summary = json.load(f)
 
+frames_per_sequence = 80  # All pandaset sequences have 80 frames
 bounds = tlc.GeometryHelper.create_bounds_3d(
     scan_summary["bounds_world"]["x"]["min"],
     scan_summary["bounds_world"]["x"]["max"],
@@ -32,50 +33,7 @@ R_align = np.array(
     dtype=np.float32,
 )
 
-semseg_classes = {
-    1: "Smoke",
-    2: "Exhaust",
-    3: "Spray or rain",
-    4: "Reflection",
-    5: "Vegetation",
-    6: "Ground",
-    7: "Road",
-    8: "Lane Line Marking",
-    9: "Stop Line Marking",
-    10: "Other Road Marking",
-    11: "Sidewalk",
-    12: "Driveway",
-    13: "Car",
-    14: "Pickup Truck",
-    15: "Medium-sized Truck",
-    16: "Semi-truck",
-    17: "Towed Object",
-    18: "Motorcycle",
-    19: "Other Vehicle - Construction Vehicle",
-    20: "Other Vehicle - Uncommon",
-    21: "Other Vehicle - Pedicab",
-    22: "Emergency Vehicle",
-    23: "Bus",
-    24: "Personal Mobility Device",
-    25: "Motorized Scooter",
-    26: "Bicycle",
-    27: "Train",
-    28: "Trolley",
-    29: "Tram / Subway",
-    30: "Pedestrian",
-    31: "Pedestrian with Object",
-    32: "Animals - Bird",
-    33: "Animals - Other",
-    34: "Pylons",
-    35: "Road Barriers",
-    36: "Signs",
-    37: "Cones",
-    38: "Construction Signs",
-    39: "Temporary Construction Barriers",
-    40: "Rolling Containers",
-    41: "Building",
-    42: "Other Static Object",
-}
+semseg_classes = scan_summary["semseg_classes"]
 
 cuboid_classes = {name: i for i, name in enumerate(scan_summary["unique_cuboid_labels"])}
 
@@ -142,20 +100,6 @@ def get_bb_schema() -> tlc.Schema:
     return schema
 
 
-def load_intrinsics(dataset: pandaset.DataSet) -> dict[str, dict[str, float]]:
-    sequence = dataset.sequences(with_semseg=True)[0]
-    dataset[sequence].load_camera()
-    return {
-        name: {
-            "fx": cam.intrinsics.fx,
-            "fy": cam.intrinsics.fy,
-            "cx": cam.intrinsics.cx,
-            "cy": cam.intrinsics.cy,
-        }
-        for name, cam in dataset[sequence].camera.items()
-    }
-
-
 def load_car() -> tuple[dict, tlc.Schema]:
     car_obj_path = tlc.Url("<TEST_DATA>/data/car/NormalCar2.obj").to_absolute().to_str()
     scale = 1.25
@@ -194,7 +138,7 @@ def load_pandaset(
 ) -> tlc.Table:
     dataset = pandaset.DataSet(dataset_root)
     car, car_schema = load_car()
-    intrinsics = load_intrinsics(dataset)
+    intrinsics = scan_summary["camera_intrinsics"]
 
     table_writer = tlc.TableWriter(
         table_name=table_name,
@@ -204,12 +148,12 @@ def load_pandaset(
             "lidar_0": get_lidar_schema(),
             "lidar_1": get_lidar_schema(),
             "bbs": get_bb_schema(),
-            "back_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["back_camera"]}),
             "front_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["front_camera"]}),
-            "front_left_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["front_left_camera"]}),
             "front_right_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["front_right_camera"]}),
-            "left_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["left_camera"]}),
             "right_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["right_camera"]}),
+            "front_left_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["front_left_camera"]}),
+            "left_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["left_camera"]}),
+            "back_camera": tlc.ImageUrlSchema(metadata={"intrinsics": intrinsics["back_camera"]}),
             "car": car_schema,
         },
         root_url=tlc_project_root,

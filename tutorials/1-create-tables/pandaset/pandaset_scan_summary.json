@@ -348,5 +348,104 @@
         ]
       }
     }
+  },
+  "camera_intrinsics": {
+    "back_camera": {
+      "fx": 933.4667,
+      "fy": 934.6754,
+      "cx": 896.4692,
+      "cy": 507.3557
+    },
+    "front_camera": {
+      "fx": 1970.0131,
+      "fy": 1970.0091,
+      "cx": 970.0002,
+      "cy": 483.2988
+    },
+    "front_left_camera": {
+      "fx": 929.8429,
+      "fy": 930.0592,
+      "cx": 972.1794,
+      "cy": 508.0057
+    },
+    "front_right_camera": {
+      "fx": 930.0407,
+      "fy": 930.0324,
+      "cx": 965.0525,
+      "cy": 463.4161
+    },
+    "left_camera": {
+      "fx": 930.4514,
+      "fy": 930.0891,
+      "cx": 991.6883,
+      "cy": 541.6057
+    },
+    "right_camera": {
+      "fx": 922.5465,
+      "fy": 922.4229,
+      "cx": 945.057,
+      "cy": 517.575
+    }
+  },
+  "cuboid_attribute_values": {
+    "attributes.pedestrian_behavior": [
+      "Walking"
+    ],
+    "attributes.pedestrian_age": [
+      "Adult"
+    ],
+    "attributes.object_motion": [
+      "Moving",
+      "Parked",
+      "Stopped"
+    ],
+    "attributes.rider_status": [
+      "With Rider",
+      "Without Rider"
+    ]
+  },
+  "semseg_classes": {
+    "1": "Smoke",
+    "2": "Exhaust",
+    "3": "Spray or rain",
+    "4": "Reflection",
+    "5": "Vegetation",
+    "6": "Ground",
+    "7": "Road",
+    "8": "Lane Line Marking",
+    "9": "Stop Line Marking",
+    "10": "Other Road Marking",
+    "11": "Sidewalk",
+    "12": "Driveway",
+    "13": "Car",
+    "14": "Pickup Truck",
+    "15": "Medium-sized Truck",
+    "16": "Semi-truck",
+    "17": "Towed Object",
+    "18": "Motorcycle",
+    "19": "Other Vehicle - Construction Vehicle",
+    "20": "Other Vehicle - Uncommon",
+    "21": "Other Vehicle - Pedicab",
+    "22": "Emergency Vehicle",
+    "23": "Bus",
+    "24": "Personal Mobility Device",
+    "25": "Motorized Scooter",
+    "26": "Bicycle",
+    "27": "Train",
+    "28": "Trolley",
+    "29": "Tram / Subway",
+    "30": "Pedestrian",
+    "31": "Pedestrian with Object",
+    "32": "Animals - Bird",
+    "33": "Animals - Other",
+    "34": "Pylons",
+    "35": "Road Barriers",
+    "36": "Signs",
+    "37": "Cones",
+    "38": "Construction Signs",
+    "39": "Temporary Construction Barriers",
+    "40": "Rolling Containers",
+    "41": "Building",
+    "42": "Other Static Object"
   }
 }
