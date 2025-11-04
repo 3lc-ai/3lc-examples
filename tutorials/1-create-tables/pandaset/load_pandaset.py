@@ -403,7 +403,7 @@ def transform_cuboids(cuboids: pd.DataFrame, R_inv: np.ndarray, t_inv: np.ndarra
     # Apply world->ego: X_e = R_inv * X_w + t_inv (vectorized as row-vectors)
     centers_ego = centers_world @ R_inv.T + t_inv.reshape(1, 3)
 
-    # Robust yaw transform: rotate the unit x-axis by yaw_w in world, transform by R_inv, then extract yaw
+    # Yaw transform: rotate the unit x-axis by yaw_w in world, transform by R_inv, then extract yaw
     # Handles reflections/axis flips in R_inv (determinant may be -1)
     cos_w = np.cos(yaw_world, dtype=np.float64)
     sin_w = np.sin(yaw_world, dtype=np.float64)
