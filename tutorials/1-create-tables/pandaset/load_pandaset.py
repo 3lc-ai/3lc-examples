@@ -77,35 +77,7 @@ semseg_classes = {
     42: "Other Static Object",
 }
 
-cuboid_classes = {
-    "Animals - Bird": 0,
-    "Animals - Other": 1,
-    "Bicycle": 2,
-    "Bus": 3,
-    "Car": 4,
-    "Cones": 5,
-    "Construction Signs": 6,
-    "Emergency Vehicle": 7,
-    "Medium-sized Truck": 8,
-    "Motorcycle": 10,
-    "Motorized Scooter": 11,
-    "Other Vehicle - Construction Vehicle": 12,
-    "Other Vehicle - Pedicab": 13,
-    "Other Vehicle - Uncommon": 14,
-    "Pedestrian": 15,
-    "Pedestrian with Object": 16,
-    "Personal Mobility Device": 17,
-    "Pickup Truck": 18,
-    "Pylons": 19,
-    "Road Barriers": 20,
-    "Rolling Containers": 21,
-    "Semi-truck": 22,
-    "Signs": 23,
-    "Temporary Construction Barriers": 24,
-    "Towed Object": 25,
-    "Train": 26,
-    "Tram / Subway": 27,
-}
+cuboid_classes = {name: i for i, name in enumerate(scan_summary["unique_cuboid_labels"])}
 
 object_motion_classes = {
     "N/A": -1,
