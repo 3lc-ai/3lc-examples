@@ -280,7 +280,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=str,
-        default="pandaset_scan_summary.json",
+        default=str(Path(__file__).parent / "pandaset_scan_summary.json"),
         help="Where to write the JSON summary",
     )
 
