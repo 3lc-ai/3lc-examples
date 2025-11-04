@@ -206,11 +206,7 @@ def scan_pandaset(
 
         # Lidar bounds (world coordinates) across both sensors if present
         for sensor_idx in (0, 1):
-            try:
-                seq.lidar.set_sensor(sensor_idx)
-            except Exception as e:
-                print(f"Error setting lidar sensor {sensor_idx} for sequence {seq_id}: {e}")
-                continue
+            seq.lidar.set_sensor(sensor_idx)
             pc_frames = seq.lidar[:max_frames]
             for pc in pc_frames:
                 xyz = pc.values[:, :3].astype(np.float64, copy=False)
@@ -219,13 +215,7 @@ def scan_pandaset(
         # Unique cuboid labels
         cub_frames = seq.cuboids[:max_frames]
         for df in cub_frames:
-            if df is None or "label" not in df or len(df) == 0:
-                print(f"No cuboids found for sequence {seq_id}")
-                continue
             labels = df["label"].values
-            if labels.size == 0:
-                print(f"No cuboid labels found for sequence {seq_id}")
-                continue
             for lbl in labels:
                 if isinstance(lbl, str) and len(lbl) > 0:
                     unique_cuboid_labels.add(lbl)
@@ -246,11 +236,8 @@ def scan_pandaset(
 
         # Extrinsics per camera relative to lidar sensor 0 only
         camera_names = list(seq.camera.keys())
-        try:
-            seq.lidar.set_sensor(0)
-            lidar_poses0 = list(seq.lidar.poses[:max_frames])
-        except Exception:
-            lidar_poses0 = []
+        seq.lidar.set_sensor(0)
+        lidar_poses0 = list(seq.lidar.poses[:max_frames])
 
         for cam_name in camera_names:
             cam_poses = list(seq.camera[cam_name].poses[:max_frames])
