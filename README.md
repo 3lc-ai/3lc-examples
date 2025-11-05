@@ -196,5 +196,11 @@ and TensorFlow
 **Year**: 2019  
 **URL**: [https://arxiv.org/abs/1908.05806](https://arxiv.org/abs/1908.05806)
 
+**Title**: LowPoly Cars
+**Author**: Quaternius
+**Publisher**: itch.io
+**Year**: 2018
+**URL**: [LowPoly Cars](https://quaternius.itch.io/lowpoly-cars)
+
 We also use the first 128 images from the [COCO](https://cocodataset.org/#home)
 dataset.
