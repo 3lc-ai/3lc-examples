@@ -380,9 +380,20 @@ def transform_cuboids(
         # ],
     )
 
+    # Some of the cuboids do not have these attributes, so we need to handle them gracefully
     rider_statuses = (
         cuboids["attributes.rider_status"].values
         if "attributes.rider_status" in cuboids.columns
+        else [-1] * len(cuboids)
+    )
+    pedestrian_behaviors = (
+        cuboids["attributes.pedestrian_behavior"].values
+        if "attributes.pedestrian_behavior" in cuboids.columns
+        else [-1] * len(cuboids)
+    )
+    pedestrian_ages = (
+        cuboids["attributes.pedestrian_age"].values
+        if "attributes.pedestrian_age" in cuboids.columns
         else [-1] * len(cuboids)
     )
     # Pack dictionaries
@@ -410,8 +421,8 @@ def transform_cuboids(
         cuboids["camera_used"].values,
         cuboids["attributes.object_motion"].values,
         rider_statuses,
-        cuboids["attributes.pedestrian_behavior"].values,
-        cuboids["attributes.pedestrian_age"].values,
+        pedestrian_behaviors,
+        pedestrian_ages,
         cuboids["cuboids.sensor_id"].values,
         cuboids["cuboids.sibling_id"].values,
     ):
