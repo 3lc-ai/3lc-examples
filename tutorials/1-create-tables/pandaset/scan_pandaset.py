@@ -90,7 +90,7 @@ def _average_quaternions_wxyz(quats: np.ndarray) -> np.ndarray:
     norm = np.linalg.norm(acc)
     if norm == 0.0:
         # fallback to first
-        return q0.astype(np.float64, copy=True)
+        return q0.astype(np.float64, copy=True)  # type: ignore
     return (acc / norm).astype(np.float64, copy=False)
 
 
