@@ -21,7 +21,12 @@ The `tlc` Python package provides several helper functions for creating Tables f
 | **Custom Keypoints 2D** | **Custom Oriented Bounding Boxes** | **COCO Keypoints** |
 | [![keypoints-2d][keypoints-2d-img]][keypoints-2d-link] | [![oriented-bboxes][oriented-bboxes-img]][oriented-bboxes-link] | [![coco-keypoints][coco-keypoints-img]][coco-keypoints-link] |
 | Create a Table from a custom keypoints 2D dataset. | Create a Table from a custom oriented bounding boxes dataset. | Create a Table from a COCO keypoints dataset. |
+| **3D Lidar Point Clouds** |  |  |
+| [![pandaset][pandaset-img]][pandaset-link] | | |
+| Load 3D point clouds, semantic segmentations and cuboids from the Pandaset dataset. | | |
 
+[pandaset-img]: ../images/pandaset-light.png
+[pandaset-link]: ./pandaset/load-pandaset.ipynb
 [image-classification-img]: ../images/create-image-classification-table.jpg
 [image-classification-link]: create-image-classification-table.ipynb
 [custom-img]: ../images/create-custom-table.jpg

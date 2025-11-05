@@ -31,7 +31,7 @@ PANDASET_BOUNDS = tlc.GeometryHelper.create_isotropic_bounds_3d(
     scan_summary["bounds_world"]["z"]["max"],
 )
 
-# Matrix for aligning the ego so the vehicle drives along +X (PandaSet forward is -Y)
+# Matrix to ensure the vehicle drives along +X (dataset forward is -Y)
 R_ALIGN = np.array(
     [
         [0.0, 1.0, 0.0],  # x' = y
@@ -123,9 +123,9 @@ def load_car(data_path: str) -> tuple[dict, tlc.Schema]:
     scale = 1.25
     transform = np.array(
         [
-            [0.0, 0.0, 1.0, 0.0],  # z' = z
-            [1.0, 0.0, 0.0, 0.0],  # x' = x
-            [0.0, 1.0, 0.0, 0.0],  # y' = y
+            [0.0, 0.0, 1.0, 0.0],  # x' = z
+            [1.0, 0.0, 0.0, 0.0],  # y' = x
+            [0.0, 1.0, 0.0, 0.0],  # z' = y
             [0.0, 0.0, 0.0, 1.0],  # homogeneous row
         ],
         dtype=np.float32,
@@ -333,7 +333,11 @@ def load_pandaset(
     return table
 
 
-def transform_cuboids(cuboids: pd.DataFrame, R_inv: np.ndarray, t_inv: np.ndarray) -> tlc.OBB3DInstances:
+def transform_cuboids(
+    cuboids: pd.DataFrame,
+    R_inv: np.ndarray,
+    t_inv: np.ndarray,
+) -> tlc.OBB3DInstances:
     # Vectorized world->ego transform for centers and yaw
     centers_world = np.stack(
         [cuboids["position.x"].values, cuboids["position.y"].values, cuboids["position.z"].values],
@@ -348,8 +352,7 @@ def transform_cuboids(cuboids: pd.DataFrame, R_inv: np.ndarray, t_inv: np.ndarra
     # Apply world->ego: X_e = R_inv * X_w + t_inv
     centers_ego = centers_world @ R_inv.T + t_inv.reshape(1, 3)
 
-    # Yaw transform: rotate the unit x-axis by yaw_w in world, transform by R_inv, then extract yaw
-    # Handles reflections/axis flips in R_inv (determinant may be -1)
+    # Transform yaw angles to ego frame using R_inv
     cos_w = np.cos(yaw_world, dtype=np.float64)
     sin_w = np.sin(yaw_world, dtype=np.float64)
     zeros_w = np.zeros_like(yaw_world, dtype=np.float64)
@@ -358,8 +361,12 @@ def transform_cuboids(cuboids: pd.DataFrame, R_inv: np.ndarray, t_inv: np.ndarra
     yaw_ego = np.arctan2(dir_ego[:, 1], dir_ego[:, 0]).astype(np.float32, copy=False)
 
     obbs = tlc.OBB3DInstances.create_empty(
-        *PANDASET_BOUNDS,
-        include_instance_labels=True,
+        x_min=PANDASET_BOUNDS[0],
+        x_max=PANDASET_BOUNDS[1],
+        y_min=PANDASET_BOUNDS[2],
+        y_max=PANDASET_BOUNDS[3],
+        z_min=PANDASET_BOUNDS[4],
+        z_max=PANDASET_BOUNDS[5],
         # instance_extras_keys=[  # Cuboid attributes are not included for now, can be added if needed
         #     "uuid",
         #     "stationary",
@@ -439,7 +446,7 @@ if __name__ == "__main__":
         max_sequences=1,
         max_frames=None,
         table_name="pandaset",
-        dataset_name="pandaset",
+        dataset_name="pandaset-unique-19",
         project_name="pandaset",
     )
     print(table)
