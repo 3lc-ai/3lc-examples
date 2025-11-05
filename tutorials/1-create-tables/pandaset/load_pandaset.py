@@ -446,7 +446,7 @@ if __name__ == "__main__":
         max_sequences=1,
         max_frames=None,
         table_name="pandaset",
-        dataset_name="pandaset-unique-19",
+        dataset_name="pandaset",
         project_name="pandaset",
     )
     print(table)
