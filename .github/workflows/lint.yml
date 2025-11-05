@@ -3,7 +3,6 @@ name: Run linter, formatter, type checker and run tests
 on:
   pull_request:
     branches: [ main ]
-    types: [opened, ready_for_review]
 
 jobs:
   test:
