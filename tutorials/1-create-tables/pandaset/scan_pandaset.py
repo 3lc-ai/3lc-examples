@@ -1,3 +1,5 @@
+"""Scan the pandaset dataset to compute global LiDAR bounds, unique cuboid labels, and per-camera extrinsics."""
+
 from __future__ import annotations
 
 import argparse
