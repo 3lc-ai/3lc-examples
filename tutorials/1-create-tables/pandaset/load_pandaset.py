@@ -443,7 +443,7 @@ if __name__ == "__main__":
         dataset_root=DATASET_ROOT,
         data_path=DATA_PATH,
         tlc_project_root=TLC_PROJECT_ROOT,
-        max_sequences=1,
+        max_sequences=10,
         max_frames=None,
         table_name="pandaset",
         dataset_name="pandaset",
