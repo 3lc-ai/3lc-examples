@@ -82,10 +82,14 @@ class InstanceConfig:
         """
         # Step 1: Detect instance column if needed
         if instance_column is None:
-            instance_column, detected_type = cls._detect_instance_column_and_type(input_table, instance_type)
-            instance_type = detected_type
+            instance_column, instance_type = cls._detect_instance_column_and_type(input_table, instance_type)
 
-        # Ensure we have a concrete type (not "auto")
+        # Ensure we have a concrete type (not auto)
+        if instance_type == "auto":
+            raise ValueError(
+                f"Unable to auto-infer instance column from table {input_table.name}. Set up an `InstanceConfig` "
+                "manually and set `instance_type` to 'bounding_boxes' or 'segmentations'."
+            )
         assert instance_type in ["bounding_boxes", "segmentations"]
         instance_type = cast(Literal["bounding_boxes", "segmentations"], instance_type)
 
@@ -124,7 +128,7 @@ class InstanceConfig:
     def _detect_instance_column_and_type(
         input_table: tlc.Table,
         instance_type: Literal["bounding_boxes", "segmentations", "auto"] = "auto",
-    ) -> tuple[str, Literal["bounding_boxes", "segmentations"]]:
+    ) -> tuple[str, Literal["bounding_boxes", "segmentations", "auto"]]:
         """Auto-detect the instance column in a table."""
         if instance_type == "bounding_boxes":
             if "bbs" in input_table.columns:
@@ -146,7 +150,7 @@ class InstanceConfig:
             elif "segments" in input_table.columns:
                 return "segments", "segmentations"
             else:
-                raise ValueError(f"No valid instance column found in table {input_table.name}")
+                return "auto", "auto"
 
     def _validate(self, input_table: tlc.Table) -> None:
         """Validate the instance configuration against the table schema."""
