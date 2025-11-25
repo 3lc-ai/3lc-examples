@@ -84,7 +84,7 @@ class InstanceConfig:
         if instance_column is None:
             instance_column, instance_type = cls._detect_instance_column_and_type(input_table, instance_type)
 
-        # Ensure we have a concrete type (not None)
+        # Ensure we have a concrete type (not auto)
         if instance_type == "auto":
             raise ValueError(
                 f"Unable to auto-infer instance column from table {input_table.name}. Set up an `InstanceConfig` "
