@@ -53,7 +53,7 @@ Examples:
     parser.add_argument(
         "--max-dimension",
         type=int,
-        default=1000,
+        default=1280,
         help="Maximum width or height for images (default: 1000, optimized for notebook titles)"
     )
     

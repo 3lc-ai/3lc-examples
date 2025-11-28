@@ -38,7 +38,7 @@ class ImageProcessingResult:
 class NormalizationSettings:
     """Settings for image normalization."""
     
-    max_dimension: int = 1080  # Maximum width or height (good for notebook titles + galleries)
+    max_dimension: int = 1280  # Maximum width or height (good for notebook titles + galleries)
     jpeg_quality: int = 95     # JPEG compression quality (1-100)
     png_compression: int = 6   # PNG compression level (0-9)
     
