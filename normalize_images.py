@@ -31,7 +31,7 @@ def normalize_tutorials_images(dry_run: bool = True) -> None:
     
     # Use default settings optimized for tutorial images (gallery + notebook cards)
     settings = NormalizationSettings(
-        max_dimension=1000,  # Good balance for notebook titles and gallery use
+        max_dimension=1280,  # Good balance for notebook titles and gallery use
         jpeg_quality=85,     # High quality compression
         png_compression=6    # Good balance of size and quality
     )
@@ -49,8 +49,8 @@ def normalize_tutorials_images(dry_run: bool = True) -> None:
         normalizer.print_summary(results, dry_run=dry_run)
         
         if dry_run:
-            print(f"\nTo actually process the images, run:")
-            print(f"python normalize_images.py --process")
+            print("\nTo actually process the images, run:")
+            print("python normalize_images.py --process")
             
     except Exception as e:
         print(f"Error: {e}")
