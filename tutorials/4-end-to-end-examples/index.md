@@ -14,5 +14,4 @@ Follow along with complete projects that illustrate best practices for using 3LC
 :maxdepth: 2
 
 ./*
-./*/index
 ```
