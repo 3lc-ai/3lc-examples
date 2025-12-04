@@ -2,7 +2,7 @@
 orphan: true
 ---
 
-# 3 Training And Metrics
+# Training And Metrics
 
 Integrate 3LC with popular machine learning frameworks to collect metrics, embeddings, and predictions during training. These tutorials demonstrate how to use 3LC with PyTorch, PyTorch Lightning, Hugging Face Transformers, Detectron2, Ultralytics YOLO, and SuperGradients.
 
@@ -14,5 +14,4 @@ Learn to track model performance, collect embeddings for analysis, fine-tune mod
 :maxdepth: 2
 
 ./*
-./*/index
 ```
