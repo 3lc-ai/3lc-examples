@@ -330,7 +330,7 @@ def extend_table_with_metrics(
                     brightness = ImageStat.Stat(pil_image).mean[0]
                     contrast = ImageStat.Stat(gray_crop).stddev[0]
                     pixels = np.array(pil_image)
-                    sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))
+                    sharpness = np.var(cv2.Laplacian(pixels, cv2.CV_64F))  # type: ignore
 
                     image_metrics_list.append(
                         {"brightness": float(brightness), "contrast": float(contrast), "sharpness": float(sharpness)}
