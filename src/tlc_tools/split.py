@@ -261,7 +261,7 @@ _STRATEGY_MAP = {
 
 
 def split_table(
-    table: tlc.Table,
+    table: tlc.Table | tlc.Url | str,
     splits: dict[str, float] | None = None,
     random_seed: int = 0,
     split_strategy: Literal[
@@ -278,7 +278,7 @@ def split_table(
     """
     Splits a table into two or more tables based on the specified strategy.
 
-    :param table: The table to split.
+    :param table: Instance of, or URL to, the Table to split.
     :param splits: Proportions for splits, as a dictionary with split names as keys and proportions as values. Default
         is {"train": 0.8, "val": 0.2}. Any number of splits can be requested. Proportions are normalized if they do not
         sum to 1.
@@ -295,6 +295,9 @@ def split_table(
 
     :returns: Split tables as per requested strategy.
     """
+    if isinstance(table, (tlc.Url, str)):
+        table = tlc.Table.from_url(tlc.Url(table))
+
     if not splits or splits is None:
         splits = {"train": 0.8, "val": 0.2}
 

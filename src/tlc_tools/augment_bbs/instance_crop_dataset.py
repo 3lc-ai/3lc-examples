@@ -83,7 +83,10 @@ class InstanceCropDataset(Dataset):
         if self.instance_config.label_column_path and not self.instance_config.allow_label_free:
             self.label_map = table.get_simple_value_map(self.instance_config.label_column_path)
             if not self.label_map:
-                raise ValueError(f"No label map found at path: {self.instance_config.label_column_path}")
+                raise ValueError(
+                    f"No label map found at path: {self.instance_config.label_column_path}. Edit your label column "
+                    "path or set allow_label_free=True in the InstanceConfig."
+                )
 
             # Create label mappings (separate from sampling behavior)
             self.label_2_contiguous_idx, _, self.background_label, label_mapping_has_background = create_label_mappings(
