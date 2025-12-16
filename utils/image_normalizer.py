@@ -272,7 +272,7 @@ class ImageNormalizer:
         results = []
 
         # Find all image files recursively
-        image_files = []
+        image_files: list[Path] = []
         for ext in self.SUPPORTED_EXTENSIONS:
             image_files.extend(directory.rglob(f"*{ext}"))
 
