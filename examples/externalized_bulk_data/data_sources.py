@@ -18,7 +18,6 @@ def random_array_generator(shape: tuple[int, int], dtype: np.dtype = np.float32,
         if np_dtype.kind == "f":
             array = rng.random(shape, dtype=np_dtype)
         elif np_dtype.kind in ("i", "u"):
-            # Use a safe, small range for dummy integer data
             high = min(1000, np.iinfo(np_dtype).max)
             array = rng.integers(low=0, high=high, size=shape, dtype=np_dtype)
         else:

@@ -1,4 +1,3 @@
-import json
 import sys
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer as ServerClass
@@ -9,12 +8,6 @@ sys.path.append(str(Path(__file__).parent))
 
 from data_sources import Deterministic3DPointCloudDataset
 
-## Constants
-
-lookup_table_path = Path(__file__).parent / "bulk_data/3/lookup_table.json"
-with open(lookup_table_path) as f:
-    lookup_table = json.load(f)
-
 dataset = Deterministic3DPointCloudDataset(size=10)
 
 
@@ -22,18 +15,10 @@ def handle_get_request(path: str, query_params: dict, request_headers: dict) -> 
     """
     Return a chunk of binary data for the given key.
     """
-    # Example placeholder response; safe to replace
     key = path.lstrip("/").replace(".raw", "")
-    pieces = lookup_table[key]
-
-    data = []
-
-    ranges = sorted(lookup_table[key].keys(), key=lambda x: int(x.split("-")[0]))
-    for range in ranges:
-        val = pieces[range]
-        arr = dataset[val["sample"]][val["attribute"]]
-        data.append(arr.tobytes())
-    return b"".join(data)
+    _, sample_idx, attribute = key.split("-")  # parse our own url format; sample-0-intensities.raw
+    arr = dataset[sample_idx][attribute]
+    return arr.tobytes()
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -45,15 +30,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         headers_dict = {k: v for k, v in self.headers.items()}
 
         try:
-            payload = handle_get_request(parsed.path, query, headers_dict)
-            # Ensure payload is bytes; allow simple ergonomic returns
-            if isinstance(payload, bytes):
-                body = payload
-            elif isinstance(payload, str):
-                body = payload.encode("utf-8")
-            else:
-                # Fallback: serialize unknown payloads to JSON bytes
-                body = json.dumps(payload).encode("utf-8")
+            body = handle_get_request(parsed.path, query, headers_dict)
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
             self.send_header("Content-Length", str(len(body)))
@@ -61,16 +38,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
         except Exception as exc:
             # Minimal error response as bytes
-            body = f"error: {exc}".encode("utf-8")
+            body = f"error: {exc}".encode()
             self.send_response(500)
             self.send_header("Content-Type", "application/octet-stream")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
-
-    # Quiet default logging a bit if desired; keep default for now
-    # def log_message(self, format: str, *args) -> None:
-    #     return
 
 
 if __name__ == "__main__":
