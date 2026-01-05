@@ -1,6 +1,6 @@
-# `tlc` Python Package Example Notebooks, Tutorials, and Tools
+# `tlc` Python Package Examples, Tutorials, and Tools
 
-Welcome to our collection of example notebooks and tutorials for the `tlc`
+Welcome to our collection of examples and tutorial notebooks for the `tlc`
 Python package! This repository contains various Jupyter notebooks and Python
 scripts that demonstrate how to use the `tlc` Python package across different
 scenarios and use cases.
