@@ -141,66 +141,70 @@ details.
 We would like to thank the authors and publishers of the datasets used in these
 notebooks. The datasets are listed below:
 
-**Title**: Balloons Dataset  
-**Author**: Paul Guerrie  
-**Publisher**: Roboflow  
-**Year**: 2024  
-**URL**: [Balloons Dataset on Roboflow
-Universe](https://universe.roboflow.com/paul-guerrie-tang1/balloons-geknh)  
-**Note**: Visited on 2024-03-15
++ **Title**: Balloons Dataset  
+  **Author**: Paul Guerrie  
+  **Publisher**: Roboflow  
+  **Year**: 2024  
+  **URL**: [Balloons Dataset on Roboflow Universe](https://universe.roboflow.com/paul-guerrie-tang1/balloons-geknh)  
+  **Note**: Visited on 2024-03-15
 
-**Title**: Mask R-CNN for object detection and instance segmentation on Keras
-and TensorFlow  
-**Author**: Waleed Abdulla  
-**Year**: 2017  
-**Publisher**: Github  
-**URL**: [Releases](https://github.com/matterport/Mask_RCNN/releases)  
-**Repository**: [GitHub repository](https://github.com/matterport/Mask_RCNN)
++ **Title:** Mask R-CNN for object detection and instance segmentation on Keras and TensorFlow  
+  **Author:** Waleed Abdulla  
+  **Year:** 2017  
+  **Publisher:** Github  
+  **URL:** [Releases](https://github.com/matterport/Mask_RCNN/releases)  
+  **Repository:** [GitHub repository](https://github.com/matterport/Mask_RCNN)
 
-**Title**: cat-and-dog-small  
-**Author**: Hongwei Cao  
-**Publisher**: Kaggle  
-**Year**: 2020  
-**URL**: [Kaggle Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmall)
++ **Title:** cat-and-dog-small  
+  **Author:** Hongwei Cao  
+  **Publisher:** Kaggle  
+  **Year:** 2020  
+  **URL:** [Kaggle Dataset](https://www.kaggle.com/datasets/hongweicao/catanddogsmall)
 
-**Title**: Recognizing realistic actions from videos "in the wild"
-**Author**: J. Liu, J. Luo and M. Shah
-**Publisher**: CVPR
-**Year**: 2009
-**URL**: [Website](https://www.crcv.ucf.edu/data/UCF_YouTube_Action.php)
-**Note**: Visited on 2024-06-25
++ **Title:** Recognizing realistic actions from videos "in the wild"  
+  **Author:** J. Liu, J. Luo and M. Shah  
+  **Publisher:** CVPR  
+  **Year:** 2009  
+  **URL:** [Website](https://www.crcv.ucf.edu/data/UCF_YouTube_Action.php)  
+  **Note:** Visited on 2024-06-25
 
-**Title**: ADE20K Dataset
-**Author**: Bolei Zhou, Hang Zhao, Xavier Puig, Sanja Fidler, Adela Barriuso and Antonio Torralba
-**Publisher**: MIT
-**Year**: 2017
-**URL**: [ADE20K Dataset](https://groups.csail.mit.edu/vision/datasets/ADE20K/index.html)
++ **Title:** ADE20K Dataset  
+  **Author:** Bolei Zhou, Hang Zhao, Xavier Puig, Sanja Fidler, Adela Barriuso and Antonio Torralba  
+  **Publisher:** MIT  
+  **Year:** 2017  
+  **URL:** [ADE20K Dataset](https://groups.csail.mit.edu/vision/datasets/ADE20K/index.html)
 
-**Title**: LIACi semantic segmentation dataset for underwater ship inspections
-**Author**: Maryna Waszak, Alexandre Cardaillac, Brian Elvesæter, Frode Rødølen, and Martin Ludvigsen
-**Publisher**: SINTEF
-**Year**: 2023
-**URL**: [Website](https://data.sintef.no/product/details/dp-9e112cec-3a59-4b58-86b3-ecb1f2878c60)
++ **Title:** LIACi semantic segmentation dataset for underwater ship inspections  
+  **Author:** Maryna Waszak, Alexandre Cardaillac, Brian Elvesæter, Frode Rødølen, and Martin Ludvigsen  
+  **Publisher:** SINTEF  
+  **Year:** 2023  
+  **URL:** [Website](https://data.sintef.no/product/details/dp-9e112cec-3a59-4b58-86b3-ecb1f2878c60)
 
-**Title**: MSSDet: Multi-Scale Ship-Detection Framework in Optical Remote-Sensing Images and New Benchmark  
-**Authors**: W. Chen, B. Han, Z. Yang, X. Gao  
-**Journal**: Remote Sensing  
-**Year**: 2022  
-**Volume**: 14  
-**Article**: 5460  
-**URL**: [https://doi.org/10.3390/rs14215460](https://doi.org/10.3390/rs14215460)
++ **Title:** MSSDet: Multi-Scale Ship-Detection Framework in Optical Remote-Sensing Images and New Benchmark  
+  **Authors:** W. Chen, B. Han, Z. Yang, X. Gao  
+  **Journal:** Remote Sensing  
+  **Year:** 2022  
+  **Volume:** 14  
+  **Article:** 5460  
+  **URL:** [https://doi.org/10.3390/rs14215460](https://doi.org/10.3390/rs14215460)
 
-**Title**: Cross-Domain Adaptation for Animal Pose Estimation  
-**Authors**: J. Cao, H. Tang, H.-S. Fang, X. Shen, C. Lu, and Y.-W. Tai  
-**Journal**: arXiv preprint  
-**Year**: 2019  
-**URL**: [https://arxiv.org/abs/1908.05806](https://arxiv.org/abs/1908.05806)
++ **Title:** Cross-Domain Adaptation for Animal Pose Estimation  
+  **Authors:** J. Cao, H. Tang, H.-S. Fang, X. Shen, C. Lu, and Y.-W. Tai  
+  **Journal:** arXiv preprint  
+  **Year:** 2019  
+  **URL:** [https://arxiv.org/abs/1908.05806](https://arxiv.org/abs/1908.05806)
 
-**Title**: LowPoly Cars
-**Author**: Quaternius
-**Publisher**: itch.io
-**Year**: 2018
-**URL**: [LowPoly Cars](https://quaternius.itch.io/lowpoly-cars)
++ **Title:** LowPoly Cars  
+  **Author:** Quaternius  
+  **Publisher:** itch.io  
+  **Year:** 2018  
+  **URL:** [LowPoly Cars](https://quaternius.itch.io/lowpoly-cars)
+
++ **Title:** Fair human-centric image dataset for ethical AI benchmarking  
+  **Author:** Sony AI  
+  **Journal:** Nature  
+  **Year:** 2025  
+  **URL:** [https://www.nature.com/articles/s41586-025-09716-2](https://www.nature.com/articles/s41586-025-09716-2)
 
 We also use the first 128 images from the [COCO](https://cocodataset.org/#home)
 dataset.
