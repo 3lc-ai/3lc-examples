@@ -14,10 +14,9 @@ Thank you for your interest in contributing to our collection of tutorial notebo
   - When relevant, a final subsection with "Suggested next steps", formatted as a bullet-point list (`*`). This could include other notebooks to explore, workflows to try in the 3LC Dashboard, or other resources.
 
 - **Imports**:
-  - All imports should be grouped in a single cell at the top of the notebook.
+  - Imports should be grouped in a single cell at the top of the notebook.
   - This ensures early failure if dependencies are missing and provides clarity about required libraries.
   - Ensure any transient optional dependencies are explicitly imported to avoid late failures.
-  - Avoid inline `pip install` commands.
 
 - **Sanity Checks**:
   - After loading any data (e.g., from `/data`), perform basic sanity checks to verify correctness. This allows users to drop-in replace data/tables and run the notebook without issues.
