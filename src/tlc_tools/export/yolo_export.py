@@ -13,11 +13,46 @@ from tqdm import tqdm
 from tlc_tools.common import is_windows
 
 
+def _parse_label_column(label_column: str | None) -> tuple[str, str, str]:
+    """Parse a label column path into its three components.
+
+    The label column path is dot-separated: "bb_column.bb_list_key.label_key"
+    If fewer than 3 parts are provided, defaults are filled in:
+    - 1 part: "my_bb_column" -> ("my_bb_column", "bb_list", "label")
+    - 2 parts: "my_bb_column.my_list" -> ("my_bb_column", "my_list", "label")
+    - 3 parts: "my_bb_column.my_list.my_label" -> ("my_bb_column", "my_list", "my_label")
+    - None: uses defaults ("bbs", "bb_list", "label")
+
+    :param label_column: The dot-separated label column path, or None for defaults.
+    :returns: A tuple of (bb_column, bb_list_key, label_key).
+    """
+    default_bb_column = tlc.BOUNDING_BOXES  # "bbs"
+    default_bb_list_key = tlc.BOUNDING_BOX_LIST  # "bb_list"
+    default_label_key = tlc.LABEL  # "label"
+
+    if label_column is None:
+        return (default_bb_column, default_bb_list_key, default_label_key)
+
+    parts = label_column.split(".")
+
+    if len(parts) == 1:
+        return (parts[0], default_bb_list_key, default_label_key)
+    elif len(parts) == 2:
+        return (parts[0], parts[1], default_label_key)
+    elif len(parts) == 3:
+        return (parts[0], parts[1], parts[2])
+    else:
+        msg = f"label_column must have at most 3 dot-separated parts, got {len(parts)}: '{label_column}'"
+        raise ValueError(msg)
+
+
 def export_to_yolo(
     tables: Mapping[str, str | Path | tlc.Url | tlc.Table],
     output_url: tlc.Url | Path | str,
     dataset_name: str = "dataset",
     image_strategy: Literal["ignore", "copy", "symlink", "move"] | None = None,
+    image_column: str | None = None,
+    label_column: str | None = None,
 ) -> None:
     """Export the bounding boxes from a set of tables to a YOLO dataset.
 
@@ -39,7 +74,7 @@ def export_to_yolo(
     in the same directory. Resulting file name conflicts are resolved by adding a number to the end of the name,
     which means that even original file names may not be preserved.
 
-    :param table: The mapping from split names to tables to export as a YOLO dataset.
+    :param tables: The mapping from split names to tables to export as a YOLO dataset.
     :param output_url: The location to export the dataset to.
     :param dataset_name: The name of the dataset, used to name the yaml file.
     :param image_strategy: The strategy to use for handling images. Options are:
@@ -47,13 +82,23 @@ def export_to_yolo(
         - "copy": Copy images to the output directory, keeping the original images. This is done by default.
         - "symlink": Create symlinks to the images in the output directory.
         - "move": Move images to the output directory, removing the original images.
+    :param image_column: The name of the column containing image paths. Defaults to "image".
+    :param label_column: Dot-separated path to the label field within the bounding box structure.
+        Can specify 1-3 parts: "bb_column", "bb_column.bb_list_key", or "bb_column.bb_list_key.label_key".
+        Missing parts are filled with defaults: "bbs", "bb_list", "label".
+        For example, "my_boxes" becomes "my_boxes.bb_list.label".
     """
 
     print(f"Exporting {len(tables)} tables to YOLO dataset at {output_url}...")
 
     # TODO: support writing to s3 as well (use tlc.Url everywhere)
     # TODO: consider supply categories? (subset e.g.)
-    # TODO: consider overriding names of various fields (image, bbs, etc.)
+
+    # Parse column names with defaults
+    if image_column is None:
+        image_column = tlc.IMAGE
+    bb_column, bb_list_key, label_key = _parse_label_column(label_column)
+    label_column_path = f"{bb_column}.{bb_list_key}.{label_key}"
 
     if is_windows() and image_strategy == "symlink":
         msg = "Symlinking images is not supported on Windows, choose a different 'image_strategy'."
@@ -62,7 +107,7 @@ def export_to_yolo(
     if image_strategy is None:
         print(
             "WARNING: No image strategy provided, defaulting to 'copy'. "
-            " If your dataset is large, consider using 'symlink' or 'move'."
+            " If your dataset is large, consider using 'symlink', 'move' or 'ignore'."
         )
         image_strategy = "copy"
 
@@ -73,7 +118,7 @@ def export_to_yolo(
         else:
             tables_dict[split] = tables[split]
 
-        _verify_table_schema(tables_dict[split])
+        _verify_table_schema(tables_dict[split], image_column, bb_column, bb_list_key, label_key)
 
     output_url = tlc.Url(output_url)
 
@@ -93,15 +138,15 @@ def export_to_yolo(
     # Iterate over the dataset and write labels to the output url, based on the filenames
     for split, table in tables_dict.items():
         table.ensure_complete_schema()
-        bb_schema = table.schema.values["rows"].values[tlc.BOUNDING_BOXES].values[tlc.BOUNDING_BOX_LIST]
+        bb_schema = table.schema.values["rows"].values[bb_column].values[bb_list_key]
         bb_type = tlc.BoundingBox.from_schema(bb_schema)
 
         for row in tqdm(table.table_rows, desc=f"Exporting {split} split", total=len(table)):
-            image_width = row.get(tlc.WIDTH, row[tlc.BOUNDING_BOXES][tlc.IMAGE_WIDTH])
-            image_height = row.get(tlc.HEIGHT, row[tlc.BOUNDING_BOXES][tlc.IMAGE_HEIGHT])
+            image_width = row.get(tlc.WIDTH, row[bb_column][tlc.IMAGE_WIDTH])
+            image_height = row.get(tlc.HEIGHT, row[bb_column][tlc.IMAGE_HEIGHT])
 
-            image_path = Path(tlc.Url(row["image"]).to_absolute().to_str())  # Resolve aliases
-            bounding_box_dicts = row["bbs"]["bb_list"]
+            image_path = Path(tlc.Url(row[image_column]).to_absolute().to_str())  # Resolve aliases
+            bounding_box_dicts = row[bb_column][bb_list_key]
 
             # Read out the bounding boxes
             lines = []
@@ -121,7 +166,7 @@ def export_to_yolo(
 
                 bounding_box_xywh = CenteredXYWHBoundingBox.from_top_left_xywh(bounding_box)
 
-                line = f"{bounding_box_dict['label']} {' '.join(str(coordinate) for coordinate in bounding_box_xywh)}"
+                line = f"{bounding_box_dict[label_key]} {' '.join(str(coordinate) for coordinate in bounding_box_xywh)}"
                 lines.append(line)
 
             # <output path>/images/train/0000.jpg
@@ -141,7 +186,7 @@ def export_to_yolo(
                     f.write("\n".join(lines))
 
     # Write dataset yaml file
-    categories = tlc.SchemaHelper.to_simple_value_map(table.get_value_map("bbs.bb_list.label"))
+    categories = tlc.SchemaHelper.to_simple_value_map(table.get_value_map(label_column_path))
 
     yaml_content = {
         "path": output_path.absolute().as_posix(),
@@ -213,34 +258,43 @@ def _handle_conflicting_image_name(output_image_path: Path) -> Path:
     return output_image_path
 
 
-def _verify_table_schema(table: tlc.Table) -> None:
-    # Verify that the table has the expected schema
+def _verify_table_schema(
+    table: tlc.Table,
+    image_column: str,
+    bb_column: str,
+    bb_list_key: str,
+    label_key: str,
+) -> None:
+    """Verify that the table has the expected schema.
 
+    :param table: The table to verify.
+    :param image_column: The name of the image column.
+    :param bb_column: The name of the bounding box column.
+    :param bb_list_key: The key for the bounding box list within the bb column.
+    :param label_key: The key for labels within each bounding box.
+    """
     # Get the first row of the table and use to check if the table is in the correct format
     row = table.table_rows[0]
 
     # Check if row has all the required top-level keys
-    required_keys = [tlc.IMAGE, tlc.BOUNDING_BOXES]
+    required_keys = [image_column, bb_column]
     for key in required_keys:
         if key not in row:
             msg = f"Table does not have the required key: {key}"
             raise ValueError(msg)
 
-    # Check if bboxes is a Mapping with a bounding_boxes key
-    if tlc.BOUNDING_BOXES not in row:
-        msg = f"Table does not have a '{tlc.BOUNDING_BOXES}' key in its rows."
-        raise ValueError(msg)
-    bbs = row[tlc.BOUNDING_BOXES]
+    # Check if bb column is a Mapping with the bb_list key
+    bbs = row[bb_column]
     if not isinstance(bbs, dict):
-        msg = f"Bounding boxes must be a dict, got: {type(bbs)}"
+        msg = f"Bounding boxes column '{bb_column}' must be a dict, got: {type(bbs)}"
         raise ValueError(msg)
-    if tlc.BOUNDING_BOX_LIST not in bbs:
-        msg = f"Bounding boxes must have a '{tlc.BOUNDING_BOX_LIST}' key."
+    if bb_list_key not in bbs:
+        msg = f"Bounding boxes column '{bb_column}' must have a '{bb_list_key}' key."
         raise ValueError(msg)
-    bb_list = bbs[tlc.BOUNDING_BOX_LIST]
+    bb_list = bbs[bb_list_key]
 
     # Check if bounding_boxes is a list of dicts with the required keys
-    required_bounding_box_keys = ["x0", "y0", "x1", "y1", "label"]
+    required_bounding_box_keys = ["x0", "y0", "x1", "y1", label_key]
     for bounding_box in bb_list:
         for key in required_bounding_box_keys:
             if key not in bounding_box:
@@ -248,8 +302,9 @@ def _verify_table_schema(table: tlc.Table) -> None:
                 raise ValueError(msg)
 
     # Check if the table has a value-mapping for its labels.
-    if table.get_value_map("bbs.bb_list.label") is None:
-        msg = "Table does not have a value-mapping for its bounding box labels."
+    label_column_path = f"{bb_column}.{bb_list_key}.{label_key}"
+    if table.get_value_map(label_column_path) is None:
+        msg = f"Table does not have a value-mapping for its bounding box labels at '{label_column_path}'."
         raise ValueError(msg)
 
 
