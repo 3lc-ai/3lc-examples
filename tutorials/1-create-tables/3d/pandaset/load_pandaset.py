@@ -114,7 +114,9 @@ def get_camera_schema(camera_name: str) -> tlc.Schema:
         metadata={
             "intrinsics": scan_summary["camera_intrinsics"][camera_name],
             "extrinsics": scan_summary["extrinsics_cam_from_lidar"][camera_name]["lidar_0"]["T_cam_from_lidar"],
-        }
+        },
+        number_role_u=f"{camera_name}_u",
+        number_role_v=f"{camera_name}_v",
     )
 
 
@@ -210,12 +212,16 @@ def load_pandaset(
         cuboids_all = sequence.cuboids[:max_frames]
 
         # Cameras
-        back_camera_all = list(Path(sequence.camera["back_camera"]._directory).glob("*.jpg"))[:max_frames]
-        front_camera_all = list(Path(sequence.camera["front_camera"]._directory).glob("*.jpg"))[:max_frames]
-        front_left_camera_all = list(Path(sequence.camera["front_left_camera"]._directory).glob("*.jpg"))[:max_frames]
-        front_right_camera_all = list(Path(sequence.camera["front_right_camera"]._directory).glob("*.jpg"))[:max_frames]
-        left_camera_all = list(Path(sequence.camera["left_camera"]._directory).glob("*.jpg"))[:max_frames]
-        right_camera_all = list(Path(sequence.camera["right_camera"]._directory).glob("*.jpg"))[:max_frames]
+        def _numeric_stem(p: Path) -> int:
+            return int(p.stem)
+
+        cam = sequence.camera
+        back_camera_all = sorted(Path(cam["back_camera"]._directory).glob("*.jpg"), key=_numeric_stem)
+        front_camera_all = sorted(Path(cam["front_camera"]._directory).glob("*.jpg"), key=_numeric_stem)
+        front_left_camera_all = sorted(Path(cam["front_left_camera"]._directory).glob("*.jpg"), key=_numeric_stem)
+        front_right_camera_all = sorted(Path(cam["front_right_camera"]._directory).glob("*.jpg"), key=_numeric_stem)
+        left_camera_all = sorted(Path(cam["left_camera"]._directory).glob("*.jpg"), key=_numeric_stem)
+        right_camera_all = sorted(Path(cam["right_camera"]._directory).glob("*.jpg"), key=_numeric_stem)
 
         frame_iter = zip(
             point_cloud_0,
@@ -223,12 +229,12 @@ def load_pandaset(
             point_cloud_1,
             semseg_all,
             cuboids_all,
-            back_camera_all,
-            front_camera_all,
-            front_left_camera_all,
-            front_right_camera_all,
-            left_camera_all,
-            right_camera_all,
+            back_camera_all[:max_frames],
+            front_camera_all[:max_frames],
+            front_left_camera_all[:max_frames],
+            front_right_camera_all[:max_frames],
+            left_camera_all[:max_frames],
+            right_camera_all[:max_frames],
         )
         frames_total = len(point_cloud_0)
         pbar.set_postfix_str(f"frames 0/{frames_total}")
