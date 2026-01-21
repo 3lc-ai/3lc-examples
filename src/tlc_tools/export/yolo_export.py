@@ -14,8 +14,8 @@ from tqdm import tqdm
 from tlc_tools.common import is_windows
 
 # Task type constants
-TASK_DETECTION = "detection"
-TASK_SEGMENTATION = "segmentation"
+TASK_DETECT = "detect"
+TASK_SEGMENT = "segment"
 
 
 def _infer_task_type(table: tlc.Table, label_column: str) -> str:
@@ -23,7 +23,7 @@ def _infer_task_type(table: tlc.Table, label_column: str) -> str:
 
     :param table: The table to infer the task type from.
     :param label_column: The name of the label column (top-level, e.g. "bbs" or "segmentations").
-    :returns: Either TASK_DETECTION or TASK_SEGMENTATION.
+    :returns: Either TASK_DETECT or TASK_SEGMENT.
     """
     table.ensure_complete_schema()
     column_schema = table.schema.values["rows"].values.get(label_column)
@@ -35,10 +35,10 @@ def _infer_task_type(table: tlc.Table, label_column: str) -> str:
     sample_type = getattr(column_schema, "sample_type", None)
 
     if sample_type and sample_type.startswith("instance_segmentation"):
-        return TASK_SEGMENTATION
+        return TASK_SEGMENT
 
     # Default to detection (includes bounding box schemas)
-    return TASK_DETECTION
+    return TASK_DETECT
 
 
 def _parse_label_column(label_column: str | None, task_type: str) -> tuple[str, str, str]:
@@ -52,10 +52,10 @@ def _parse_label_column(label_column: str | None, task_type: str) -> tuple[str, 
     - Segmentation defaults: ("segmentations", "instance_properties", "label")
 
     :param label_column: The dot-separated label column path, or None for defaults.
-    :param task_type: The task type (TASK_DETECTION or TASK_SEGMENTATION).
+    :param task_type: The task type (TASK_DETECT or TASK_SEGMENT).
     :returns: A tuple of (column, list_key, label_key).
     """
-    if task_type == TASK_SEGMENTATION:
+    if task_type == TASK_SEGMENT:
         default_column = tlc.SEGMENTATIONS  # "segmentations"
         default_list_key = tlc.INSTANCE_PROPERTIES  # "instance_properties"
     else:
@@ -207,12 +207,10 @@ def export_to_yolo(
         table.ensure_complete_schema()
 
         # Create the appropriate row converter for this task type
-        if task_type == TASK_DETECTION:
+        if task_type == TASK_DETECT:
             row_to_lines = _create_detection_row_converter(table, data_column, list_key, label_key)
         else:
-            row_to_lines = _create_segmentation_row_converter(
-                table, data_column, list_key, label_key, image_column
-            )
+            row_to_lines = _create_segmentation_row_converter(table, data_column, list_key, label_key, image_column)
 
         _export_split(table, split, images_path, image_column, row_to_lines, image_strategy)
 
@@ -450,7 +448,7 @@ def _verify_table_schema(
     :param data_column: The name of the data column (bbs for detection, segmentations for segmentation).
     :param list_key: The key for the list within the data column.
     :param label_key: The key for labels.
-    :param task_type: The task type (TASK_DETECTION or TASK_SEGMENTATION).
+    :param task_type: The task type (TASK_DETECT or TASK_SEGMENT).
     """
     # Get the first row of the table and use to check if the table is in the correct format
     row = table.table_rows[0]
@@ -467,7 +465,7 @@ def _verify_table_schema(
         msg = f"Column '{data_column}' must be a dict, got: {type(data)}"
         raise ValueError(msg)
 
-    if task_type == TASK_DETECTION:
+    if task_type == TASK_DETECT:
         _verify_detection_schema(data, data_column, list_key, label_key)
     else:
         _verify_segmentation_schema(data, data_column, list_key, label_key)
