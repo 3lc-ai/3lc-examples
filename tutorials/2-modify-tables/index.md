@@ -21,7 +21,6 @@ add-new-data-and-split
 dimensionality-reduction-toy-example
 transform-bbs-to-segs
 autosegment-image-column
-sam2-video-segmentation
 compute-per-bb-metrics
 1-weight-coreset
 add-instance-embeddings/index
