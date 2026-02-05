@@ -6,8 +6,11 @@ orphan: true
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
+create-table-from-coco-segmentation
+create-table-from-yolo-segmentation
+create-instance-segmentations-from-masks
+create-instance-segmentations-from-image-masks
+create-custom-instance-segmentation-table
 ```

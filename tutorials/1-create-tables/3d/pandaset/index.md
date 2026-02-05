@@ -6,8 +6,7 @@ orphan: true
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
+load-pandaset
 ```

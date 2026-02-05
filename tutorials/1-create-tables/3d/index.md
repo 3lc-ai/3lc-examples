@@ -6,8 +6,8 @@ orphan: true
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
+write-mammoth-table
+pandaset/index
 ```

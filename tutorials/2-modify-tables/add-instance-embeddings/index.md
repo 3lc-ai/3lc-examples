@@ -6,8 +6,8 @@ orphan: true
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
+1-train-crop-model
+2-add-instance-metrics
 ```

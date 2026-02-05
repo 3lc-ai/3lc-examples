@@ -6,8 +6,8 @@ orphan: true
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
+create-table-from-yolo-obb
+create-custom-obb-table
 ```

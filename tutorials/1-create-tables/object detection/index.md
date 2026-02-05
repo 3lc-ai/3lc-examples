@@ -6,8 +6,9 @@ orphan: true
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
+create-table-from-coco-detection
+create-table-from-yolo-detection
+create-custom-bb-table
 ```
