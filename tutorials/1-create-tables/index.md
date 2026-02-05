@@ -10,9 +10,17 @@ Start here to transform your existing datasets into 3LC Tables.
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
-./*/index
+create-table-from-image-folder
+create-table-from-torch-dataset
+create-table-from-videos
+create-custom-table
+create-semantic-segmentation-table
+create-fhibe-table
+object detection/index
+instance-segmentation/index
+keypoints/index
+obbs/index
+3d/index
 ```

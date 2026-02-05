@@ -10,8 +10,8 @@ Follow along with complete projects that illustrate best practices for using 3LC
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
+deep-fish
+hard-hat
 ```

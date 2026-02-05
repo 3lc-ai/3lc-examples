@@ -10,9 +10,18 @@ These techniques are essential for data analysis, quality improvement, and prepa
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
-./*/index
+add-embeddings
+add-classification-metrics
+add-image-metrics
+split-tables
+add-new-data
+add-new-data-and-split
+dimensionality-reduction-toy-example
+transform-bbs-to-segs
+autosegment-image-column
+compute-per-bb-metrics
+1-weight-coreset
+add-instance-embeddings/index
 ```

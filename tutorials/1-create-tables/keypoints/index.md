@@ -6,8 +6,9 @@ orphan: true
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
+create-table-from-coco-keypoints
+create-table-from-yolo-keypoints
+create-custom-keypoints-table
 ```

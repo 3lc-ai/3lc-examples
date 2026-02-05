@@ -10,8 +10,31 @@ Learn to track model performance, collect embeddings for analysis, fine-tune mod
 
 ```{toctree}
 :hidden:
-:glob:
 :maxdepth: 2
 
-./*
+pytorch-mnist-resnet-training
+pytorch-fashion-mnist-resnet-training
+pytorch-cifar10-resnet-training
+pytorch-cifar10-collect-metrics
+pytorch-cifar10-train-autoencoder
+pytorch-augmentation-explorer
+lightning-cifar10-resnet-training
+lightning-balloons-segformer-training
+huggingface-cifar100-collect-embeddings
+huggingface-imdb-finetuning
+huggingface-mrcp-bert-finetuning
+huggingface-ade20k-segformer-finetuning
+huggingface-coco128-segformer-collection
+detectron2-coco128-detection-collection
+detectron2-balloons-detection-finetuning
+detectron2-coco128-segmentation-collection
+detectron2-balloons-segmentation-finetuning
+ultralytics-cifar10-yolo11-cls-training
+ultralytics-animalpose-yolo11-pose-training
+ultralytics-cell-segmentation-yolo11-seg
+ultralytics-hrsc-2016-yolo-obb-training
+supergradients-detection-yolonas-training
+supergradients-animalpose-yolonas-training
+sam-coco128-collect-embeddings
+dimensionality-reduction-example
 ```
