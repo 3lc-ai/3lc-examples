@@ -95,3 +95,14 @@ huggingface-imdb-finetuning:
 
 huggingface-mrcp-bert-finetuning:
   EPOCHS: { test: 4, publish: 10 }
+
+# ─── 3D / Point Cloud ──────────────────────────────────────────────
+
+pandaset/load-pandaset:
+  MAX_FRAMES: { test: null, publish: null }
+  MAX_SEQUENCES: { test: 1, publish: null }
+
+# ─── Data Ingestion ─────────────────────────────────────────────────
+
+create-fhibe-table:
+  MAX_SAMPLES: { test: 2000, publish: null }
