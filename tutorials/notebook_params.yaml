@@ -104,5 +104,11 @@ pandaset/load-pandaset:
 
 # ─── Data Ingestion ─────────────────────────────────────────────────
 
+create-table-from-torch-dataset:
+  MAX_SAMPLES: { test: 1000, publish: null }
+
 create-fhibe-table:
-  MAX_SAMPLES: { test: 2000, publish: null }
+  MAX_SAMPLES: { test: 10, publish: 2000 }
+
+create-custom-instance-segmentation-table:
+  MAX_IMAGES: { test: 10, publish: null }
