@@ -5,7 +5,7 @@
 # ─── Classification Training ────────────────────────────────────────
 
 pytorch-cifar10-resnet-training:
-  EPOCHS: { test: 5, publish: 20 }
+  EPOCHS: { test: 1, publish: 5 }
   TIMM_MODEL_NAME: { test: "resnet18", publish: "resnet18" }
 
 lightning-cifar10-resnet-training:
@@ -43,14 +43,17 @@ detectron2-coco128-segmentation-collection:
 
 ultralytics-animalpose-yolo11-pose-training:
   EPOCHS: { test: 1, publish: 10 }
+  NUM_WORKERS: { test: 0, publish: 8 }
   MODEL_NAME: { test: "yolo11n-pose.pt", publish: "yolo11m-pose.pt" }
 
 ultralytics-cell-segmentation-yolo11-seg:
   EPOCHS: { test: 1, publish: 10 }
+  NUM_WORKERS: { test: 0, publish: 8 }
   MODEL_NAME: { test: "yolo11n-seg.pt", publish: "yolo11m-seg.pt" }
 
 ultralytics-hrsc-2016-yolo-obb-training:
   EPOCHS: { test: 1, publish: 10 }
+  NUM_WORKERS: { test: 0, publish: 8 }
   MODEL_NAME: { test: "yolo11n-obb.pt", publish: "yolo11m-obb.pt" }
 
 # ─── Semantic / Instance Segmentation ────────────────────────────────
@@ -73,7 +76,7 @@ pytorch-cifar10-train-autoencoder:
   AUTOENCODER_BACKBONE: { test: "resnet50", publish: "resnet101" }
 
 huggingface-cifar100-collect-embeddings:
-  VIT_MODEL_ID: { test: "google/vit-base-patch16-224", publish: "google/vit-large-patch16-224" }
+  VIT_MODEL_ID: { test: "google/vit-base-patch16-224", publish: "google/vit-base-patch16-224" }
 
 add-instance-embeddings/1-train-crop-model:
   EPOCHS: { test: 1, publish: 5 }
@@ -90,17 +93,17 @@ sam2-video-segmentation:
 # ─── NLP / Text ─────────────────────────────────────────────────────
 
 huggingface-imdb-finetuning:
-  EPOCHS: { test: 10, publish: 30 }
+  EPOCHS: { test: 1, publish: 5 }
   IMDB_MODEL_ID: { test: "distilbert-base-uncased", publish: "bert-base-uncased" }
 
 huggingface-mrcp-bert-finetuning:
-  EPOCHS: { test: 4, publish: 10 }
+  EPOCHS: { test: 1, publish: 5 }
 
 # ─── 3D / Point Cloud ──────────────────────────────────────────────
 
 pandaset/load-pandaset:
-  MAX_FRAMES: { test: null, publish: null }
-  MAX_SEQUENCES: { test: 1, publish: null }
+  MAX_FRAMES: { test: 10, publish: null }
+  MAX_SEQUENCES: { test: 1, publish: 5 }
 
 # ─── Data Ingestion ─────────────────────────────────────────────────
 
