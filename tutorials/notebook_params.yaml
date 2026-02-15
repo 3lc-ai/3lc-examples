@@ -42,19 +42,19 @@ detectron2-coco128-segmentation-collection:
   DETECTRON2_MODEL_CONFIG: { test: "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml", publish: "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml" }
 
 ultralytics-animalpose-yolo11-pose-training:
-  EPOCHS: { test: 1, publish: 10 }
+  EPOCHS: { test: 1, publish: 5 }
   NUM_WORKERS: { test: 0, publish: 8 }
   MODEL_NAME: { test: "yolo11n-pose.pt", publish: "yolo11m-pose.pt" }
 
 ultralytics-cell-segmentation-yolo11-seg:
-  EPOCHS: { test: 1, publish: 10 }
+  EPOCHS: { test: 1, publish: 5 }
   NUM_WORKERS: { test: 0, publish: 8 }
   MODEL_NAME: { test: "yolo11n-seg.pt", publish: "yolo11m-seg.pt" }
 
 ultralytics-hrsc-2016-yolo-obb-training:
-  EPOCHS: { test: 1, publish: 10 }
+  EPOCHS: { test: 1, publish: 5 }
   NUM_WORKERS: { test: 0, publish: 8 }
-  MODEL_NAME: { test: "yolo11n-obb.pt", publish: "yolo11m-obb.pt" }
+  MODEL_NAME: { test: "yolo11n-obb.pt", publish: "yolo11s-obb.pt" }
 
 # ─── Semantic / Instance Segmentation ────────────────────────────────
 
