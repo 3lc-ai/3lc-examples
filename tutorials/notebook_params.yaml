@@ -82,6 +82,9 @@ add-instance-embeddings/1-train-crop-model:
   EPOCHS: { test: 1, publish: 5 }
   EFFICIENTNET_MODEL_NAME: { test: "efficientnet_b0", publish: "efficientnet_b2" }
 
+add-instance-embeddings/2-add-instance-metrics:
+  EFFICIENTNET_MODEL_NAME: { test: "efficientnet_b0", publish: "efficientnet_b2" }
+
 dimensionality-reduction-example:
   TIMM_MODEL_NAME: { test: "resnet18", publish: "resnet18" }
 
