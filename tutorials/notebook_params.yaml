@@ -54,17 +54,17 @@ detectron2-coco128-segmentation-collection:
 
 ultralytics-animalpose-yolo11-pose-training:
   EPOCHS: { test: 1, publish: 5 }
-  NUM_WORKERS: { test: 0, publish: 8 }
+  NUM_WORKERS: { test: 8, publish: 8 }
   MODEL_NAME: { test: "yolo11n-pose.pt", publish: "yolo11m-pose.pt" }
 
 ultralytics-cell-segmentation-yolo11-seg:
   EPOCHS: { test: 1, publish: 5 }
-  NUM_WORKERS: { test: 0, publish: 8 }
+  NUM_WORKERS: { test: 8, publish: 8 }
   MODEL_NAME: { test: "yolo11n-seg.pt", publish: "yolo11m-seg.pt" }
 
 ultralytics-hrsc-2016-yolo-obb-training:
   EPOCHS: { test: 1, publish: 5 }
-  NUM_WORKERS: { test: 0, publish: 8 }
+  NUM_WORKERS: { test: 8, publish: 8 }
   MODEL_NAME: { test: "yolo11n-obb.pt", publish: "yolo11s-obb.pt" }
 
 # ─── Semantic / Instance Segmentation ────────────────────────────────
