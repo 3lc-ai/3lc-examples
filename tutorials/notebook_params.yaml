@@ -2,6 +2,11 @@
 # Top-level keys are notebook names (without .ipynb).
 # The runner selects the matching section and injects params via papermill.
 
+# ─── Data Curation ──────────────────────────────────────────────────
+
+1-weight-coreset:
+  CORESET_SIZE: { test: 1, publish: 0.01 }
+
 # ─── Classification Training ────────────────────────────────────────
 
 pytorch-cifar10-resnet-training:
