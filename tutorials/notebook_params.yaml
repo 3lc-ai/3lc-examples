@@ -25,7 +25,13 @@ pytorch-mnist-resnet-training:
 
 supergradients-detection-yolonas-training:
   MAX_EPOCHS: { test: 1, publish: 10 }
+  NUM_WORKERS: { test: 8, publish: 8 }
   YOLONAS_MODEL: { test: "YOLO_NAS_S", publish: "YOLO_NAS_L" }
+
+supergradients-animalpose-yolonas-training:
+  MAX_EPOCHS: { test: 1, publish: 10 }
+  NUM_WORKERS: { test: 8, publish: 8 }
+  MODEL_NAME: { test: "yolo_nas_pose_n", publish: "yolo_nas_pose_m" }
 
 detectron2-balloons-detection-finetuning:
   MAX_ITERATIONS: { test: 100, publish: 400 }
