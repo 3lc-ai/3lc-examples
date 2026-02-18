@@ -1,0 +1,131 @@
+# Notebook execution parameters for test vs publish mode.
+# Top-level keys are notebook names (without .ipynb).
+# The runner selects the matching section and injects params via papermill.
+
+# ─── Data Curation ──────────────────────────────────────────────────
+
+1-weight-coreset:
+  CORESET_SIZE: { test: 1, publish: 0.01 }
+
+# ─── Classification Training ────────────────────────────────────────
+
+pytorch-cifar10-resnet-training:
+  EPOCHS: { test: 1, publish: 5 }
+  TIMM_MODEL_NAME: { test: "resnet18", publish: "resnet18" }
+
+lightning-cifar10-resnet-training:
+  EPOCHS: { test: 1, publish: 5 }
+
+ultralytics-cifar10-yolo11-cls-training:
+  EPOCHS: { test: 1, publish: 5 }
+  MODEL_NAME: { test: "yolov8n-cls.pt", publish: "yolov8m-cls.pt" }
+
+pytorch-fashion-mnist-resnet-training:
+  EPOCHS: { test: 1, publish: 5 }
+
+pytorch-mnist-resnet-training:
+  EPOCHS: { test: 1, publish: 5 }
+
+# ─── Object Detection ───────────────────────────────────────────────
+
+supergradients-detection-yolonas-training:
+  MAX_EPOCHS: { test: 1, publish: 10 }
+  NUM_WORKERS: { test: 8, publish: 8 }
+  YOLONAS_MODEL: { test: "YOLO_NAS_S", publish: "YOLO_NAS_L" }
+
+supergradients-animalpose-yolonas-training:
+  MAX_EPOCHS: { test: 1, publish: 10 }
+  NUM_WORKERS: { test: 8, publish: 8 }
+  MODEL_NAME: { test: "yolo_nas_pose_n", publish: "yolo_nas_pose_m" }
+
+detectron2-balloons-detection-finetuning:
+  MAX_ITERATIONS: { test: 100, publish: 400 }
+  DETECTRON2_MODEL_CONFIG: { test: "COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml", publish: "COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml" }
+
+detectron2-balloons-segmentation-finetuning:
+  MAX_ITERATIONS: { test: 100, publish: 400 }
+  DETECTRON2_MODEL_CONFIG: { test: "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml", publish: "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml" }
+
+detectron2-coco128-detection-collection:
+  DETECTRON2_MODEL_CONFIG: { test: "COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml", publish: "COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml" }
+
+detectron2-coco128-segmentation-collection:
+  DETECTRON2_MODEL_CONFIG: { test: "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml", publish: "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml" }
+
+ultralytics-animalpose-yolo11-pose-training:
+  EPOCHS: { test: 1, publish: 5 }
+  NUM_WORKERS: { test: 8, publish: 8 }
+  MODEL_NAME: { test: "yolo11n-pose.pt", publish: "yolo11m-pose.pt" }
+
+ultralytics-cell-segmentation-yolo11-seg:
+  EPOCHS: { test: 1, publish: 5 }
+  NUM_WORKERS: { test: 8, publish: 8 }
+  MODEL_NAME: { test: "yolo11n-seg.pt", publish: "yolo11m-seg.pt" }
+
+ultralytics-hrsc-2016-yolo-obb-training:
+  EPOCHS: { test: 1, publish: 5 }
+  NUM_WORKERS: { test: 8, publish: 8 }
+  MODEL_NAME: { test: "yolo11n-obb.pt", publish: "yolo11s-obb.pt" }
+
+# ─── Semantic / Instance Segmentation ────────────────────────────────
+
+lightning-balloons-segformer-training:
+  EPOCHS: { test: 1, publish: 10 }
+  SEGFORMER_MODEL_ID: { test: "nvidia/mit-b0", publish: "nvidia/mit-b2" }
+
+huggingface-ade20k-segformer-finetuning:
+  EPOCHS: { test: 100, publish: 200 }
+  SEGFORMER_MODEL_ID: { test: "nvidia/mit-b0", publish: "nvidia/mit-b0" }
+
+huggingface-coco128-segformer-collection:
+  MASK2FORMER_MODEL_ID: { test: "facebook/mask2former-swin-tiny-coco-instance", publish: "facebook/mask2former-swin-base-coco-instance" }
+
+# ─── Embeddings / Feature Extraction ────────────────────────────────
+
+pytorch-cifar10-train-autoencoder:
+  EPOCHS: { test: 1, publish: 5 }
+  AUTOENCODER_BACKBONE: { test: "resnet50", publish: "resnet101" }
+
+huggingface-cifar100-collect-embeddings:
+  VIT_MODEL_ID: { test: "google/vit-base-patch16-224", publish: "google/vit-base-patch16-224" }
+
+add-instance-embeddings/1-train-crop-model:
+  EPOCHS: { test: 1, publish: 5 }
+  EFFICIENTNET_MODEL_NAME: { test: "efficientnet_b0", publish: "efficientnet_b2" }
+
+add-instance-embeddings/2-add-instance-metrics:
+  EFFICIENTNET_MODEL_NAME: { test: "efficientnet_b0", publish: "efficientnet_b2" }
+
+dimensionality-reduction-example:
+  TIMM_MODEL_NAME: { test: "resnet18", publish: "resnet18" }
+
+# ─── Video / Temporal ───────────────────────────────────────────────
+
+sam2-video-segmentation:
+  SAM2_MODEL_SIZE: { test: "small", publish: "large" }
+
+# ─── NLP / Text ─────────────────────────────────────────────────────
+
+huggingface-imdb-finetuning:
+  EPOCHS: { test: 1, publish: 5 }
+  IMDB_MODEL_ID: { test: "distilbert-base-uncased", publish: "bert-base-uncased" }
+
+huggingface-mrcp-bert-finetuning:
+  EPOCHS: { test: 1, publish: 5 }
+
+# ─── 3D / Point Cloud ──────────────────────────────────────────────
+
+pandaset/load-pandaset:
+  MAX_FRAMES: { test: 10, publish: null }
+  MAX_SEQUENCES: { test: 1, publish: 5 }
+
+# ─── Data Ingestion ─────────────────────────────────────────────────
+
+create-table-from-torch-dataset:
+  MAX_SAMPLES: { test: 1000, publish: null }
+
+create-fhibe-table:
+  MAX_SAMPLES: { test: 10, publish: 2000 }
+
+create-custom-instance-segmentation-table:
+  MAX_IMAGES: { test: 10, publish: null }
