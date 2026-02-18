@@ -50,7 +50,7 @@ def bbs_to_segments(
     segmentations = []
 
     for row in tqdm.tqdm(input_table, desc="Predicting with SAM", total=len(input_table)):
-        buffer = io.BytesIO(tlc.Url(row[image_column]).read())
+        buffer = io.BytesIO(tlc.Url(row[image_column]).read_bytes())
         image = np.array(Image.open(buffer).convert("RGB"))
         h, w, _ = image.shape
 
