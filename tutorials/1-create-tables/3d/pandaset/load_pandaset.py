@@ -164,7 +164,7 @@ def load_pandaset(
         table_name=table_name,
         dataset_name=dataset_name,
         project_name=project_name,
-        column_schemas={
+        schema={
             "lidar_0": get_lidar_schema(),
             "lidar_1": get_lidar_schema(),
             "bbs": get_bb_schema(),
