@@ -161,7 +161,7 @@ def compute_image_metrics(image_path: str | tlc.Url, metrics: list[IMAGE_METRICS
     url = tlc.Url(image_path) if isinstance(image_path, str) else image_path
 
     # Open image from URL using BytesIO
-    image = Image.open(io.BytesIO(url.read()))
+    image = Image.open(io.BytesIO(url.read_bytes()))
     width, height = image.size
 
     if "width" in metrics:

@@ -343,7 +343,7 @@ class InstanceCropDataset(Dataset):
 
     def _load_image_data(self, row):
         """Load image data from a table row."""
-        image_bytes = tlc.Url(row[self.image_column_name]).read()
+        image_bytes = tlc.Url(row[self.image_column_name]).read_bytes()
         image = Image.open(BytesIO(image_bytes))
         return image
 
