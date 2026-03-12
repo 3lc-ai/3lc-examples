@@ -8,6 +8,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from tlc.core import EditedTable, ObjectRegistry, Table, TableFromParquet, TableFromPydict, Url
+from tlc.core.helpers.project_layout import ProjectLayout
 
 from tlc_tools.alias.common import get_input_object
 from tlc_tools.alias.find_aliases import (
@@ -101,7 +102,7 @@ def sample_table_with_parent() -> Generator[Table, None, None]:
     parent_table.ensure_fully_defined()
 
     # Create a child table with a reference to the parent table
-    child_table_url = Url.create_table_url(
+    child_table_url = ProjectLayout.table_url(
         "child_table",
         dataset_name=TEST_ALIAS_DATASET_NAME,
         project_name=TEST_ALIAS_PROJECT_NAME,
