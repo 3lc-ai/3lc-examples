@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "http-image-url-adapter"
+version = "0.1.0"
+description = "Toy example: 3LC URL adapter for fetching images over HTTP(S)"
+requires-python = ">=3.10"
+dependencies = ["3lc"]
+
+[project.scripts]
+create-demo-table = "http_image_url_adapter.create_demo_table:main"
+
+[project.entry-points."tlc.url_adapters"]
+img-http = "http_image_url_adapter.adapter:HttpImageUrlAdapter"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/http_image_url_adapter"]
