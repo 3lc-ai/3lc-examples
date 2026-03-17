@@ -108,7 +108,7 @@ def compute_metric_jumps_on_run(
         # Write the results to a new table
         metric_infos = run.add_metrics(
             data,
-            column_schemas=column_schemas,
+            schema=column_schemas,
             foreign_table_url=foreign_table_url,
         )
         urls.append(metric_infos[0]["url"])

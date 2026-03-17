@@ -39,7 +39,7 @@ def create_test_table(
         Table.from_dict(
             data=data,
             table_name="test_table",
-            structure=schemas,
+            schema=schemas,
             if_exists="rename",
         ),
     )
@@ -171,7 +171,7 @@ def test_compute_metric_jumpss_non_constant_temporal() -> None:
                 "input_table_id": [0, 0],
             },
             table_name="non_constant_temporal",
-            structure={"input_table_id": ForeignTableIdSchema("../train")},
+            schema={"input_table_id": ForeignTableIdSchema("../train")},
         ),
     )
     tables = [table, create_test_table(1, [1.0, 2.0], [1, 2], "../train")]  # Need at least 2 tables

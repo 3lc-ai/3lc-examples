@@ -108,10 +108,9 @@ def bbs_to_segments(
             "segments": segmentations,
         },
         schemas={
-            "segments": tlc.InstanceSegmentationMasks(
-                "segmentations",
-                instance_properties_structure={
-                    tlc.LABEL: tlc.CategoricalLabel("label", classes=value_map),
+            "segments": tlc.SegmentationMasksSchema(
+                classes=value_map,
+                per_instance_schemas={
                     "score": tlc.Schema(value=tlc.Float32Value(0, 1), writable=False),
                 },
             ),

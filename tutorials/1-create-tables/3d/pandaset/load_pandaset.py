@@ -144,7 +144,7 @@ def load_car(data_path: str) -> tuple[dict, tlc.Schema]:
         },
         is_bulk_data=True,
     )
-    return car_geometry.to_row(), car_schema
+    return car_geometry, car_schema
 
 
 def load_pandaset(
@@ -164,7 +164,7 @@ def load_pandaset(
         table_name=table_name,
         dataset_name=dataset_name,
         project_name=project_name,
-        column_schemas={
+        schema={
             "lidar_0": get_lidar_schema(),
             "lidar_1": get_lidar_schema(),
             "bbs": get_bb_schema(),
@@ -278,10 +278,10 @@ def load_pandaset(
             semseg_values_1 = semseg.values.astype(np.int32, copy=False).reshape(-1)[len(verts_0) :]
 
             # Create a new geometry object to store the transformed LiDAR points
-            geometry_0 = tlc.Geometry3DInstances.create_empty(
+            geometry_0 = tlc.Geometry3D.create_empty(
                 *PANDASET_BOUNDS, per_vertex_extras_keys=["intensity", "distance", "semseg"]
             )
-            geometry_1 = tlc.Geometry3DInstances.create_empty(
+            geometry_1 = tlc.Geometry3D.create_empty(
                 *PANDASET_BOUNDS, per_vertex_extras_keys=["intensity", "distance", "semseg"]
             )
             geometry_0.add_instance(
@@ -310,9 +310,9 @@ def load_pandaset(
                 {
                     "sequence_id": sequence_id,
                     "frame_id": frame_id,
-                    "lidar_0": geometry_0.to_row(),
-                    "lidar_1": geometry_1.to_row(),
-                    "bbs": obbs.to_row(),
+                    "lidar_0": geometry_0,
+                    "lidar_1": geometry_1,
+                    "bbs": obbs,
                     "car": car,
                     "back_camera": back_camera_path.as_posix(),
                     "front_camera": front_camera_path.as_posix(),
@@ -343,7 +343,7 @@ def transform_cuboids(
     cuboids: pd.DataFrame,
     R_inv: np.ndarray,
     t_inv: np.ndarray,
-) -> tlc.OBB3DInstances:
+) -> tlc.OrientedBoundingBoxes3D:
     # Vectorized world->ego transform for centers and yaw
     centers_world = np.stack(
         [cuboids["position.x"].values, cuboids["position.y"].values, cuboids["position.z"].values],
@@ -366,7 +366,7 @@ def transform_cuboids(
     dir_ego = dir_world @ R_inv.T
     yaw_ego = np.arctan2(dir_ego[:, 1], dir_ego[:, 0]).astype(np.float32, copy=False)
 
-    obbs = tlc.OBB3DInstances.create_empty(
+    obbs = tlc.OrientedBoundingBoxes3D.create_empty(
         x_min=PANDASET_BOUNDS[0],
         x_max=PANDASET_BOUNDS[1],
         y_min=PANDASET_BOUNDS[2],
