@@ -18,8 +18,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-import tlc
-from tlc.core.sample_types.registry import SampleType
+from tlc.core.sample_types.registry import SampleType, ValidationError
 from tlc.core.url import Url
 
 
@@ -58,12 +57,12 @@ class WavAudioSampleType(SampleType):
         data, _ = sf.read(io.BytesIO(url.read_bytes()), dtype="float32")
         return data
 
-    def validate_sample(self, sample: Any) -> list[tlc.ValidationError]:
+    def validate_sample(self, sample: Any) -> list[ValidationError]:
         """Check that the sample is a 1D NumPy array."""
         if not isinstance(sample, np.ndarray):
-            return [tlc.ValidationError("", f"Expected numpy.ndarray, got {type(sample).__name__}")]
+            return [ValidationError("", f"Expected numpy.ndarray, got {type(sample).__name__}")]
         if sample.ndim != 1:
-            return [tlc.ValidationError("", f"Expected 1D array, got {sample.ndim}D")]
+            return [ValidationError("", f"Expected 1D array, got {sample.ndim}D")]
         return []
 
     def accepts(self, value: Any) -> bool:
