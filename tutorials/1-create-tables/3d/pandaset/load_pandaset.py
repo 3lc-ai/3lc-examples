@@ -78,9 +78,9 @@ def get_lidar_schema() -> tlc.Schema:
         include_3d_vertices=True,
         is_bulk_data=True,
         per_vertex_schemas={
-            "intensity": tlc.Float32ListSchema(),
-            "distance": tlc.Float32ListSchema(),
-            "semseg": tlc.CategoricalLabelListSchema(SEMSEG_CLASSES),
+            "intensity": tlc.Float32Schema(shape=(-1,)),
+            "distance": tlc.Float32Schema(shape=(-1,)),
+            "semseg": tlc.CategoricalLabelSchema(SEMSEG_CLASSES, shape=(-1,)),
         },
     )
 
@@ -92,17 +92,23 @@ def get_bb_schema() -> tlc.Schema:
         classes=CUBOID_CLASSES.keys(),
         # Cuboid attributes are not included for now, can be added if needed
         # per_instance_schemas={
-        #     "uuid": tlc.StringListSchema(writable=False),
-        #     "stationary": tlc.BoolListSchema(),
-        #     "camera_used": tlc.Int32ListSchema(writable=False),
-        #     "object_motion": tlc.CategoricalLabelListSchema({v: k for k, v in object_motion_classes.items()}),
-        #     "rider_status": tlc.CategoricalLabelListSchema({v: k for k, v in rider_status_classes.items()}),
-        #     "pedestrian_behavior": tlc.CategoricalLabelListSchema(
-        #         {v: k for k, v in pedestrian_behavior_classes.items()}
+        #     "uuid": tlc.StringSchema(shape=(-1,), writable=False),
+        #     "stationary": tlc.BoolSchema(shape=(-1,)),
+        #     "camera_used": tlc.Int32Schema(shape=(-1,), writable=False),
+        #     "object_motion": tlc.CategoricalLabelSchema(
+        #         {v: k for k, v in object_motion_classes.items()}, shape=(-1,)
         #     ),
-        #     "pedestrian_age": tlc.CategoricalLabelListSchema({v: k for k, v in pedestrian_age_classes.items()}),
-        #     "sensor_id": tlc.Int32ListSchema(writable=False),
-        #     "sibling_id": tlc.StringListSchema(writable=False),
+        #     "rider_status": tlc.CategoricalLabelSchema(
+        #         {v: k for k, v in rider_status_classes.items()}, shape=(-1,)
+        #     ),
+        #     "pedestrian_behavior": tlc.CategoricalLabelSchema(
+        #         {v: k for k, v in pedestrian_behavior_classes.items()}, shape=(-1,)
+        #     ),
+        #     "pedestrian_age": tlc.CategoricalLabelSchema(
+        #         {v: k for k, v in pedestrian_age_classes.items()}, shape=(-1,)
+        #     ),
+        #     "sensor_id": tlc.Int32Schema(shape=(-1,), writable=False),
+        #     "sibling_id": tlc.StringSchema(shape=(-1,), writable=False),
         # },
     )
 
@@ -110,7 +116,8 @@ def get_bb_schema() -> tlc.Schema:
 
 
 def get_camera_schema(camera_name: str) -> tlc.Schema:
-    return tlc.ImageUrlSchema(
+    return tlc.ImageSchema(
+        format="url",
         metadata={
             "intrinsics": scan_summary["camera_intrinsics"][camera_name],
             "extrinsics": scan_summary["extrinsics_cam_from_lidar"][camera_name]["lidar_0"]["T_cam_from_lidar"],
@@ -138,9 +145,9 @@ def load_car(data_path: str) -> tuple[dict, tlc.Schema]:
         include_3d_vertices=True,
         include_triangles=True,
         per_triangle_schemas={
-            "red": tlc.Float32ListSchema(),
-            "green": tlc.Float32ListSchema(),
-            "blue": tlc.Float32ListSchema(),
+            "red": tlc.Float32Schema(shape=(-1,)),
+            "green": tlc.Float32Schema(shape=(-1,)),
+            "blue": tlc.Float32Schema(shape=(-1,)),
         },
         is_bulk_data=True,
     )
