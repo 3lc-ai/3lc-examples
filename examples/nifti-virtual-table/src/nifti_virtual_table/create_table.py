@@ -12,7 +12,8 @@
 
 Each row represents one axial slice from one subject. Image columns store
 ``nifti-slice://`` URLs that the custom adapter resolves into PNG bytes on
-the fly at read time.
+the fly at read time. Segmentation masks are RLE-encoded and stored inline
+in parquet (enabling global IoU computation in the Dashboard).
 
 Usage::
 
@@ -29,6 +30,7 @@ Options::
 from __future__ import annotations
 
 import argparse
+import csv
 from pathlib import Path
 from typing import Any, Literal
 
@@ -37,18 +39,26 @@ import numpy as np
 from tqdm import tqdm
 
 import tlc
+from tlc.core.data_formats.segmentation import SegmentationMasks
+from tlc.core.helpers.segmentation_helper import SegmentationHelper
 from tlcurl.url_adapter_registry import UrlAdapterRegistry
 
 from .adapter import NiftiSliceUrlAdapter
 
 ALL_MODALITIES = ("flair", "t1", "t1ce", "t2")
 
-SEG_LABELS = {
-    0: "background",
-    1: "necrotic / non-enhancing tumor",
-    2: "peritumoral edema",
-    4: "GD-enhancing tumor",
+# BraTS segmentation labels (note: label 3 is intentionally absent)
+SEG_LABEL_MAP = {
+    1: "necrotic / non-enhancing tumor (NCR/NET)",
+    2: "peritumoral edema (ED)",
+    4: "GD-enhancing tumor (ET)",
 }
+
+# Labels in the order we emit instances
+SEG_LABELS = [1, 2, 4]
+
+
+# ── NIfTI helpers ──
 
 
 def _read_nifti_meta(nii_path: Path) -> dict[str, Any]:
@@ -85,10 +95,81 @@ def _make_nifti_slice_url(nii_path: Path, z: int, meta: dict[str, Any], vmax: fl
     )
 
 
-def _get_tumor_slices(seg_path: Path) -> set[int]:
-    """Return set of slice indices that contain tumor labels."""
-    seg = np.asarray(nib.load(str(seg_path)).dataobj)
-    return {z for z in range(seg.shape[2]) if np.any(seg[:, :, z] > 0)}
+def _find_nifti(subject_dir: Path, subject_id: str, suffix: str) -> Path | None:
+    """Find a NIfTI file, trying .nii then .nii.gz."""
+    for ext in (".nii", ".nii.gz"):
+        p = subject_dir / f"{subject_id}_{suffix}{ext}"
+        if p.exists():
+            return p
+    return None
+
+
+# ── CSV metadata loading ──
+
+
+def _load_name_mapping(brats_root: Path) -> dict[str, str]:
+    """Load name_mapping.csv → {BraTS_2020_subject_ID: Grade}."""
+    csv_path = brats_root / "name_mapping.csv"
+    if not csv_path.exists():
+        return {}
+    mapping: dict[str, str] = {}
+    with open(csv_path) as f:
+        for row in csv.DictReader(f):
+            mapping[row["BraTS_2020_subject_ID"]] = row["Grade"]
+    return mapping
+
+
+def _load_survival_info(brats_root: Path) -> dict[str, dict[str, Any]]:
+    """Load survival_info.csv → {Brats20ID: {age, survival_days, resection}}."""
+    csv_path = brats_root / "survival_info.csv"
+    if not csv_path.exists():
+        return {}
+    info: dict[str, dict[str, Any]] = {}
+    with open(csv_path) as f:
+        for row in csv.DictReader(f):
+            age_str = row.get("Age", "")
+            survival_str = row.get("Survival_days", "")
+            info[row["Brats20ID"]] = {
+                "age": float(age_str) if age_str else None,
+                "survival_days": int(survival_str) if survival_str.isdigit() else None,
+                "resection": row.get("Extent_of_Resection", ""),
+            }
+    return info
+
+
+# ── Segmentation helpers ──
+
+
+def _seg_slice_to_instance_row(seg_slice: np.ndarray, h: int, w: int) -> dict[str, Any]:
+    """Convert a 2D segmentation slice to an instance segmentation row dict.
+
+    Creates one instance per label present (labels 1, 2, 4). Empty slices
+    produce a valid row with zero instances.
+    """
+    labels_present = []
+    masks_list = []
+    for label in SEG_LABELS:
+        mask = (seg_slice == label).astype(np.uint8)
+        if mask.any():
+            labels_present.append(label)
+            masks_list.append(mask)
+
+    if masks_list:
+        masks_3d = np.stack(masks_list, axis=-1)  # (H, W, N)
+        rles = SegmentationHelper.rles_from_masks(masks_3d)
+        rle_bytes = [rle["counts"] for rle in rles]
+    else:
+        rle_bytes = []
+
+    return {
+        "image_height": h,
+        "image_width": w,
+        "instance_properties": {"label": labels_present},
+        "rles": rle_bytes,
+    }
+
+
+# ── Table creation ──
 
 
 def create_virtual_brats_table(
@@ -113,6 +194,10 @@ def create_virtual_brats_table(
 
     assert len(subject_dirs) > 0, f"No subject directories found in {brats_root}"
 
+    # Load CSV metadata
+    grade_map = _load_name_mapping(brats_root)
+    survival_map = _load_survival_info(brats_root)
+
     # Build schema
     schema: dict[str, tlc.Schema] = {
         "subject_id": tlc.StringSchema(writable=False),
@@ -120,7 +205,17 @@ def create_virtual_brats_table(
     }
     for mod in modalities:
         schema[mod] = tlc.ImageUrlSchema()
+    schema["segmentation"] = tlc.SegmentationMasksSchema(
+        classes=SEG_LABEL_MAP,
+        include_per_instance_label=True,
+    )
     schema["has_tumor"] = tlc.BoolSchema(writable=False)
+
+    # CSV-derived metadata columns
+    schema["grade"] = tlc.StringSchema(writable=False)
+    schema["age"] = tlc.Float32Schema(writable=False)
+    schema["survival_days"] = tlc.Int32Schema(writable=False)
+    schema["resection"] = tlc.StringSchema(writable=False)
 
     table_writer = tlc.TableWriter(
         table_name=table_name,
@@ -137,12 +232,10 @@ def create_virtual_brats_table(
         # Read metadata and compute vmax for each modality
         mod_info: dict[str, tuple[dict[str, Any], float]] = {}
         num_slices = None
+        image_w, image_h = None, None
         for mod in modalities:
-            nii_path = subject_dir / f"{subject_id}_{mod}.nii"
-            if not nii_path.exists():
-                # Try .nii.gz fallback
-                nii_path = subject_dir / f"{subject_id}_{mod}.nii.gz"
-            if not nii_path.exists():
+            nii_path = _find_nifti(subject_dir, subject_id, mod)
+            if nii_path is None:
                 msg = f"Missing {mod} file for {subject_id}"
                 raise FileNotFoundError(msg)
 
@@ -152,21 +245,26 @@ def create_virtual_brats_table(
 
             if num_slices is None:
                 num_slices = meta["d"]
+                image_w, image_h = meta["w"], meta["h"]
             elif meta["d"] != num_slices:
                 msg = f"Slice count mismatch for {subject_id}: {meta['d']} vs {num_slices}"
                 raise ValueError(msg)
 
-        assert num_slices is not None
+        assert num_slices is not None and image_w is not None and image_h is not None
 
-        # Check for segmentation to determine tumor slices
-        seg_path = subject_dir / f"{subject_id}_seg.nii"
-        if not seg_path.exists():
-            seg_path = subject_dir / f"{subject_id}_seg.nii.gz"
-        tumor_slices = _get_tumor_slices(seg_path) if seg_path.exists() else set()
+        # Load segmentation volume (needed for inline RLE encoding)
+        seg_path = _find_nifti(subject_dir, subject_id, "seg")
+        seg_volume = np.asarray(nib.load(str(seg_path)).dataobj) if seg_path else None
+
+        # CSV metadata for this subject
+        grade = grade_map.get(subject_id, "")
+        surv = survival_map.get(subject_id, {})
+        age = surv.get("age")
+        survival_days = surv.get("survival_days")
+        resection = surv.get("resection", "NA") or "NA"
 
         # Determine which slices to include
         if skip_empty:
-            # Use any modality to check for non-empty slices
             first_mod = modalities[0]
             meta, _ = mod_info[first_mod]
             nii = nib.load(str(meta["path"]))
@@ -176,10 +274,24 @@ def create_virtual_brats_table(
             slice_indices = list(range(num_slices))
 
         for z in slice_indices:
+            # Segmentation for this slice
+            if seg_volume is not None:
+                seg_slice = seg_volume[:, :, z]
+                has_tumor = bool(np.any(seg_slice > 0))
+                seg_row = _seg_slice_to_instance_row(seg_slice, image_h, image_w)
+            else:
+                has_tumor = False
+                seg_row = {"image_height": image_h, "image_width": image_w, "instance_properties": {"label": []}, "rles": []}
+
             row: dict[str, Any] = {
                 "subject_id": subject_id,
                 "slice_index": z,
-                "has_tumor": z in tumor_slices,
+                "has_tumor": has_tumor,
+                "segmentation": seg_row,
+                "grade": grade,
+                "age": age if age is not None else 0.0,
+                "survival_days": survival_days if survival_days is not None else -1,
+                "resection": resection,
             }
             for mod in modalities:
                 meta, vmax = mod_info[mod]
@@ -222,6 +334,7 @@ def main() -> None:
     print(f"Table URL: {table.url}")
     print(f"\nNo image data was copied — the table references original .nii files")
     print(f"via nifti-slice:// URLs that render PNG slices at read time.")
+    print(f"Segmentation masks are RLE-encoded inline in parquet.")
 
 
 if __name__ == "__main__":
