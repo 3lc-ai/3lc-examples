@@ -51,7 +51,7 @@ class HttpImageUrlAdapter(UrlAdapter):
         """Fetch the image bytes from the given URL."""
         real_url = self._to_real_url(url)
         with urlopen(real_url) as response:
-            return response.read()
+            return bytes(response.read())
 
     def exists(self, url: Url) -> bool:
         """Check whether the remote resource exists (HEAD request)."""
@@ -61,7 +61,7 @@ class HttpImageUrlAdapter(UrlAdapter):
         req = urllib.request.Request(real_url, method="HEAD")
         try:
             with urlopen(req) as response:
-                return response.status == 200
+                return bool(response.status == 200)
         except Exception:
             return False
 

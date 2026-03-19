@@ -38,7 +38,7 @@ NOTES = [
 def generate_sine(frequency: float, duration: float, sample_rate: int) -> np.ndarray:
     """Generate a sine wave as a float32 NumPy array."""
     t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False, dtype=np.float32)
-    return 0.5 * np.sin(2 * np.pi * frequency * t)
+    return np.asarray(0.5 * np.sin(2 * np.pi * frequency * t))
 
 
 def main() -> None:

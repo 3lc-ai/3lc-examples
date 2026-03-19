@@ -54,7 +54,7 @@ class WavAudioSampleType(SampleType):
         """Load a WAV file and return a float32 NumPy array."""
         import soundfile as sf
 
-        data, _ = sf.read(io.BytesIO(url.read_bytes()), dtype="float32")
+        data: np.ndarray = sf.read(io.BytesIO(url.read_bytes()), dtype="float32")[0]
         return data
 
     def validate_sample(self, sample: Any) -> list[tlc.ValidationError]:

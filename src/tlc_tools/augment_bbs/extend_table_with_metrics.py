@@ -278,7 +278,7 @@ def extend_table_with_metrics(
 
         import timm
 
-        model = timm.create_model(model_name, pretrained=use_pretrained, num_classes=num_classes)
+        model: Any = timm.create_model(model_name, pretrained=use_pretrained, num_classes=num_classes)
         if not use_pretrained:
             model.load_state_dict(checkpoint)
         model = model.to(device)

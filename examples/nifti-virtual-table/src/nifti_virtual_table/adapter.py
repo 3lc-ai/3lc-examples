@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qs
 
 import numpy as np
@@ -40,7 +41,7 @@ from PIL import Image
 from tlcurl.url import Url
 from tlcurl.url_adapter import UrlAdapter
 
-_DTYPE_MAP = {
+_DTYPE_MAP: dict[str, np.dtype[Any]] = {
     "int16": np.dtype(np.int16),
     "uint8": np.dtype(np.uint8),
     "float32": np.dtype(np.float32),
