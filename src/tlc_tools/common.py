@@ -163,7 +163,8 @@ def check_is_segmentation_column(
     if segmentation_column not in input_table.rows_schema.values:
         raise ValueError(f"Column {segmentation_column} not found in table {input_table.name}")
 
-    if sample_type and input_table.rows_schema.values[segmentation_column].sample_type != sample_type:
+    config = input_table.rows_schema.values[segmentation_column].sample_type_config
+    if sample_type and (config is None or config.name != sample_type):
         raise ValueError(f"Column {segmentation_column} is not a {sample_type} sample type")
 
 

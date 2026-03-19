@@ -363,7 +363,7 @@ def split_table(
 
 def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.ndarray:
     if isinstance(column, str):
-        pa_column = table.get_column(column)
+        pa_column = table.get_column_as_pyarrow_array(column)
 
         # Handle FixedSizeListType specifically
         if hasattr(pa_column.type, "list_size"):

@@ -28,7 +28,7 @@ def _infer_schemas(
     for column_name in missing_schemas:
         column_values = columns[column_name]
         inferred_schema = tlc.Schema.from_sample(column_values[0])
-        inferred_schema.sample_type = "hidden"
+        inferred_schema.sample_type_config = "hidden"
         inferred_schema.writable = False
         inferred_schemas[column_name] = inferred_schema
 
@@ -50,6 +50,10 @@ def add_columns_to_table(
     input_schemas = table.row_schema.values
     schemas.update(input_schemas)
 
+    # Existing columns from table_rows are already in row form; new columns may be in sample form.
+    input_mode = {col: "row" for col in input_schemas}
+    input_mode.update({col: "auto" for col in columns})
+
     table_writer = tlc.TableWriter(
         project_name=table.project_name,
         dataset_name=table.dataset_name,
@@ -58,7 +62,7 @@ def add_columns_to_table(
         schema=schemas,
         if_exists="rename",
         input_tables=[table.url],
-        input_mode="row",
+        input_mode=input_mode,
     )
 
     for i, row in tqdm(enumerate(table.table_rows), desc="Adding columns to table", total=len(table)):
