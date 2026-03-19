@@ -39,7 +39,6 @@ import numpy as np
 from tqdm import tqdm
 
 import tlc
-from tlc.core.data_formats.segmentation import SegmentationMasks
 from tlc.core.helpers.segmentation_helper import SegmentationHelper
 from tlcurl.url_adapter_registry import UrlAdapterRegistry
 
@@ -281,7 +280,7 @@ def create_virtual_brats_table(
                 seg_row = _seg_slice_to_instance_row(seg_slice, image_h, image_w)
             else:
                 has_tumor = False
-                seg_row = {"image_height": image_h, "image_width": image_w, "instance_properties": {"label": []}, "rles": []}
+                seg_row = _seg_slice_to_instance_row(np.zeros((image_w, image_h), dtype=np.uint8), image_h, image_w)
 
             row: dict[str, Any] = {
                 "subject_id": subject_id,

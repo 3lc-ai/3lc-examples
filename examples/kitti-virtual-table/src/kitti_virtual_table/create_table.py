@@ -75,7 +75,7 @@ def load_kitti_calib(calib_path: Path) -> tuple:
 
 
 def kitti_box_to_lidar(label_line: str, calib: tuple) -> tuple[np.ndarray, dict[str, Any]]:
-    _P0, _P1, _P2, _P3, R0_rect, Tr_velo_to_cam, _Tr_imu_to_velo = calib
+    *_, R0_rect, Tr_velo_to_cam, _ = calib
     vals = label_line.strip().split()
     height, width, length = map(float, vals[8:11])
     x, y, z = map(float, vals[11:14])
