@@ -34,10 +34,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
-from tqdm import tqdm
-
 import tlc
 from tlcurl.url_adapter_registry import UrlAdapterRegistry
+from tqdm import tqdm
 
 from .adapter import KittiVelodyneUrlAdapter
 

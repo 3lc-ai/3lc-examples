@@ -37,7 +37,6 @@ from urllib.parse import parse_qs
 
 import numpy as np
 from PIL import Image
-
 from tlcurl.url import Url
 from tlcurl.url_adapter import UrlAdapter
 

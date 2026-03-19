@@ -36,11 +36,10 @@ from typing import Any, Literal
 
 import nibabel as nib
 import numpy as np
-from tqdm import tqdm
-
 import tlc
 from tlc.core.helpers.segmentation_helper import SegmentationHelper
 from tlcurl.url_adapter_registry import UrlAdapterRegistry
+from tqdm import tqdm
 
 from .adapter import NiftiSliceUrlAdapter
 
@@ -185,9 +184,7 @@ def create_virtual_brats_table(
     assert brats_root.exists(), f"BraTS root {brats_root} does not exist!"
 
     # Discover subject directories
-    subject_dirs = sorted(
-        d for d in brats_root.iterdir() if d.is_dir() and d.name.startswith("BraTS20_Training")
-    )
+    subject_dirs = sorted(d for d in brats_root.iterdir() if d.is_dir() and d.name.startswith("BraTS20_Training"))
     if max_subjects is not None:
         subject_dirs = subject_dirs[:max_subjects]
 
@@ -331,9 +328,9 @@ def main() -> None:
 
     print(f"\nCreated virtual table with {len(table)} rows")
     print(f"Table URL: {table.url}")
-    print(f"\nNo image data was copied — the table references original .nii files")
-    print(f"via nifti-slice:// URLs that render PNG slices at read time.")
-    print(f"Segmentation masks are RLE-encoded inline in parquet.")
+    print("\nNo image data was copied — the table references original .nii files")
+    print("via nifti-slice:// URLs that render PNG slices at read time.")
+    print("Segmentation masks are RLE-encoded inline in parquet.")
 
 
 if __name__ == "__main__":

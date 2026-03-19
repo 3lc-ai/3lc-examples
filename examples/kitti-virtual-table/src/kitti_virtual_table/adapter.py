@@ -29,7 +29,6 @@ from pathlib import Path
 from urllib.parse import parse_qs
 
 import numpy as np
-
 from tlcurl.url import Url
 from tlcurl.url_adapter import UrlAdapter
 
