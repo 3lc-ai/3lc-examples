@@ -63,7 +63,7 @@ def test_distance_functions() -> None:
     assert _l2_distance(a, b) == pytest.approx(5.196152422706632)
 
 
-def test_compute_metric_jumpss_basic() -> None:
+def test_compute_metric_jumps_basic() -> None:
     """Test basic metric jumps computation."""
     # Create test tables with increasing values
     tables = [
@@ -98,7 +98,7 @@ def test_compute_metric_jumpss_basic() -> None:
     assert result.epoch_to_idx == {1: 0, 2: 1, 3: 2}  # Maps epochs to array indices
 
 
-def test_compute_metric_jumpss_skips() -> None:
+def test_compute_metric_jumps_skips() -> None:
     """Test that metric jumps computation skips invalid tables."""
     # Create test tables with some invalid ones
     tables = [
@@ -122,7 +122,7 @@ def test_compute_metric_jumpss_skips() -> None:
     assert metric_jumps[1, 1] == 2.0  # Example 2, epoch 2 (4-2)
 
 
-def test_compute_metric_jumpss_missing_columns() -> None:
+def test_compute_metric_jumps_missing_columns() -> None:
     """Test that metric jumps computation handles missing columns."""
     # Create test tables with missing columns
     tables = [
@@ -146,7 +146,7 @@ def test_compute_metric_jumpss_missing_columns() -> None:
     assert metric_jumps[1, 1] == 2.0  # Example 2, epoch 2 (4-2)
 
 
-def test_compute_metric_jumpss_different_example_ids() -> None:
+def test_compute_metric_jumps_different_example_ids() -> None:
     """Test that metric jumps computation handles different example IDs."""
     # Create test tables with different example IDs
     tables = [
@@ -158,7 +158,7 @@ def test_compute_metric_jumpss_different_example_ids() -> None:
         compute_metric_jumps(tables, "metric", "epoch", "euclidean")
 
 
-def test_compute_metric_jumpss_non_constant_temporal() -> None:
+def test_compute_metric_jumps_non_constant_temporal() -> None:
     """Test that metric jumps computation handles non-constant temporal values."""
     # Create a table with non-constant temporal values
     table = cast(
@@ -180,7 +180,7 @@ def test_compute_metric_jumpss_non_constant_temporal() -> None:
         compute_metric_jumps(tables, "metric", "epoch", "euclidean")
 
 
-def test_compute_metric_jumpss_missing_foreign_table_url() -> None:
+def test_compute_metric_jumps_missing_foreign_table_url() -> None:
     """Test that metric jumps computation handles missing foreign table URLs."""
     # Create test tables without foreign table URLs
     tables = [
@@ -192,7 +192,7 @@ def test_compute_metric_jumpss_missing_foreign_table_url() -> None:
     assert len(results) == 0  # No results because no foreign table URLs
 
 
-def test_compute_metric_jumpss_repeated_example_ids() -> None:
+def test_compute_metric_jumps_repeated_example_ids() -> None:
     """Test that metric jumps computation handles repeated example IDs."""
     # Create test tables with repeated example IDs
     tables = [

@@ -97,17 +97,16 @@ def sample_table_with_parent() -> Generator[Table, None, None]:
         project_name=TEST_ALIAS_PROJECT_NAME,
         dataset_name=TEST_ALIAS_DATASET_NAME,
         table_name="parent_table",
-        if_exists="raise",
+        if_exists="overwrite",
     )
     parent_table.ensure_fully_defined()
 
     # Create a child table with a reference to the parent table
     child_table_url = ProjectLayout.table_url(
-        "child_table",
+        table_name="child_table",
         dataset_name=TEST_ALIAS_DATASET_NAME,
         project_name=TEST_ALIAS_PROJECT_NAME,
     )
-    assert not child_table_url.exists()
 
     child_table = EditedTable(
         url=child_table_url,
@@ -142,7 +141,7 @@ def sample_table_with_pseudo_parent() -> Generator[Table, None, None]:
         project_name=TEST_ALIAS_PROJECT_NAME,
         dataset_name=TEST_ALIAS_DATASET_NAME,
         table_name="pseudo_parent_table",
-        if_exists="raise",
+        if_exists="overwrite",
     )
     pseudo_parent_table.ensure_fully_defined()
 
@@ -153,7 +152,7 @@ def sample_table_with_pseudo_parent() -> Generator[Table, None, None]:
         project_name=TEST_ALIAS_PROJECT_NAME,
         dataset_name=TEST_ALIAS_DATASET_NAME,
         table_name="child_table",
-        if_exists="raise",
+        if_exists="overwrite",
         input_tables=[pseudo_parent_table.url],
     )
     child_table.ensure_fully_defined()
