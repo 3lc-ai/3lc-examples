@@ -506,7 +506,8 @@ def extend_table_with_metrics(
 
     # Get the hidden columns in the table (columns which are not part of the sample view of the table, e.g. "weight")
     hidden_column_names = [
-        name for name, col in input_table.row_schema.values.items()
+        name
+        for name, col in input_table.row_schema.values.items()
         if not col.resolved_sample_type.is_included_in_sample
     ]
     hidden_columns = {key: [row[key] for row in input_table.table_rows] for key in hidden_column_names}

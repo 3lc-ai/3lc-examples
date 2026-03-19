@@ -17,7 +17,6 @@ import io
 from typing import Any, ClassVar
 
 import numpy as np
-
 import tlc
 from tlc.core.sample_types.registry import SampleType
 from tlc.core.url import Url

@@ -16,7 +16,6 @@ or::
 from __future__ import annotations
 
 import numpy as np
-
 import tlc
 
 # Importing the package registers the sample type
@@ -58,12 +57,14 @@ def main() -> None:
 
     for note_name, freq in NOTES:
         waveform = generate_sine(freq, DURATION_S, SAMPLE_RATE)
-        writer.add_row({
-            "audio": waveform,
-            "note": note_name,
-            "frequency_hz": freq,
-            "duration_s": DURATION_S,
-        })
+        writer.add_row(
+            {
+                "audio": waveform,
+                "note": note_name,
+                "frequency_hz": freq,
+                "duration_s": DURATION_S,
+            }
+        )
 
     table = writer.finalize()
 
