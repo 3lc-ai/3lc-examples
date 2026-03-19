@@ -495,7 +495,7 @@ def extend_table_with_metrics(
 
     # Create TableWriter
     table_writer = tlc.TableWriter(
-        root_url=input_table.root,
+        root_url=input_table.root_url,
         project_name=input_table.project_name,
         dataset_name=input_table.dataset_name,
         table_name=output_table_name,
