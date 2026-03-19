@@ -203,7 +203,6 @@ def create_virtual_brats_table(
         schema[mod] = tlc.ImageUrlSchema()
     schema["segmentation"] = tlc.SegmentationMasksSchema(
         classes=SEG_LABEL_MAP,
-        include_per_instance_label=True,
     )
     schema["has_tumor"] = tlc.BoolSchema(writable=False)
 
