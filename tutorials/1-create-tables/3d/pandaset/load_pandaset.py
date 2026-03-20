@@ -80,7 +80,7 @@ def get_lidar_schema() -> tlc.Schema:
         per_vertex_schemas={
             "intensity": tlc.Float32Schema(shape=(-1,)),
             "distance": tlc.Float32Schema(shape=(-1,)),
-            "semseg": tlc.CategoricalLabelSchema(SEMSEG_CLASSES, shape=(-1,)),
+            "semseg": tlc.CategoricalLabelListSchema(SEMSEG_CLASSES),
         },
     )
 
@@ -95,17 +95,17 @@ def get_bb_schema() -> tlc.Schema:
         #     "uuid": tlc.StringSchema(shape=(-1,), writable=False),
         #     "stationary": tlc.BoolSchema(shape=(-1,)),
         #     "camera_used": tlc.Int32Schema(shape=(-1,), writable=False),
-        #     "object_motion": tlc.CategoricalLabelSchema(
-        #         {v: k for k, v in object_motion_classes.items()}, shape=(-1,)
+        #     "object_motion": tlc.CategoricalLabelListSchema(
+        #         {v: k for k, v in object_motion_classes.items()}
         #     ),
-        #     "rider_status": tlc.CategoricalLabelSchema(
-        #         {v: k for k, v in rider_status_classes.items()}, shape=(-1,)
+        #     "rider_status": tlc.CategoricalLabelListSchema(
+        #         {v: k for k, v in rider_status_classes.items()}
         #     ),
-        #     "pedestrian_behavior": tlc.CategoricalLabelSchema(
-        #         {v: k for k, v in pedestrian_behavior_classes.items()}, shape=(-1,)
+        #     "pedestrian_behavior": tlc.CategoricalLabelListSchema(
+        #         {v: k for k, v in pedestrian_behavior_classes.items()}
         #     ),
-        #     "pedestrian_age": tlc.CategoricalLabelSchema(
-        #         {v: k for k, v in pedestrian_age_classes.items()}, shape=(-1,)
+        #     "pedestrian_age": tlc.CategoricalLabelListSchema(
+        #         {v: k for k, v in pedestrian_age_classes.items()}
         #     ),
         #     "sensor_id": tlc.Int32Schema(shape=(-1,), writable=False),
         #     "sibling_id": tlc.StringSchema(shape=(-1,), writable=False),
