@@ -78,8 +78,8 @@ def get_lidar_schema() -> tlc.Schema:
         include_3d_vertices=True,
         is_bulk_data=True,
         per_vertex_schemas={
-            "intensity": tlc.Float32Schema(shape=(-1,)),
-            "distance": tlc.Float32Schema(shape=(-1,)),
+            "intensity": tlc.Float32ListSchema(),
+            "distance": tlc.Float32ListSchema(),
             "semseg": tlc.CategoricalLabelListSchema(SEMSEG_CLASSES),
         },
     )
@@ -116,8 +116,7 @@ def get_bb_schema() -> tlc.Schema:
 
 
 def get_camera_schema(camera_name: str) -> tlc.Schema:
-    return tlc.ImageSchema(
-        format="url",
+    return tlc.ImageUrlSchema(
         metadata={
             "intrinsics": scan_summary["camera_intrinsics"][camera_name],
             "extrinsics": scan_summary["extrinsics_cam_from_lidar"][camera_name]["lidar_0"]["T_cam_from_lidar"],
@@ -145,9 +144,9 @@ def load_car(data_path: str) -> tuple[dict, tlc.Schema]:
         include_3d_vertices=True,
         include_triangles=True,
         per_triangle_schemas={
-            "red": tlc.Float32Schema(shape=(-1,)),
-            "green": tlc.Float32Schema(shape=(-1,)),
-            "blue": tlc.Float32Schema(shape=(-1,)),
+            "red": tlc.Float32ListSchema(),
+            "green": tlc.Float32ListSchema(),
+            "blue": tlc.Float32ListSchema(),
         },
         is_bulk_data=True,
     )
