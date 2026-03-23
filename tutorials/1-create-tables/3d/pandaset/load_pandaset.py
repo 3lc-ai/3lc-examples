@@ -142,7 +142,6 @@ def load_car(data_path: str) -> tuple[dict, tlc.Schema]:
 
     car_schema = tlc.Geometry3DSchema(
         include_3d_vertices=True,
-        include_triangles=True,
         per_triangle_schemas={
             "red": tlc.Float32ListSchema(),
             "green": tlc.Float32ListSchema(),
