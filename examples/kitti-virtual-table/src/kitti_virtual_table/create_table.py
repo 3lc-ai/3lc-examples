@@ -170,7 +170,6 @@ def create_virtual_kitti_table(
 
     # Schema: geometry with bulk-data vertices + intensity, inline bounding boxes
     lidar_schema = tlc.Geometry3DSchema(
-        include_3d_vertices=True,
         per_vertex_schemas={
             "intensity": tlc.Float32ListSchema(),
         },

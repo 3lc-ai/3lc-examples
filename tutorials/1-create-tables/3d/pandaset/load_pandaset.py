@@ -75,7 +75,6 @@ pedestrian_age_classes = {
 
 def get_lidar_schema() -> tlc.Schema:
     schema = tlc.Geometry3DSchema(
-        include_3d_vertices=True,
         is_bulk_data=True,
         per_vertex_schemas={
             "intensity": tlc.Float32ListSchema(),
@@ -141,7 +140,6 @@ def load_car(data_path: str) -> tuple[dict, tlc.Schema]:
     car_geometry = tlc.GeometryHelper.load_obj_geometry(car_obj_path, scale, transform, PANDASET_BOUNDS)
 
     car_schema = tlc.Geometry3DSchema(
-        include_3d_vertices=True,
         per_triangle_schemas={
             "red": tlc.Float32ListSchema(),
             "green": tlc.Float32ListSchema(),
