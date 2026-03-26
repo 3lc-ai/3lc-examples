@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from tlc.core.schema import Schema, UrlStringValue
+from tlc import Schema, StringValue
 
 
 class AudioSchema(Schema):
@@ -55,7 +55,7 @@ class AudioSchema(Schema):
         bulk_data_location: str | None = None,
     ) -> None:
         super().__init__(
-            value=UrlStringValue(),
+            value=StringValue(string_role="URL/Audio"),
             sample_type={"name": "wav_audio", "sample_rate": sample_rate},
             display_name=display_name,
             description=description,

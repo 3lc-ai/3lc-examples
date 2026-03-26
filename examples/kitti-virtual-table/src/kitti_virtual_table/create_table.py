@@ -162,7 +162,7 @@ def create_virtual_kitti_table(
     max_frames: int | None = None,
     table_name: str = "KITTI_DET_virtual",
     dataset_name: str = "KITTI_DET",
-    project_name: str = "KITTI_VIRTUAL",
+    project_name: str = "3LC Tutorials - KITTI Virtual Table",
     root_url: str | None = None,
     if_exists: Literal["overwrite", "rename", "raise"] = "overwrite",
 ) -> tlc.Table:
@@ -261,7 +261,7 @@ def main() -> None:
     parser.add_argument("--max-frames", type=int, default=None, help="Limit number of frames")
     parser.add_argument("--table-name", default="KITTI_DET_virtual", help="Table name")
     parser.add_argument("--dataset-name", default="KITTI_DET", help="Dataset name")
-    parser.add_argument("--project-name", default="KITTI_VIRTUAL", help="Project name")
+    parser.add_argument("--project-name", default="3LC Tutorials - KITTI Virtual Table", help="Project name")
     parser.add_argument("--if-exists", default="overwrite", choices=["overwrite", "rename", "raise"])
     args = parser.parse_args()
 

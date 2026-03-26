@@ -10,7 +10,7 @@ requires-python = ">=3.10"
 dependencies = ["3lc"]
 
 [project.scripts]
-create-demo-table = "http_image_url_adapter.create_demo_table:main"
+create-http-image-demo-table = "http_image_url_adapter.create_demo_table:main"
 
 [project.entry-points."tlc.url_adapters"]
 img-http = "http_image_url_adapter.adapter:HttpImageUrlAdapter"

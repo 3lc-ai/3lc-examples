@@ -27,7 +27,7 @@ IMAGES = [
     (20, "stacked books", 400, 300),
 ]
 
-PROJECT_NAME = "URL Adapter Demo"
+PROJECT_NAME = "3LC Tutorials - HTTP Image URL Adapter"
 DATASET_NAME = "picsum-photos"
 TABLE_NAME = "initial"
 
@@ -47,7 +47,7 @@ def main() -> None:
         project_name=PROJECT_NAME,
         dataset_name=DATASET_NAME,
         table_name=TABLE_NAME,
-        if_exists="rename",
+        if_exists="overwrite",
     )
 
     print(f"Created table with {len(table)} rows")

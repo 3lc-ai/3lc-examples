@@ -14,15 +14,15 @@ it available. It can also be registered explicitly with
 from __future__ import annotations
 
 import io
-from typing import Any, ClassVar
+from typing import Any
 
 import numpy as np
 import tlc
-from tlc.core.sample_types.registry import SampleType
+from tlc.core.sample_types.sample_type import ExternalSampleType
 from tlc.core.url import Url
 
 
-class WavAudioSampleType(SampleType):
+class WavAudioSampleType(ExternalSampleType):
     """Sample type that stores audio waveforms as WAV files.
 
     In sample view, columns using this sample type return 1D NumPy arrays
@@ -35,9 +35,8 @@ class WavAudioSampleType(SampleType):
 
     """
 
-    is_leaf: ClassVar[bool] = True
-    default_storage: ClassVar[str] = "file"
-    default_file_extension: ClassVar[str] = ".wav"
+    is_leaf = True
+    file_extension = ".wav"
 
     def __init__(self, sample_rate: int = 16000) -> None:
         self._sample_rate = sample_rate

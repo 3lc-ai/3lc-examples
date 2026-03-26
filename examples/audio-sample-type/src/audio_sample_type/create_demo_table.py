@@ -43,7 +43,7 @@ def generate_sine(frequency: float, duration: float, sample_rate: int) -> np.nda
 
 def main() -> None:
     writer = tlc.TableWriter(
-        project_name="Audio Sample Type Demo",
+        project_name="3LC Tutorials - Audio Sample Type",
         dataset_name="sine-waves",
         table_name="initial",
         schema={
@@ -52,7 +52,7 @@ def main() -> None:
             "frequency_hz": tlc.Float32Schema(writable=False),
             "duration_s": tlc.Float32Schema(writable=False),
         },
-        if_exists="rename",
+        if_exists="overwrite",
     )
 
     for note_name, freq in NOTES:

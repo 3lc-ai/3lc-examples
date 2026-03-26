@@ -177,7 +177,7 @@ def create_virtual_brats_table(
     skip_empty: bool = False,
     table_name: str = "BraTS2020_virtual",
     dataset_name: str = "BraTS2020",
-    project_name: str = "BraTS_VIRTUAL",
+    project_name: str = "3LC Tutorials - BraTS Virtual Table",
     root_url: str | None = None,
     if_exists: Literal["overwrite", "rename", "raise"] = "overwrite",
 ) -> tlc.Table:
@@ -306,7 +306,7 @@ def main() -> None:
     parser.add_argument("--skip-empty", action="store_true", help="Skip slices with no brain content")
     parser.add_argument("--table-name", default="BraTS2020_virtual")
     parser.add_argument("--dataset-name", default="BraTS2020")
-    parser.add_argument("--project-name", default="BraTS_VIRTUAL")
+    parser.add_argument("--project-name", default="3LC Tutorials - BraTS Virtual Table")
     parser.add_argument("--if-exists", default="overwrite", choices=["overwrite", "rename", "raise"])
     args = parser.parse_args()
 
