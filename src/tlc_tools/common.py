@@ -142,22 +142,20 @@ def check_is_bb_column(
 def check_is_segmentation_column(
     input_table: tlc.Table,
     segmentation_column: str = tlc.SEGMENTATIONS,
-    sample_type: Literal["instance_segmentation_masks", "instance_segmentation_polygons", ""] = "",
+    sample_type: Literal["segmentation_masks", "segmentation_polygons", ""] = "",
 ) -> None:
     """Check that a column conforms to 3LC's segmentation format.
 
     Ensures that the `segmentation_column` is present in the `input_table`'s schema.
 
-    Ensures that the `segmentation_column`'s schema is a `tlc.InstanceSegmentationMasks`
-    or `tlc.InstanceSegmentationPolygons` sample type.
+    Ensures that the `segmentation_column`'s schema has a segmentation masks or polygons sample type.
 
     :param input_table: The table to check.
     :param segmentation_column: The name of the column to check.
-    :param sample_type: The sample type of the segmentation column.
+    :param sample_type: The expected sample type name of the segmentation column.
 
     :raises ValueError: If the column is missing the `segmentation_column` or
-        the `segmentation_column`'s schema is not a `tlc.InstanceSegmentationMasks`
-        or `tlc.InstanceSegmentationPolygons` sample type.
+        the `segmentation_column`'s schema does not have the expected sample type.
     """
     if segmentation_column not in input_table.columns:
         raise ValueError(f"Column {segmentation_column} not found in table {input_table.name}")
@@ -165,7 +163,8 @@ def check_is_segmentation_column(
     if segmentation_column not in input_table.rows_schema.values:
         raise ValueError(f"Column {segmentation_column} not found in table {input_table.name}")
 
-    if sample_type and input_table.rows_schema.values[segmentation_column].sample_type != sample_type:
+    config = input_table.rows_schema.values[segmentation_column].sample_type_config
+    if sample_type and (config is None or config.name != sample_type):
         raise ValueError(f"Column {segmentation_column} is not a {sample_type} sample type")
 
 

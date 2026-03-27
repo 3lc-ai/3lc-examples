@@ -278,7 +278,7 @@ def extend_table_with_metrics(
 
         import timm
 
-        model = timm.create_model(model_name, pretrained=use_pretrained, num_classes=num_classes)
+        model: Any = timm.create_model(model_name, pretrained=use_pretrained, num_classes=num_classes)
         if not use_pretrained:
             model.load_state_dict(checkpoint)
         model = model.to(device)
@@ -495,17 +495,21 @@ def extend_table_with_metrics(
 
     # Create TableWriter
     table_writer = tlc.TableWriter(
-        root_url=input_table.root,
+        root_url=input_table.root_url,
         project_name=input_table.project_name,
         dataset_name=input_table.dataset_name,
         table_name=output_table_name,
         description="Extended table with per instance embeddings and/or image metrics",
-        column_schemas=new_table_schema.values,
+        schema=new_table_schema.values,
         input_tables=[input_table.url],
     )
 
     # Get the hidden columns in the table (columns which are not part of the sample view of the table, e.g. "weight")
-    hidden_column_names = [child.name for child in input_table.row_schema.sample_type_object.hidden_children]
+    hidden_column_names = [
+        name
+        for name, col in input_table.row_schema.values.items()
+        if not col.resolved_sample_type.is_included_in_sample
+    ]
     hidden_columns = {key: [row[key] for row in input_table.table_rows] for key in hidden_column_names}
 
     logger.info(f"Processing with: embeddings={add_embeddings}, image_metrics={add_image_metrics}")
@@ -555,8 +559,7 @@ def extend_table_with_metrics(
             new_row[key] = hidden_columns[key][row_index]
 
         # Convert to sample view for adding to the table
-        sample_type_object = new_table_schema.sample_type_object
-        new_row = sample_type_object.sample_from_row([new_row])[0]
+        new_row = new_table_schema.from_row(new_row)
 
         table_writer.add_row(new_row)
 

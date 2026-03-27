@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nifti-virtual-table"
+version = "0.1.0"
+description = "Example: 3LC URL adapter for virtualizing NIfTI slice images (e.g. BraTS2020)"
+requires-python = ">=3.10"
+dependencies = ["3lc", "numpy", "nibabel", "Pillow", "tqdm"]
+
+[project.scripts]
+create-nifti-virtual-table = "nifti_virtual_table.create_table:main"
+
+[project.entry-points."tlc.url_adapters"]
+nifti-slice = "nifti_virtual_table.adapter:NiftiSliceUrlAdapter"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nifti_virtual_table"]

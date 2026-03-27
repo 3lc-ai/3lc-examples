@@ -108,7 +108,7 @@ def compute_metric_jumps_on_run(
         # Write the results to a new table
         metric_infos = run.add_metrics(
             data,
-            column_schemas=column_schemas,
+            schema=column_schemas,
             foreign_table_url=foreign_table_url,
         )
         urls.append(metric_infos[0]["url"])
@@ -159,14 +159,14 @@ def compute_metric_jumps(
 
         # Get columns from first table for validation
         first_table = tables[0]
-        reference_example_ids = first_table.get_column(EXAMPLE_ID)
+        reference_example_ids = first_table.get_column_as_pyarrow_array(EXAMPLE_ID)
         if len(pc.unique(reference_example_ids)) != len(reference_example_ids):  # type: ignore
             msg = f"Table {first_table.url} has repeated example IDs"
             raise ValueError(msg)
 
         # Validate that all tables have the same example IDs
         for table in tables[1:]:
-            example_ids = table.get_column(EXAMPLE_ID)
+            example_ids = table.get_column_as_pyarrow_array(EXAMPLE_ID)
             if not np.array_equal(example_ids, reference_example_ids):
                 msg = f"Table {table.url} has different example IDs than the reference table {first_table.url}"
                 raise ValueError(msg)
@@ -175,7 +175,7 @@ def compute_metric_jumps(
         epochs = set()
         valid_tables = []
         for table in tables:
-            temporal_values = table.get_column(temporal_column_name)
+            temporal_values = table.get_column_as_pyarrow_array(temporal_column_name)
             first_value = temporal_values[0]
             if not all(value == first_value for value in temporal_values):
                 msg = f"Table {table.url} has non-constant temporal values in column {temporal_column_name}"
@@ -215,13 +215,13 @@ def compute_metric_jumps(
         for i in range(len(valid_tables) - 1):
             current_table = valid_tables[i]
             next_table = valid_tables[i + 1]
-            current_epoch = current_table.get_column(temporal_column_name)[0].as_py()
-            next_epoch = next_table.get_column(temporal_column_name)[0].as_py()
+            current_epoch = current_table.get_column_as_pyarrow_array(temporal_column_name)[0].as_py()
+            next_epoch = next_table.get_column_as_pyarrow_array(temporal_column_name)[0].as_py()
             assert current_epoch < next_epoch, f"Tables are not sorted chronologically: {current_epoch} >= {next_epoch}"
 
             for metric_name in metric_column_names:
-                current_metrics = current_table.get_column(metric_name)
-                next_metrics = next_table.get_column(metric_name)
+                current_metrics = current_table.get_column_as_pyarrow_array(metric_name)
+                next_metrics = next_table.get_column_as_pyarrow_array(metric_name)
 
                 # Compute jumps between consecutive points
                 for example_idx, example_id in enumerate(reference_example_ids):
