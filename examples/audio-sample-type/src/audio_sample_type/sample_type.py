@@ -35,7 +35,6 @@ class WavAudioSampleType(ExternalSampleType):
 
     """
 
-    is_leaf = True
     file_extension = ".wav"
 
     def __init__(self, sample_rate: int = 16000) -> None:
