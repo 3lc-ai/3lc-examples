@@ -130,7 +130,7 @@ class InstanceCropDataset(Dataset):
                             row_idx,
                             {
                                 "type": "bbox",
-                                "xyxy": bb2d.bbs[i],  # (4,) float32 array [x_min, y_min, x_max, y_max]
+                                "xyxy": bb2d.bboxes[i],  # (4,) float32 array [x_min, y_min, x_max, y_max]
                                 "label": label,
                             },
                         )
@@ -314,7 +314,7 @@ class InstanceCropDataset(Dataset):
         from tlc.core.data_formats.bb_conversions import xyxy_to_xywh
 
         # Convert GT boxes to xywh for intersection check
-        gt_boxes_xywh = xyxy_to_xywh(bb2d.bbs) if bb2d.num_instances > 0 else np.empty((0, 4), dtype=np.float32)
+        gt_boxes_xywh = xyxy_to_xywh(bb2d.bboxes) if bb2d.num_instances > 0 else np.empty((0, 4), dtype=np.float32)
 
         for _attempt_idx in range(max_attempts):
             bbox_instances = [inst for inst in self.all_instances if inst[1]["type"] == "bbox"]

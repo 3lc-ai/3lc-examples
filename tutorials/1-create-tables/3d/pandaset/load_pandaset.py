@@ -281,14 +281,25 @@ def load_pandaset(
             semseg_values_1 = semseg.values.astype(np.int32, copy=False).reshape(-1)[len(verts_0) :]
 
             # Create a new geometry object to store the transformed LiDAR points
+            x_min, x_max, y_min, y_max, z_min, z_max = PANDASET_BOUNDS
             geometry_0 = tlc.Geometry3D.create_empty(
-                *PANDASET_BOUNDS, per_vertex_extras_keys=["intensity", "distance", "semseg"]
+                x_min=x_min,
+                y_min=y_min,
+                z_min=z_min,
+                x_max=x_max,
+                y_max=y_max,
+                z_max=z_max,
             )
             geometry_1 = tlc.Geometry3D.create_empty(
-                *PANDASET_BOUNDS, per_vertex_extras_keys=["intensity", "distance", "semseg"]
+                x_min=x_min,
+                y_min=y_min,
+                z_min=z_min,
+                x_max=x_max,
+                y_max=y_max,
+                z_max=z_max,
             )
             geometry_0.add_instance(
-                verts_0,
+                vertices=verts_0,
                 per_vertex_extras={
                     "intensity": intensities_0,
                     "distance": distances_0,
@@ -296,7 +307,7 @@ def load_pandaset(
                 },
             )
             geometry_1.add_instance(
-                verts_1,
+                vertices=verts_1,
                 per_vertex_extras={
                     "intensity": intensities_1,
                     "distance": distances_1,

@@ -64,11 +64,11 @@ def bbs_to_segments(
         else:
             bb2d = SampleTypeRegistry.get("bounding_boxes_2d").from_row(raw)
 
-        # bb2d.bbs is (N, 4) in absolute XYXY — exactly what SAM expects
+        # bb2d.bboxes is (N, 4) in absolute XYXY — exactly what SAM expects
         labels = bb2d.instance_labels.tolist() if bb2d.instance_labels is not None else []
 
         if bb2d.num_instances > 0:
-            boxes_np = sam_predictor.transform.apply_boxes(bb2d.bbs, sam_predictor.original_size)
+            boxes_np = sam_predictor.transform.apply_boxes(bb2d.bboxes, sam_predictor.original_size)
             boxes_torch = torch.as_tensor(boxes_np, dtype=torch.float, device=device)
 
             masks, scores, _ = sam_predictor.predict_torch(
