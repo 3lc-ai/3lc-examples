@@ -376,22 +376,17 @@ def compute_instance_weights(train_table, total_instances, class_weights, instan
 
     # Fill weights array using unified instance processing
     for row in train_table.table_rows:
-        # Get instances for this row using the same logic as the dataset
-        if instance_config.instance_type == "bounding_boxes":
+        if instance_config.instance_type == "bounding_boxes" and instance_config.is_legacy_bb:
             instances = row[instance_config.instance_column][instance_config.instance_properties_column]
             for instance in instances:
-                # Extract label from instance
-                label = instance["label"]  # Labels are directly in bb instances
-                instance_weights[idx] = class_weights[label]
-                idx += 1
-        elif instance_config.instance_type == "segmentations":
-            # For segmentations, labels are in instance_properties lists
-            instance_properties = row[instance_config.instance_column][instance_config.instance_properties_column]
-            for label in instance_properties["label"]:
+                label = instance["label"]
                 instance_weights[idx] = class_weights[label]
                 idx += 1
         else:
-            raise ValueError(f"Unsupported instance type: {instance_config.instance_type}")
+            props = row[instance_config.instance_column][instance_config.instance_properties_column]
+            for label in props["label"]:
+                instance_weights[idx] = class_weights[label]
+                idx += 1
 
     return instance_weights
 
@@ -402,20 +397,18 @@ def count_instances(train_table, instance_config: InstanceConfig):
     class_counts: dict[int, int] = {}
 
     for row in train_table.table_rows:
-        # Use unified instance processing
-        if instance_config.instance_type == "bounding_boxes":
+        if instance_config.instance_type == "bounding_boxes" and instance_config.is_legacy_bb:
+            # Legacy BB: iterate bb_list dicts, each has a "label" key
             instances = row[instance_config.instance_column][instance_config.instance_properties_column]
             for instance in instances:
-                label = instance["label"]  # Labels are directly in bb instances
-                class_counts[label] = class_counts.get(label, 0) + 1
-                total_instances += 1
-        elif instance_config.instance_type == "segmentations":
-            # For segmentations, labels are in instance_properties lists
-            instance_properties = row[instance_config.instance_column][instance_config.instance_properties_column]
-            for label in instance_properties["label"]:
+                label = instance["label"]
                 class_counts[label] = class_counts.get(label, 0) + 1
                 total_instances += 1
         else:
-            raise ValueError(f"Unsupported instance type: {instance_config.instance_type}")
+            # New-format BB and segmentations: labels are in a properties dict as arrays
+            props = row[instance_config.instance_column][instance_config.instance_properties_column]
+            for label in props["label"]:
+                class_counts[label] = class_counts.get(label, 0) + 1
+                total_instances += 1
 
     return total_instances, class_counts
