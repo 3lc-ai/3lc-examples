@@ -122,11 +122,14 @@ def kitti_box_to_lidar(label_line: str, calib: tuple) -> tuple[np.ndarray, dict[
 
 def parse_kitti_3d_obb(label_file: Path, calib_file: Path) -> tlc.OrientedBoundingBoxes3D:
     calib = load_kitti_calib(calib_file)
+    x_min, x_max, y_min, y_max, z_min, z_max = KITTI_BOUNDS
     obbs = tlc.OrientedBoundingBoxes3D.create_empty(
-        *KITTI_BOUNDS,
-        per_instance_extras_keys=["truncation", "occlusion"],
-        include_instance_labels=True,
-        include_instance_confidences=False,
+        x_min=x_min,
+        y_min=y_min,
+        z_min=z_min,
+        x_max=x_max,
+        y_max=y_max,
+        z_max=z_max,
     )
 
     with open(label_file) as f:
@@ -234,7 +237,15 @@ def create_virtual_kitti_table(
         intensity_bytes = num_points * 1 * 4  # 1 value × float32
 
         # Create a Geometry3D in externalized mode — URLs instead of arrays
-        lidar = tlc.Geometry3D.create_empty(*KITTI_BOUNDS, per_vertex_extras_keys=["intensity"])
+        x_min, x_max, y_min, y_max, z_min, z_max = KITTI_BOUNDS
+        lidar = tlc.Geometry3D.create_empty(
+            x_min=x_min,
+            y_min=y_min,
+            z_min=z_min,
+            x_max=x_max,
+            y_max=y_max,
+            z_max=z_max,
+        )
         lidar.add_instance(
             vertices=_make_kitti_velodyne_url(input_file, "vertices", vertex_bytes),
             per_vertex_extras={

@@ -8,7 +8,9 @@ import numpy as np
 import tlc
 import torch
 from PIL import Image
+from tlc.core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
 from tlc.core.helpers.segmentation_helper import SegmentationHelper
+from tlc.core.sample_types.registry import SampleTypeRegistry
 from torch.utils.data import Dataset
 
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
@@ -116,38 +118,52 @@ class InstanceCropDataset(Dataset):
     def _collect_instances(self) -> list[tuple[int, dict]]:
         """Collect all instances from the table based on instance type."""
         instances = []
+        ic = self.instance_config
 
         for row_idx, row in enumerate(self.table.table_rows):
-            if self.instance_config.instance_type == "bounding_boxes":
-                # Handle bounding boxes
-                bbs = row[self.instance_config.instance_column][self.instance_config.instance_properties_column]
-                for bb in bbs:
-                    instances.append((row_idx, {"type": "bbox", "data": bb}))
+            if ic.instance_type == "bounding_boxes":
+                bb2d = self._get_bounding_boxes_2d(row)
+                for i in range(bb2d.num_instances):
+                    label = int(bb2d.instance_labels[i]) if bb2d.instance_labels is not None else None
+                    instances.append(
+                        (
+                            row_idx,
+                            {
+                                "type": "bbox",
+                                "xyxy": bb2d.bboxes[i],  # (4,) float32 array [x_min, y_min, x_max, y_max]
+                                "label": label,
+                            },
+                        )
+                    )
 
-            elif self.instance_config.instance_type == "segmentations":
-                # Handle segmentation instances
-                instance_data = row[self.instance_config.instance_column]
+            elif ic.instance_type == "segmentations":
+                instance_data = row[ic.instance_column]
 
                 if "rles" in instance_data:
-                    # RLE format
                     rles = instance_data["rles"]
-                    if self.instance_config.label_column_path and not self.instance_config.allow_label_free:
+                    if ic.label_column_path and not ic.allow_label_free:
                         labels = instance_data["instance_properties"]["label"]
                         for rle, label in zip(rles, labels):
                             instances.append((row_idx, {"type": "rle", "rle": rle, "label": label}))
                     else:
-                        # Label-free mode
                         for rle in rles:
                             instances.append((row_idx, {"type": "rle", "rle": rle, "label": None}))
                 else:
-                    raise ValueError(
-                        f"Unsupported segmentation format in column {self.instance_config.instance_column}"
-                    )
+                    raise ValueError(f"Unsupported segmentation format in column {ic.instance_column}")
 
             else:
-                raise ValueError(f"Unknown instance type: {self.instance_config.instance_type}")
+                raise ValueError(f"Unknown instance type: {ic.instance_type}")
 
         return instances
+
+    def _get_bounding_boxes_2d(self, row):
+        """Get BoundingBoxes2D from a row, handling both legacy and new format."""
+        raw = row[self.instance_config.instance_column]
+        if self.instance_config.is_legacy_bb:
+            schema = self.table.rows_schema.values[self.instance_config.instance_column]
+            return legacy_bb_row_to_bounding_boxes_2d(raw, schema)
+        else:
+            return SampleTypeRegistry.get("bounding_boxes_2d").from_row(raw)
 
     def __len__(self) -> int:
         return len(self.all_instances)
@@ -182,30 +198,11 @@ class InstanceCropDataset(Dataset):
         image = self._load_image_data(row)
 
         if instance_data["type"] == "bbox":
-            # Handle bounding box instances
-            bb = instance_data["data"]
-            bb_schema = self.table.schema.values["rows"].values[self.instance_config.instance_column].values["bb_list"]
-
-            crop = tlc.BBCropInterface.crop(
-                image,
-                bb,
-                bb_schema,
-                x_max_offset=self.x_max_offset,
-                y_max_offset=self.y_max_offset,
-                y_scale_range=self.y_scale_range,
-                x_scale_range=self.x_scale_range,
-            )
-
-            # All bounding boxes should have labels in normal training
-            if "label" not in instance_data["data"]:
-                raise ValueError(
-                    f"Bounding box missing 'label' key. Available keys: {list(instance_data['data'].keys())}"
-                )
-
-            label = instance_data["data"]["label"]
+            xyxy = instance_data["xyxy"]  # absolute [x_min, y_min, x_max, y_max]
+            crop = self._crop_from_xyxy(image, xyxy)
+            label = instance_data["label"]
 
         elif instance_data["type"] == "rle":
-            # Handle RLE segmentation instances
             crop, label = self._process_rle_instance(image, instance_data)
 
         else:
@@ -237,38 +234,62 @@ class InstanceCropDataset(Dataset):
 
         # Convert RLE to mask and bbox
         coco = {"size": [h, w], "counts": rle}
-        bbox = SegmentationHelper.bbox_from_rle(coco)
+        bbox = SegmentationHelper.bbox_from_rle(coco)  # [x, y, w, h] format
         mask = SegmentationHelper.mask_from_rle(coco)
-
-        # Create bbox dict for cropping
-        bb_dict = {"x0": bbox[0], "y0": bbox[1], "x1": bbox[2], "y1": bbox[3]}
 
         # Apply mask to image
         image_array = np.array(image.convert("RGB"))
-        mask = mask[:, :, np.newaxis]  # Shape becomes (h, w, 1)
-        mask = np.repeat(mask, 3, axis=2)  # Shape becomes (h, w, 3)
+        mask = mask[:, :, np.newaxis]
+        mask = np.repeat(mask, 3, axis=2)
         masked_image = image_array * mask
         masked_image = Image.fromarray(masked_image.astype(np.uint8), mode="RGB")
 
-        # Create temporary schema for cropping
-        bb_schema = tlc.BoundingBoxListSchema(
-            {},
-            x1_number_role=tlc.NUMBER_ROLE_BB_SIZE_X,
-            y1_number_role=tlc.NUMBER_ROLE_BB_SIZE_Y,
-        )["bb_list"]
-
-        # Crop the masked image
-        crop = tlc.BBCropInterface.crop(
-            masked_image,
-            bb_dict,
-            bb_schema,
-            x_max_offset=self.x_max_offset,
-            y_max_offset=self.y_max_offset,
-            y_scale_range=self.y_scale_range,
-            x_scale_range=self.x_scale_range,
-        )
+        # Convert bbox from [x, y, w, h] to [x_min, y_min, x_max, y_max]
+        xyxy = np.array([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]], dtype=np.float32)
+        crop = self._crop_from_xyxy(masked_image, xyxy)
 
         return crop, label
+
+    def _crop_from_xyxy(self, image: Image.Image, xyxy: np.ndarray) -> Image.Image:
+        """Crop an image using absolute XYXY coordinates with optional augmentation.
+
+        :param image: Source PIL image.
+        :param xyxy: Array of [x_min, y_min, x_max, y_max] in absolute pixel coords.
+        :returns: Cropped PIL image.
+        """
+        image_width, image_height = image.size
+        x_min, y_min, x_max, y_max = float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3])
+        w = x_max - x_min
+        h = y_max - y_min
+
+        # Apply random offset augmentation
+        x_offset = random.uniform(0, self.x_max_offset) * w
+        y_offset = random.uniform(0, self.y_max_offset) * h
+        x_min -= x_offset
+        y_min -= y_offset
+
+        # Apply random scale augmentation
+        x_scale = random.uniform(*self.x_scale_range)
+        y_scale = random.uniform(*self.y_scale_range)
+        cx = (x_min + x_max) / 2
+        cy = (y_min + y_max) / 2
+        w *= x_scale
+        h *= y_scale
+        x_min = cx - w / 2
+        y_min = cy - h / 2
+        x_max = cx + w / 2
+        y_max = cy + h / 2
+
+        # Clamp to image bounds
+        x_min = max(0, int(x_min))
+        y_min = max(0, int(y_min))
+        x_max = min(image_width, int(x_max))
+        y_max = min(image_height, int(y_max))
+
+        if x_max <= x_min or y_max <= y_min:
+            return Image.new("RGB", (1, 1), (0, 0, 0))
+
+        return image.crop((x_min, y_min, x_max, y_max)).convert("RGB")
 
     def _generate_background(self):
         """Generate a background patch (only works with bounding box instances)."""
@@ -283,62 +304,38 @@ class InstanceCropDataset(Dataset):
         row_idx = self.random_gen.randint(0, len(self.table) - 1)
         row = self.table.table_rows[row_idx]
         image = self._load_image_data(row)
-        bbs = row[self.instance_config.instance_column]["bb_list"]
+        bb2d = self._get_bounding_boxes_2d(row)
 
-        crop, label = self._generate_background_crop(image, bbs)
+        crop, label = self._generate_background_crop(image, bb2d)
         return crop, label
 
-    def _generate_background_crop(self, image, bbs, max_attempts=100):
+    def _generate_background_crop(self, image, bb2d, max_attempts=100):
         """Generate a background patch from the image."""
-        image_width, image_height = image.size
-        bb_schema = self.table.schema.values["rows"].values[self.instance_config.instance_column].values["bb_list"]
-        bb_factory = tlc.BoundingBox.from_schema(bb_schema)
+        from tlc.core.data_formats.bb_conversions import xyxy_to_xywh
 
-        gt_boxes_xywh = [
-            bb_factory([bb["x0"], bb["y0"], bb["x1"], bb["y1"]])
-            .to_top_left_xywh()
-            .denormalize(image_width, image_height)
-            for bb in bbs
-        ]
+        # Convert GT boxes to xywh for intersection check
+        gt_boxes_xywh = xyxy_to_xywh(bb2d.bboxes) if bb2d.num_instances > 0 else np.empty((0, 4), dtype=np.float32)
 
         for _attempt_idx in range(max_attempts):
-            # Pick a random bounding box from all_instances (only BB instances)
             bbox_instances = [inst for inst in self.all_instances if inst[1]["type"] == "bbox"]
             if not bbox_instances:
                 break
 
             _, random_instance = self.random_gen.choice(bbox_instances)
-            random_bb = random_instance["data"]
+            proposed_xyxy = random_instance["xyxy"]
+            proposed_xywh = xyxy_to_xywh(proposed_xyxy)
 
-            # Convert random bb to xywh format using the factory
-            proposed_box = (
-                bb_factory([random_bb["x0"], random_bb["y0"], random_bb["x1"], random_bb["y1"]])
-                .to_top_left_xywh()
-                .denormalize(image_width, image_height)
-            )
-
-            # Ensure the proposed box does not intersect any ground truth boxes
-            if not any(self._intersects(proposed_box, gt_box) for gt_box in gt_boxes_xywh):
+            if not any(self._intersects(proposed_xywh, gt_boxes_xywh[i]) for i in range(len(gt_boxes_xywh))):
                 break
 
         if _attempt_idx == max_attempts - 1:
-            # Return a 100x100 black square if no valid background patch is found
             warnings.warn(
                 "No valid background patch found. Returning a black square. Please check your data.",
                 stacklevel=2,
             )
             return Image.new("RGB", (100, 100), (0, 0, 0)), self.background_label
 
-        # Crop the background patch
-        crop = tlc.BBCropInterface.crop(
-            image,
-            random_bb,
-            bb_schema,
-            x_max_offset=self.x_max_offset,
-            y_max_offset=self.y_max_offset,
-            y_scale_range=self.y_scale_range,
-            x_scale_range=self.x_scale_range,
-        )
+        crop = self._crop_from_xyxy(image, random_instance["xyxy"])
         return crop, self.background_label
 
     def _load_image_data(self, row):

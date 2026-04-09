@@ -110,33 +110,36 @@ def is_windows() -> bool:
 def check_is_bb_column(
     input_table: tlc.Table,
     bb_column: str = "bbs",
-    bb_list_column: str = "bb_list",
 ) -> None:
-    """Check that a column conforms to 3LC's bounding box format.
+    """Check that a column conforms to 3LC's bounding box format (legacy or new).
 
-    Ensures that the `bb_list_column` is present in the `bb_column`'s schema.
-
-    Ensures the required "label", "x1", "y1", "x0", "y0" sub-columns are present
-    in the `bb_list_column`'s schema.
+    Supports both legacy BoundingBoxListSchema (``bb_list`` sub-column) and
+    new BoundingBoxes2DSchema (``instances`` sub-column) formats.
 
     :param input_table: The table to check.
     :param bb_column: The name of the column to check.
-    :param bb_list_column: The name of the sub-column in the column to check.
 
-    :raises ValueError: If the column is missing the `bb_list_column` or any of
-        the required sub-columns.
+    :raises ValueError: If the column is not a recognized bounding box format.
     """
+    from tlc.core.helpers.annotation_helper import get_label_subpath
+
     if bb_column not in input_table.columns:
         raise ValueError(f"Column {bb_column} not found in table {input_table.name}")
 
-    if bb_list_column not in input_table.rows_schema.values[bb_column].values:
-        raise ValueError(f"Column {bb_column} is missing the {bb_list_column} sub-column")
+    column_schema = input_table.rows_schema.values[bb_column]
 
-    bb_list_schema = input_table.rows_schema.values[bb_column].values[bb_list_column]
+    # Check for new format (BoundingBoxes2DSchema) or legacy format (BoundingBoxListSchema)
+    sample_type_config = column_schema.sample_type_config
+    is_new_format = sample_type_config is not None and sample_type_config.name == "bounding_boxes_2d"
+    is_legacy_format = "bb_list" in column_schema.values
 
-    for column in ["label", "x1", "y1", "x0", "y0"]:
-        if column not in bb_list_schema.values:
-            raise ValueError(f"Column {bb_column} is missing the {column} sub-column")
+    if not is_new_format and not is_legacy_format:
+        raise ValueError(f"Column {bb_column} is not a recognized bounding box format")
+
+    # Verify label path exists
+    label_subpath = get_label_subpath(column_schema)
+    if label_subpath is None:
+        raise ValueError(f"Column {bb_column} does not contain a label field")
 
 
 def check_is_segmentation_column(

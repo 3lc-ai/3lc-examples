@@ -6,7 +6,9 @@ import torch
 import tqdm
 from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
-from tlc.core.data_formats.bounding_boxes import XYXYBoundingBox
+from tlc.core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
+from tlc.core.helpers.annotation_helper import get_label_path, is_legacy_bb_column
+from tlc.core.sample_types.registry import SampleTypeRegistry
 
 from tlc_tools.add_columns_to_table import add_columns_to_table
 
@@ -19,7 +21,6 @@ CHECKPOINT = "checkpoints/sam_vit_h_4b8939.pth"
 def bbs_to_segments(
     input_table: tlc.Table,
     bb_column: str = "bbs",
-    bb_list_column: str = "bb_list",
     image_column: str = "image",
     sam_model_type: str = MODEL_TYPE,
     checkpoint: str = CHECKPOINT,
@@ -27,53 +28,47 @@ def bbs_to_segments(
 ):
     device = infer_torch_device()
 
-    # Checks that the bb_column contains a "bb_list" sub-column with "label", "x0", "y0", "x1", "y1" fields
     check_is_bb_column(input_table, bb_column)
 
-    # Use BoundingBox type to allow arbitrary bounding box types as input
-    bb_type = tlc.BoundingBox.from_schema(input_table.rows_schema.values[bb_column].values[bb_list_column])
+    # Detect format and get value map
+    column_schema = input_table.rows_schema.values[bb_column]
+    is_legacy = is_legacy_bb_column(column_schema)
 
-    # The value map from the bb column will be used in the output table's segmentation column
-    value_map = input_table.get_value_map(f"{bb_column}.{bb_list_column}.{tlc.LABEL}")
-
+    label_path = get_label_path(input_table, bb_column)
+    if not label_path:
+        raise ValueError(f"Could not find label path for column {bb_column}")
+    value_map = input_table.get_value_map(label_path)
     if not value_map:
-        raise ValueError(f"Could not find value map for column {bb_column}.{bb_list_column}.{tlc.LABEL}")
+        raise ValueError(f"Could not find value map for label path {label_path}")
 
     # Load the SAM model
     sam_model = sam_model_registry[sam_model_type](checkpoint=checkpoint)
     sam_model.to(device)
     sam_model.eval()
 
-    # The SAM predictor provides a convenient wrapper
     sam_predictor = SamPredictor(sam_model)
 
     segmentations = []
 
-    for row in tqdm.tqdm(input_table, desc="Predicting with SAM", total=len(input_table)):
+    for row in tqdm.tqdm(input_table.table_rows, desc="Predicting with SAM", total=len(input_table)):
         buffer = io.BytesIO(tlc.Url(row[image_column]).read_bytes())
         image = np.array(Image.open(buffer).convert("RGB"))
         h, w, _ = image.shape
 
         sam_predictor.set_image(image)
 
-        boxes = []
-        labels = []
+        # Get BoundingBoxes2D — handles both legacy and new format
+        raw = row[bb_column]
+        if is_legacy:
+            bb2d = legacy_bb_row_to_bounding_boxes_2d(raw, column_schema)
+        else:
+            bb2d = SampleTypeRegistry.get("bounding_boxes_2d").from_row(raw)
 
-        # Gather all bounding boxes from the current image into a (num_bbs, 4) array
-        for bb in row[bb_column][bb_list_column]:
-            box_arr = np.array(
-                XYXYBoundingBox.from_top_left_xywh(
-                    bb_type([bb[tlc.X0], bb[tlc.Y0], bb[tlc.X1], bb[tlc.Y1]])
-                    .to_top_left_xywh()
-                    .denormalize(image_height=h, image_width=w)
-                )
-            )
-            boxes.append(box_arr)
-            labels.append(bb[tlc.LABEL])
+        # bb2d.bboxes is (N, 4) in absolute XYXY — exactly what SAM expects
+        labels = bb2d.instance_labels.tolist() if bb2d.instance_labels is not None else []
 
-        # Call Predictor's predict_torch instead of predict, to allow multiple box prompts in a single call
-        if len(boxes):
-            boxes_np = sam_predictor.transform.apply_boxes(np.array(boxes), sam_predictor.original_size)
+        if bb2d.num_instances > 0:
+            boxes_np = sam_predictor.transform.apply_boxes(bb2d.bboxes, sam_predictor.original_size)
             boxes_torch = torch.as_tensor(boxes_np, dtype=torch.float, device=device)
 
             masks, scores, _ = sam_predictor.predict_torch(
