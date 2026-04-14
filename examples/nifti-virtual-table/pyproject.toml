@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "nifti-virtual-table"
 version = "0.1.0"
 description = "Example: 3LC URL adapter for virtualizing NIfTI slice images (e.g. BraTS2020)"
+license = "MIT"
 requires-python = ">=3.10"
 dependencies = ["3lc", "numpy", "nibabel", "Pillow", "tqdm"]
 
