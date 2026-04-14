@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "kitti-virtual-table"
 version = "0.1.0"
 description = "Example: 3LC URL adapter for virtualizing KITTI LiDAR point clouds"
+license = "MIT"
 requires-python = ">=3.10"
 dependencies = ["3lc", "numpy", "tqdm"]
 

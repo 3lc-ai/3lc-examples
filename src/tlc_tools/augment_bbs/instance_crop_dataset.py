@@ -9,8 +9,8 @@ import tlc
 import torch
 from PIL import Image
 from tlc.core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
+from tlc.core.data_formats.bounding_boxes import BoundingBoxes2D
 from tlc.core.helpers.segmentation_helper import SegmentationHelper
-from tlc.core.sample_types.registry import SampleTypeRegistry
 from torch.utils.data import Dataset
 
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
@@ -163,7 +163,7 @@ class InstanceCropDataset(Dataset):
             schema = self.table.rows_schema.values[self.instance_config.instance_column]
             return legacy_bb_row_to_bounding_boxes_2d(raw, schema)
         else:
-            return SampleTypeRegistry.get("bounding_boxes_2d").from_row(raw)
+            return BoundingBoxes2D.from_row(raw)
 
     def __len__(self) -> int:
         return len(self.all_instances)

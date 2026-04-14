@@ -7,8 +7,8 @@ import tqdm
 from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
 from tlc.core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
+from tlc.core.data_formats.bounding_boxes import BoundingBoxes2D
 from tlc.core.helpers.annotation_helper import get_label_path, is_legacy_bb_column
-from tlc.core.sample_types.registry import SampleTypeRegistry
 
 from tlc_tools.add_columns_to_table import add_columns_to_table
 
@@ -59,10 +59,7 @@ def bbs_to_segments(
 
         # Get BoundingBoxes2D — handles both legacy and new format
         raw = row[bb_column]
-        if is_legacy:
-            bb2d = legacy_bb_row_to_bounding_boxes_2d(raw, column_schema)
-        else:
-            bb2d = SampleTypeRegistry.get("bounding_boxes_2d").from_row(raw)
+        bb2d = legacy_bb_row_to_bounding_boxes_2d(raw, column_schema) if is_legacy else BoundingBoxes2D.from_row(raw)
 
         # bb2d.bboxes is (N, 4) in absolute XYXY — exactly what SAM expects
         labels = bb2d.instance_labels.tolist() if bb2d.instance_labels is not None else []
