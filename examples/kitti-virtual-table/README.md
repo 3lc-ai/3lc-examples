@@ -4,6 +4,24 @@ Example showing how to create a 3LC table from KITTI LiDAR point clouds **withou
 
 A custom URL adapter reads the original `.bin` files on the fly, de-interleaves them into vertex coordinates and intensity values, and applies the KITTI alignment matrix — all at read time.
 
+## Data preparation
+
+This example requires the KITTI 3D Object Detection dataset. Download the following from the
+[KITTI Vision Benchmark Suite](https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d):
+
+- **Velodyne point clouds** (29 GB)
+- **Training labels**
+- **Camera calibration matrices**
+
+Unpack them so the directory looks like:
+
+```
+kitti/training/
+├── calib/        # 000000.txt, 000001.txt, ...
+├── label_2/      # 000000.txt, 000001.txt, ...
+└── velodyne/     # 000000.bin, 000001.bin, ...
+```
+
 ## Quick start
 
 ```bash

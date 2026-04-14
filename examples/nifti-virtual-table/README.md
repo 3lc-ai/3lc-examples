@@ -4,6 +4,27 @@ Example showing how to create a 3LC table from BraTS2020 NIfTI brain MRI volumes
 
 A custom URL adapter extracts individual 2D axial slices from uncompressed `.nii` files on the fly, normalizes them to uint8, and returns PNG bytes — all without loading the full 3D volume.
 
+## Data preparation
+
+This example requires the BraTS2020 training dataset. Download it from the
+[BraTS 2020 challenge page](https://www.med.upenn.edu/cbica/brats2020/data.html)
+(registration required).
+
+Unpack it so the directory looks like:
+
+```
+MICCAI_BraTS2020_TrainingData/
+├── BraTS20_Training_001/
+│   ├── BraTS20_Training_001_flair.nii
+│   ├── BraTS20_Training_001_t1.nii
+│   ├── BraTS20_Training_001_t1ce.nii
+│   ├── BraTS20_Training_001_t2.nii
+│   └── BraTS20_Training_001_seg.nii
+├── BraTS20_Training_002/
+│   └── ...
+└── ...
+```
+
 ## Quick start
 
 ```bash
@@ -11,7 +32,7 @@ A custom URL adapter extracts individual 2D axial slices from uncompressed `.nii
 pip install -e .
 
 # Create a virtual table from BraTS2020 training data
-create-nifti-virtual-table /path/to/BraTS2020_TrainingData
+create-nifti-virtual-table /path/to/MICCAI_BraTS2020_TrainingData
 ```
 
 Options:
