@@ -9,7 +9,7 @@ import tlc
 import torch
 from PIL import Image
 from tlc.core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
-from tlc.core.data_formats.bounding_boxes_v2 import BoundingBoxes2D
+from tlc.core.data_formats.bounding_boxes import BoundingBoxes2D
 from tlc.core.helpers.segmentation_helper import SegmentationHelper
 from torch.utils.data import Dataset
 
