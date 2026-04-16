@@ -1,0 +1,48 @@
+# Copy this file to config.yaml and fill in values. config.yaml is gitignored.
+
+aws:
+  region: us-east-1
+  # ARN of the SageMaker execution role. See README for how to create one.
+  role_arn: arn:aws:iam::123456789012:role/SageMakerExecutionRole
+  # Optional: named profile from ~/.aws/credentials. Omit to use the
+  # default credential chain (env vars, default profile, SSO, etc.).
+  # profile: my-profile
+
+s3:
+  # Where the COCO dataset lives. Expected layout under inputs_prefix:
+  #   annotations/instances_train.json
+  #   annotations/instances_val.json
+  #   images/train/...
+  #   images/val/...
+  inputs_bucket: my-input-bucket
+  inputs_prefix: datasets/coco-sample
+
+  # Where model artifacts and run metrics go. May be the same bucket as inputs.
+  # Model artifacts land at:   s3://<outputs_bucket>/<outputs_prefix>/models/<job>/output/model.tar.gz
+  # Run metrics land at:       s3://<outputs_bucket>/<outputs_prefix>/runs/<job>/metrics.json
+  outputs_bucket: my-output-bucket
+  outputs_prefix: sagemaker
+
+training:
+  instance_type: ml.g4dn.xlarge
+  instance_count: 1
+  # Latest stable PyTorch DLC at time of writing. See:
+  # https://github.com/aws/deep-learning-containers/blob/master/available_images.md
+  framework_version: "2.3"
+  py_version: py311
+  max_run_seconds: 3600
+  job_base_name: coco-detection
+
+# Passed to train.py as CLI flags. Key names must match argparse flags
+# in src/train.py (SageMaker passes them as --<key> <value>).
+hyperparameters:
+  epochs: 1
+  batch_size: 4
+  learning_rate: 0.005
+
+# Forwarded into the training container as environment variables.
+# Put secrets here only if you're comfortable with them living in a
+# gitignored file on your laptop — for production, use AWS Secrets Manager.
+env:
+  PROJECT_NAME: my-project
+  TLC_API_KEY: REPLACE_ME

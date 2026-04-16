@@ -1,0 +1,4 @@
+# Copy this file to config.3lc.yaml and fill in 3LC-specific configuration.
+# config.3lc.yaml is gitignored. If present, launch.py ships it into the
+# training container as a dependency so train.py can load it at runtime.
+# Leave empty (or keep just comments) if you aren't using 3LC yet.

@@ -1,0 +1,3 @@
+# Installed inside the training container before train.py runs.
+# The base PyTorch DLC already has torch/torchvision.
+3lc-ultralytics
