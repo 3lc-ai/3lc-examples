@@ -102,3 +102,8 @@ ignore_missing_imports = true
 [tool.uv.sources]
 3lc = { path = "../tlc-monorepo", editable = true }
 pandaset = { git = "https://github.com/scaleapi/pandaset-devkit.git", subdirectory = "python", rev = "master" }
+
+[tool.uv.workspace]
+exclude = [
+    "examples/sagemaker-training",
+]
