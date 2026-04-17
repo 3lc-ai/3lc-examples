@@ -13,10 +13,15 @@ small but several independent things each have to be right:
 
 1. **The 3LC config file must reach the container.** `TLC_CONFIG_FILE` has
    to point at its **in-container** path, not the path on your laptop.
-2. **URL aliases must be registered at runtime.** Tables created from
-   container-local paths (`/opt/ml/input/data/train`) embed those paths by
-   default — which become unresolvable the instant the container exits.
-   Aliasing them to the original S3 URIs keeps the tables portable.
+2. **URL aliases have two different jobs, done in two different places.**
+   *Static* aliases in `config.3lc.yaml` mask the SageMaker mount points
+   (`/opt/ml/input/data`, `/opt/ml/model`) so those ephemeral paths never
+   get embedded in serialized tables. *Project-persisted* aliases
+   (`tlc.register_project_url_alias` from `train.py`) give those tokens a
+   default resolution target on S3, so future readers (the 3LC UI, the
+   Object Service, downstream jobs) can actually open the tables later.
+   Getting one without the other leaves you with unresolvable tokens or
+   container paths leaking into your artifacts.
 3. **3LC tables and runs must materialize on S3,** not in the container's
    ephemeral filesystem. That's driven by 3LC's `indexing.project_root_url`
    (in `config.3lc.yaml`), not by any SageMaker setting. Aliases are a
@@ -47,6 +52,44 @@ Two mental models:
 - **`src/train.py`** runs inside the SageMaker container. Reads
   hyperparameters from CLI, channel paths from `SM_CHANNEL_*`, creates 3LC
   tables with URL aliases, trains, saves to `SM_MODEL_DIR`.
+
+### Training-time flow
+
+```mermaid
+flowchart LR
+    subgraph L["Your laptop"]
+        C["config.yaml<br/>config.3lc.yaml"]
+        LP["launch.py"]
+        C --> LP
+    end
+
+    subgraph IN["S3 inputs bucket"]
+        DS["train/<br/>val/"]
+    end
+
+    subgraph CONT["SageMaker training container"]
+        TC["config.3lc.yaml<br/>(TLC_CONFIG_FILE)"]
+        TR["train.py"]
+        TC -->|static aliases<br/>mask mount paths| TR
+    end
+
+    subgraph OUT["S3 outputs bucket"]
+        CODE["code tar"]
+        MOD["model.tar.gz"]
+        TBL["3LC tables"]
+        RUN["3LC runs"]
+    end
+
+    LP -->|upload| CODE
+    LP -->|start job| CONT
+    LP -. ship as dependency .-> TC
+    DS -->|mount channels| TR
+    CODE -. unpack .-> TR
+    TR --> MOD
+    TR -->|via indexing.project_root_url| TBL
+    TR --> RUN
+    TR -. register_project_url_alias<br/>persists default .-> TBL
+```
 
 ---
 
@@ -141,9 +184,10 @@ val/
 
 `launch.py` mounts `.../train/` and `.../val/` as **separate** SageMaker
 channels, visible inside the container as `/opt/ml/input/data/train` and
-`/opt/ml/input/data/val`. Each mount's original S3 URI is forwarded to
-the container as `TRAIN_S3_URI` / `VAL_S3_URI` — `train.py` reads these
-to register URL aliases.
+`/opt/ml/input/data/val`. Each mount's original S3 URI is forwarded as
+`TRAIN_S3_URI` / `VAL_S3_URI` — `train.py` reads these to persist
+project-level URL aliases (the default resolution target for future
+readers, see §6).
 
 Customize the layout by editing `create_tables()` in `src/train.py` and
 `channel_s3_uris()` in `launch.py`.
@@ -206,6 +250,27 @@ Alias resolution order:
 1. Alias overrides configured on the object service itself (highest)
 2. Aliases persisted into the project on S3 (what `register_project_url_alias`
    writes from `create_tables`)
+
+```mermaid
+flowchart LR
+    subgraph S3["S3"]
+        TBL["3LC tables<br/>(embed alias tokens)"]
+        RUN["3LC runs"]
+        IMG["dataset images"]
+    end
+
+    subgraph OS["3LC Object Service (local or remote)"]
+        OVR["alias overrides<br/>(optional)"]
+        SVC["Service"]
+        UI["3LC UI"]
+        OVR -. takes precedence .-> SVC
+        SVC --> UI
+    end
+
+    TBL --> SVC
+    RUN --> SVC
+    IMG -->|resolved via<br/>persisted alias default| SVC
+```
 
 Out of the box, #2 takes effect: the tokens we persisted at training time
 (`SM_TRAIN_INPUT_DATA`, `SM_VAL_INPUT_DATA`) resolve to their original
