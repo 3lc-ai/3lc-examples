@@ -1,0 +1,11 @@
+[project]
+name = "sagemaker-training"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10, <3.14"
+dependencies = [
+    "boto3>=1.37.1",
+    "pyyaml>=6.0.2",
+    "sagemaker>=2.220,<3",
+]

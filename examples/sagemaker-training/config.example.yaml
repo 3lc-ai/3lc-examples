@@ -1,0 +1,54 @@
+# Copy this file to config.yaml and fill in values. config.yaml is gitignored.
+
+aws:
+  region: us-east-1
+  # ARN of the SageMaker execution role. See README for how to create one.
+  role_arn: arn:aws:iam::123456789012:role/SageMakerExecutionRole
+  # Optional: named profile from ~/.aws/credentials. Omit to use the
+  # default credential chain (env vars, default profile, SSO, etc.).
+  # profile: my-profile
+
+s3:
+  # Where the COCO dataset lives. Expected layout under inputs_prefix:
+  #   annotations/instances_train.json
+  #   annotations/instances_val.json
+  #   images/train/...
+  #   images/val/...
+  inputs_bucket: my-input-bucket
+  inputs_prefix: datasets/coco-sample
+
+  # Where model artifacts and run metrics go. May be the same bucket as inputs.
+  # Model artifacts land at:   s3://<outputs_bucket>/<outputs_prefix>/models/<job>/output/model.tar.gz
+  # Run metrics land at:       s3://<outputs_bucket>/<outputs_prefix>/runs/<job>/metrics.json
+  outputs_bucket: my-output-bucket
+  outputs_prefix: sagemaker
+
+training:
+  instance_type: ml.g4dn.xlarge
+  instance_count: 1
+  # Latest stable PyTorch DLC at time of writing. See:
+  # https://github.com/aws/deep-learning-containers/blob/master/available_images.md
+  framework_version: "2.3"
+  py_version: py311
+  max_run_seconds: 3600
+  job_base_name: coco-detection
+
+# Passed to train.py as CLI flags. Key names must match argparse flags
+# in src/train.py (SageMaker passes them as --<key> <value>).
+# Hyperparameters show up in the SageMaker console, get searched/filtered,
+# and are the right home for training knobs (including project name).
+hyperparameters:
+  epochs: 1
+  batch_size: 4
+  project: my-project
+  # "cpu" for local mode, "0" (single GPU) or "cuda" on GPU instances.
+  device: cpu
+  # If true, train.py follows each 3LC table to its latest revision before
+  # training (i.e. picks up edits/fixes made in the 3LC UI).
+  use_latest: false
+
+# Forwarded into the training container as environment variables.
+# Reserve this for secrets — hyperparameters are better for everything
+# else because they're visible in the job's metadata.
+env:
+  TLC_API_KEY: REPLACE_ME
