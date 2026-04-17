@@ -1,12 +1,31 @@
 """Training entry point executed inside the SageMaker container.
 
-SageMaker contract used here:
-- Hyperparameters arrive as CLI flags (keys must match config.yaml).
-- Input channels are mounted under /opt/ml/input/data/<channel>/ and the
-  paths are exposed as SM_CHANNEL_<CHANNEL> env vars.
-- Final model artifacts written under SM_MODEL_DIR are tar.gz'd and
-  uploaded to output_path automatically (YOLO's `project=args.model_dir`
-  routes ultralytics output there).
+Two things happening here:
+
+1. SageMaker plumbing
+   - Hyperparameters arrive as CLI flags (keys must match config.yaml).
+   - Input channels mounted under /opt/ml/input/data/<channel>/ and exposed
+     as SM_CHANNEL_<CHANNEL> env vars.
+   - Anything under SM_MODEL_DIR is tar.gz'd and uploaded to output_path
+     automatically; ultralytics is pointed there via `project=args.model_dir`.
+
+2. 3LC wiring
+   - launch.py ships config.3lc.yaml into the container and sets
+     TLC_CONFIG_FILE, so `tlc` auto-discovers it on import.
+   - The static `aliases:` block in config.3lc.yaml drives what *this* job
+     embeds into its serialized tables (typical use: masking SageMaker
+     mount points like /opt/ml/input/data and /opt/ml/model).
+   - create_tables() *persists* project-scoped aliases (SM_TRAIN_INPUT_DATA
+     / SM_VAL_INPUT_DATA) onto the project on S3. This is forward-looking:
+     it gives future readers (the 3LC UI, downstream jobs, the Object
+     Service) a default resolution target for whatever alias tokens appear
+     in the tables. It does not drive *this* job's table creation.
+   - Tables and runs materialize on S3 via `indexing.project_root_url` in
+     the 3LC config, not by SageMaker.
+
+CUSTOMIZE when cloning: everything in create_tables() and the YOLO block in
+main() is task-specific. The rest (arg parsing, env var reading, model_dir
+handling) is reusable plumbing.
 """
 from __future__ import annotations
 
@@ -54,29 +73,28 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-def create_tables(args: argparse.Namespace, outputs_bucket: str) -> tuple[tlc.Table, tlc.Table]:
-    print("Registered URL aliases:")
-    for alias, value in tlc.get_registered_url_aliases().items():
-        print(f"{alias}: {value}")
-    
-    TRAIN_S3_URI = os.environ.get("TRAIN_S3_URI")
-    VAL_S3_URI = os.environ.get("VAL_S3_URI")
-    if not TRAIN_S3_URI or not VAL_S3_URI:
-        raise ValueError("TRAIN_S3_URI and VAL_S3_URI must be set")
-    
+def create_tables(args: argparse.Namespace) -> tuple[tlc.Table, tlc.Table]:
+    # Persist project-scoped URL aliases on S3. This is forward-looking:
+    # it gives *future* readers of the project (the 3LC UI, downstream
+    # jobs) a default resolution target for whichever alias tokens our
+    # serialized tables end up using. The aliases that actually drive
+    # *this* job's table creation come from the local config.3lc.yaml
+    # (shipped into the container by launch.py) — those take precedence
+    # over anything persisted on the project.
+    train_s3_uri = os.environ["TRAIN_S3_URI"]
+    val_s3_uri = os.environ["VAL_S3_URI"]
     tlc.register_project_url_alias(
-        "SM_TRAIN_INPUT_DATA",
-        TRAIN_S3_URI,
-        project=args.project,
-        force=False,
+        "SM_TRAIN_INPUT_DATA", train_s3_uri, project=args.project, force=False
     )
     tlc.register_project_url_alias(
-        "SM_VAL_INPUT_DATA",
-        VAL_S3_URI,
-        project=args.project,
-        force=False,
+        "SM_VAL_INPUT_DATA", val_s3_uri, project=args.project, force=False
     )
 
+    print("Registered URL aliases:")
+    for alias, value in tlc.get_registered_url_aliases().items():
+        print(f"  {alias}: {value}")
+
+    # CUSTOMIZE: dataset_name and annotations filenames are task-specific.
     train_table = tlc.Table.from_coco(
         annotations_file=args.train / "train-annotations.json",
         image_folder=args.train,
@@ -91,6 +109,8 @@ def create_tables(args: argparse.Namespace, outputs_bucket: str) -> tuple[tlc.Ta
         dataset_name="balloons",
         project_name=args.project,
     )
+    # Follow each table to its latest revision so training picks up edits
+    # made in the 3LC UI between runs (re-labeling, filter changes, etc.).
     if args.use_latest:
         train_table = train_table.latest()
         val_table = val_table.latest()
@@ -111,17 +131,14 @@ def main() -> None:
     print(f"val channel:   {args.val}")
     print(f"model dir:     {args.model_dir}")
 
-    # Shipped by launch.py as a `dependencies` file; lands next to this
-    # script inside the container if config.3lc.yaml exists on the host.
-    tlc_config = Path(__file__).parent / "config.3lc.yaml"
-    if tlc_config.exists():
-        print(f"3LC config available at: {tlc_config}")
-
-    train_table, val_table = create_tables(args, outputs_bucket)
+    train_table, val_table = create_tables(args)
     print(f"train table: {train_table}")
     print(f"val table:   {val_table}")
 
-    yolo = tlc_ultralytics.YOLO("yolo11n.pt")
+    # CUSTOMIZE: the entire YOLO block is task-specific. Swap in your
+    # model/framework here. Keep `project=args.model_dir` so artifacts
+    # land under SM_MODEL_DIR and get uploaded to S3 by SageMaker.
+    yolo = tlc_ultralytics.YOLO("yolo11s.pt")
     settings = tlc_ultralytics.Settings(project_name=args.project)
     yolo.train(
         tables={"train": train_table, "val": val_table},

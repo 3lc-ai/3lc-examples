@@ -1,7 +1,6 @@
 # Installed inside the training container before train.py runs.
 # The base PyTorch DLC already has torch/torchvision.
 3lc-ultralytics
-# polars[rtcompat] is the SIMD-free build — needed for Apple Silicon
-# local mode (Rosetta doesn't emulate AVX/AVX2, so default polars crashes
-# with SIGILL). Safe on real x86 instances too, just slightly slower.
-polars[rtcompat]
+# Uncomment for Apple Silicon local mode: default polars uses AVX/AVX2
+# which Rosetta doesn't emulate, causing SIGILL. Not needed on real x86.
+# polars[rtcompat]

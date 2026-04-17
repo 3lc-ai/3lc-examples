@@ -1,12 +1,25 @@
 #!/usr/bin/env python
-"""Launch a SageMaker training job.
+"""Launch a 3LC-instrumented SageMaker training job.
 
 Usage:
-    python launch.py            # remote job on the instance type in config.yaml
-    python launch.py --local    # same code, run in Docker on this machine
+    uv run launch.py            # remote job on the instance type in config.yaml
+    uv run launch.py --local    # same code, run in Docker on this machine
 
-Reads config.yaml for all user-specific settings. Re-tars src/ on every
-call, so edits to train.py are picked up without any rebuild step.
+Reads config.yaml for all user-specific settings. Re-tars src/ on every call,
+so edits to train.py are picked up without any rebuild step.
+
+The non-obvious bits (each has a comment at the relevant line):
+
+- TLC_CONFIG_FILE is set to the *in-container* path of config.3lc.yaml so
+  the `tlc` library finds it on import (URL aliases, etc.).
+- code_location and output_path are set explicitly so the source tarball,
+  model artifacts, and 3LC outputs all live under the same prefix instead
+  of SageMaker's default bucket.
+- TRAIN_S3_URI / VAL_S3_URI env vars carry the original S3 locations of
+  the mounted channels, so train.py can register URL aliases that make
+  3LC tables resolvable after the container exits.
+- channel_s3_uris() is the single source of truth for what each channel
+  maps to; both TrainingInput (SageMaker) and env vars (3LC) read from it.
 """
 from __future__ import annotations
 
@@ -31,7 +44,7 @@ def load_config() -> dict:
             f"Missing {CONFIG_PATH}. Copy config.example.yaml to config.yaml and fill it in."
         )
     with CONFIG_PATH.open() as f:
-        return yaml.safe_load(f)
+        return yaml.safe_load(f)  # type: ignore
 
 
 def s3_uri(bucket: str, *parts: str) -> str:
@@ -68,6 +81,7 @@ def build_estimator(cfg: dict, local: bool) -> PyTorch:
         region_name=aws["region"],
         profile_name=aws.get("profile"),
     )
+    session: sagemaker.Session
     if local:
         session = sagemaker.local.LocalSession(boto_session=boto_session)
     else:

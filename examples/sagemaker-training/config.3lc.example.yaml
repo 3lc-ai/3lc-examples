@@ -1,4 +1,39 @@
 # Copy this file to config.3lc.yaml and fill in 3LC-specific configuration.
-# config.3lc.yaml is gitignored. If present, launch.py ships it into the
-# training container as a dependency so train.py can load it at runtime.
-# Leave empty (or keep just comments) if you aren't using 3LC yet.
+# config.3lc.yaml is gitignored. launch.py ships it into the training
+# container (via `dependencies`) and sets TLC_CONFIG_FILE to its in-container
+# path, so `tlc` picks it up automatically on import.
+#
+# Two distinct settings worth knowing here:
+#
+#   (a) indexing.project_root_url — determines *where new tables and runs
+#       are created* by default. Point it at S3 so artifacts outlive the
+#       container:
+#
+#         indexing:
+#           project_root_url: s3://my-outputs-bucket/sagemaker
+#
+#   (b) aliases — define path-prefix tokens that get substituted when
+#       serializing/deserializing paths. These don't decide *where*
+#       anything is written; they just give paths a portable name that
+#       can resolve to different targets at different times.
+#
+#       The natural use here is masking the SageMaker container mount
+#       points so they don't leak into serialized tables (where they'd
+#       be unresolvable after the container exits):
+#
+#         aliases:
+#           SM_INPUT: /opt/ml/input/data
+#           SM_MODEL: /opt/ml/model
+#
+# Static aliases here live only in whichever process reads this file —
+# they mask paths locally but don't travel with the project.
+#
+# To make an alias *persist into the project itself* (so it's visible
+# from the 3LC UI and from future jobs), call
+# `tlc.register_project_url_alias(name, url, project=...)` at runtime.
+# That writes the alias into the project on S3, with the provided URL
+# as the default resolution target. See create_tables() in src/train.py
+# for the pattern — the SageMaker channel mount points are registered
+# there with their S3 URIs as defaults.
+#
+# Full 3LC config reference: https://docs.3lc.ai/latest/configuration/
