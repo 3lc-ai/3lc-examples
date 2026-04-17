@@ -39,6 +39,17 @@ def s3_uri(bucket: str, *parts: str) -> str:
     return f"s3://{bucket}/{path}" if path else f"s3://{bucket}"
 
 
+def channel_s3_uris(cfg: dict) -> dict[str, str]:
+    """Per-channel remote S3 URIs — single source of truth for what each
+    channel mounts. Used both for TrainingInput and for env var forwarding."""
+    s3 = cfg["s3"]
+    base = s3_uri(s3["inputs_bucket"], s3.get("inputs_prefix", ""))
+    return {
+        "train": f"{base}/train/",
+        "val": f"{base}/val/",
+    }
+
+
 def build_estimator(cfg: dict, local: bool) -> PyTorch:
     aws = cfg["aws"]
     s3 = cfg["s3"]
@@ -63,17 +74,27 @@ def build_estimator(cfg: dict, local: bool) -> PyTorch:
         session = sagemaker.Session(boto_session=boto_session)
 
     # Env vars forwarded into the container. OUTPUTS_* lets train.py write
-    # run metrics to a predictable S3 path using boto3. The rest are the
-    # user-defined vars (TLC_API_KEY, PROJECT_NAME, ...) from config.yaml.
+    # run metrics to a predictable S3 path using boto3. TRAIN_S3_URI /
+    # VAL_S3_URI carry the remote S3 source of each mounted channel —
+    # useful when training code needs to reference original S3 paths
+    # (e.g. for 3LC tables). The rest are user-defined vars from config.yaml.
+    channels = channel_s3_uris(cfg)
     env = {
         "OUTPUTS_BUCKET": s3["outputs_bucket"],
         "OUTPUTS_PREFIX": s3.get("outputs_prefix", ""),
+        "TRAIN_S3_URI": channels["train"],
+        "VAL_S3_URI": channels["val"],
         **{k: str(v) for k, v in (cfg.get("env") or {}).items()},
     }
 
     # Ship config.3lc.yaml into the container alongside train.py if present.
-    # `dependencies` files land in the same dir as the entry_point script.
-    dependencies = [str(TLC_CONFIG_PATH)] if TLC_CONFIG_PATH.exists() else []
+    # `dependencies` files land in the same dir as the entry_point script
+    # (/opt/ml/code/ under SageMaker script mode). Point TLC_CONFIG_FILE at
+    # it so the `tlc` library picks it up automatically on import.
+    dependencies = []
+    if TLC_CONFIG_PATH.exists():
+        dependencies.append(str(TLC_CONFIG_PATH))
+        env["TLC_CONFIG_FILE"] = f"/opt/ml/code/{TLC_CONFIG_PATH.name}"
 
     return PyTorch(
         entry_point="train.py",
@@ -99,21 +120,16 @@ def build_estimator(cfg: dict, local: bool) -> PyTorch:
 
 
 def build_inputs(cfg: dict, local: bool) -> dict[str, TrainingInput]:
-    s3 = cfg["s3"]
-    dataset_root = s3_uri(s3["inputs_bucket"], s3.get("inputs_prefix", "")) + "/"
-
-    # Both channels mount the dataset root so that annotations files
-    # (which reference images/train/... and images/val/...) resolve
-    # correctly. train.py reads SM_CHANNEL_TRAIN and SM_CHANNEL_VAL and
-    # picks the right annotations + image subdir for each split.
+    # Each channel mounts its own split's S3 prefix; train.py sees them
+    # at SM_CHANNEL_TRAIN / SM_CHANNEL_VAL.
     #
     # FastFile streams objects on demand; avoids a full download and is
     # the right default for image datasets. Local mode can't use FastFile,
     # so fall back to File (downloads into the container).
     mode = "File" if local else "FastFile"
     return {
-        "train": TrainingInput(s3_data=dataset_root, input_mode=mode),
-        "val": TrainingInput(s3_data=dataset_root, input_mode=mode),
+        name: TrainingInput(s3_data=uri, input_mode=mode)
+        for name, uri in channel_s3_uris(cfg).items()
     }
 
 
@@ -133,21 +149,11 @@ def main() -> None:
     estimator.fit(inputs)
 
     if not args.local:
+        assert estimator.latest_training_job is not None
         job_name = estimator.latest_training_job.name
-        s3cfg = cfg["s3"]
         print()
         print(f"Job name:        {job_name}")
         print(f"Model artifact:  {estimator.model_data}")
-        print(
-            "Metrics (if train.py wrote them): "
-            + s3_uri(
-                s3cfg["outputs_bucket"],
-                s3cfg.get("outputs_prefix", ""),
-                "runs",
-                job_name,
-                "metrics.json",
-            )
-        )
 
 
 if __name__ == "__main__":

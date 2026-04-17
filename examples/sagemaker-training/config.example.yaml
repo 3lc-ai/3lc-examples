@@ -35,14 +35,20 @@ training:
 
 # Passed to train.py as CLI flags. Key names must match argparse flags
 # in src/train.py (SageMaker passes them as --<key> <value>).
+# Hyperparameters show up in the SageMaker console, get searched/filtered,
+# and are the right home for training knobs (including project name).
 hyperparameters:
   epochs: 1
   batch_size: 4
-  learning_rate: 0.005
+  project: my-project
+  # "cpu" for local mode, "0" (single GPU) or "cuda" on GPU instances.
+  device: cpu
+  # If true, train.py follows each 3LC table to its latest revision before
+  # training (i.e. picks up edits/fixes made in the 3LC UI).
+  use_latest: false
 
 # Forwarded into the training container as environment variables.
-# Put secrets here only if you're comfortable with them living in a
-# gitignored file on your laptop — for production, use AWS Secrets Manager.
+# Reserve this for secrets — hyperparameters are better for everything
+# else because they're visible in the job's metadata.
 env:
-  PROJECT_NAME: my-project
   TLC_API_KEY: REPLACE_ME
