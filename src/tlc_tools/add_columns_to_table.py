@@ -51,9 +51,9 @@ def add_columns_to_table(
     schemas.update(input_schemas)
 
     # Existing columns from table_rows are already in row form; new columns may be in sample form.
-    input_mode = {col: "row" for col in input_schemas}
-    input_mode.update({col: "auto" for col in columns})
-
+    # TableWriter auto-detects sample vs row form per column via sample-type ``accepts()``, so no
+    # per-column ``input_mode`` is needed — pre-externalized URL strings are passed through,
+    # live sample-form values (PIL, ndarrays, dataclasses) are transformed.
     table_writer = tlc.TableWriter(
         project_name=table.project_name,
         dataset_name=table.dataset_name,
@@ -62,7 +62,6 @@ def add_columns_to_table(
         schema=schemas,
         if_exists="rename",
         input_tables=[table.url],
-        input_mode=input_mode,
     )
 
     for i, row in tqdm(enumerate(table.table_rows), desc="Adding columns to table", total=len(table)):
