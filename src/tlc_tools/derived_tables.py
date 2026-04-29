@@ -5,7 +5,7 @@ from tlc_tools.common import check_is_segmentation_column
 
 def masks_to_polygons(
     table: tlc.Table,
-    segmentation_column: str = tlc.SEGMENTATIONS,
+    segmentation_column: str = "segmentations",
     output_table_name: str = "polygons",
 ) -> tlc.Table:
     """Convert a table of instance segmentation masks to a table of instance segmentation polygons.
@@ -35,7 +35,7 @@ def masks_to_polygons(
 
 def polygons_to_masks(
     table: tlc.Table,
-    segmentation_column: str = tlc.SEGMENTATIONS,
+    segmentation_column: str = "segmentations",
     output_table_name: str = "masks",
 ) -> tlc.Table:
     """Convert a table of instance segmentation polygons to a table of instance segmentation masks.

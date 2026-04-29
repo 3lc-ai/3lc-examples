@@ -2,7 +2,7 @@
 
 """Convenience schema for audio columns.
 
-This module shows how to wrap a raw :class:`~tlc.core.schema.Schema` into a
+This module shows how to wrap a raw :class:`~tlc.Schema` into a
 user-friendly convenience class — the same pattern used by the builtin
 ``ImageSchema``, ``NumpyArraySchema``, etc.
 """
@@ -11,14 +11,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from tlc import Schema, StringValue
+from tlc import Schema
+from tlc._core.schema import StringValue
 
 
 class AudioSchema(Schema):
     """Schema for audio waveform data stored as WAV files.
 
     In sample view, values are loaded as 1D ``numpy.ndarray`` (float32).
-    On write via :class:`~tlc.core.writers.table_writer.TableWriter`, NumPy
+    On write via :class:`~tlc.TableWriter`, NumPy
     arrays are saved as WAV files and the Table stores URL references.
 
     Args:

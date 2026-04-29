@@ -8,9 +8,9 @@ import numpy as np
 import tlc
 import torch
 from PIL import Image
-from tlc.core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
-from tlc.core.data_formats.bounding_boxes import BoundingBoxes2D
-from tlc.core.helpers.segmentation_helper import SegmentationHelper
+from tlc import BoundingBoxes2D
+from tlc._core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
+from tlc.helpers import SegmentationHelper
 from torch.utils.data import Dataset
 
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
@@ -311,7 +311,7 @@ class InstanceCropDataset(Dataset):
 
     def _generate_background_crop(self, image, bb2d, max_attempts=100):
         """Generate a background patch from the image."""
-        from tlc.core.data_formats.bb_conversions import xyxy_to_xywh
+        from tlc._core.data_formats.bb_conversions import xyxy_to_xywh
 
         # Convert GT boxes to xywh for intersection check
         gt_boxes_xywh = xyxy_to_xywh(bb2d.bboxes) if bb2d.num_instances > 0 else np.empty((0, 4), dtype=np.float32)

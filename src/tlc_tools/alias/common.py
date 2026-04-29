@@ -4,7 +4,8 @@ import io
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from tlc.core import Run, Table, Url, UrlAdapterRegistry
+from tlc import Run, Table, Url
+from tlcurl.url_adapter_registry import UrlAdapterRegistry
 
 
 def get_input_table(input_url: Url) -> Table:

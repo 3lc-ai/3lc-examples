@@ -121,7 +121,7 @@ def check_is_bb_column(
 
     :raises ValueError: If the column is not a recognized bounding box format.
     """
-    from tlc.core.helpers.annotation_helper import get_label_subpath
+    from tlc.helpers.annotation_helper import get_label_subpath
 
     if bb_column not in input_table.columns:
         raise ValueError(f"Column {bb_column} not found in table {input_table.name}")
@@ -144,7 +144,7 @@ def check_is_bb_column(
 
 def check_is_segmentation_column(
     input_table: tlc.Table,
-    segmentation_column: str = tlc.SEGMENTATIONS,
+    segmentation_column: str = "segmentations",
     sample_type: Literal["segmentation_masks", "segmentation_polygons", ""] = "",
 ) -> None:
     """Check that a column conforms to 3LC's segmentation format.

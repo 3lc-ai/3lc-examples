@@ -99,12 +99,8 @@ def add_embeddings_to_table(
     # automatically selected for dimensionality reduction, and will not be sent
     # to the Dashboard for visualization.
     embedding_size = len(all_embeddings[0])
-    embedding_schema = tlc.Schema(
-        value=tlc.Float32Value(number_role=tlc.NUMBER_ROLE_NN_EMBEDDING),
-        size0=tlc.DimensionNumericValue(embedding_size, embedding_size),
-        sample_type="hidden",  # We don't want the embedding to be displayed in the "sample-view" of the table
-        writable=False,  # We do not allow editing the embedding values after they have been computed
-    )
+    # We don't want the embedding to be displayed in the "sample-view" of the table; not editable post-computation.
+    embedding_schema = tlc.schemas.EmbeddingSchema(shape=(embedding_size,), sample_type="hidden", writable=False)
 
     extended_table = add_columns_to_table(
         table=table,

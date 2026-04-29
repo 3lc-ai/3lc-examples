@@ -37,7 +37,7 @@ from typing import Any, Literal
 import nibabel as nib
 import numpy as np
 import tlc
-from tlc.core.helpers.segmentation_helper import SegmentationHelper
+from tlc.helpers import SegmentationHelper
 from tlcurl.url_adapter_registry import UrlAdapterRegistry
 from tqdm import tqdm
 

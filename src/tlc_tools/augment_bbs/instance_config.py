@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal, cast
 
 import tlc
-from tlc.core.helpers.annotation_helper import get_label_subpath, is_legacy_bb_column
+from tlc.helpers.annotation_helper import get_label_subpath, is_legacy_bb_column
 
 
 class InstanceConfig:

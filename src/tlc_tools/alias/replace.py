@@ -9,7 +9,10 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from tlc.core import EditedTable, Run, SchemaHelper, Table, TableFromParquet, Url, UrlAdapterRegistry
+from tlc import Run, Table, TableFromParquet, Url
+from tlc._core.objects.tables.from_table.edited_table import EditedTable
+from tlc.helpers import SchemaHelper
+from tlcurl.url_adapter_registry import UrlAdapterRegistry
 
 from .common import get_input_parquet
 

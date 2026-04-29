@@ -18,8 +18,7 @@ from typing import Any
 
 import numpy as np
 import tlc
-from tlc.core.sample_types.sample_type import ExternalSampleType
-from tlc.core.url import Url
+from tlc import ExternalSampleType, Url
 
 
 class WavAudioSampleType(ExternalSampleType):

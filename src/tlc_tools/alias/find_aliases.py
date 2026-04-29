@@ -4,7 +4,8 @@ import logging
 import re
 
 import pyarrow as pa
-from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url
+from tlc import Run, Table, TableFromParquet, Url
+from tlc.helpers import SchemaHelper
 
 from .common import get_input_parquet
 

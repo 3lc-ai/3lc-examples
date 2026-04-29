@@ -6,9 +6,9 @@ import torch
 import tqdm
 from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
-from tlc.core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
-from tlc.core.data_formats.bounding_boxes import BoundingBoxes2D
-from tlc.core.helpers.annotation_helper import get_label_path, is_legacy_bb_column
+from tlc import BoundingBoxes2D
+from tlc._core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
+from tlc.helpers.annotation_helper import get_label_path, is_legacy_bb_column
 
 from tlc_tools.add_columns_to_table import add_columns_to_table
 
