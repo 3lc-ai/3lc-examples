@@ -35,10 +35,7 @@ from typing import Any, Literal
 
 import numpy as np
 import tlc
-from tlcurl.url_adapter_registry import UrlAdapterRegistry
 from tqdm import tqdm
-
-from .adapter import KittiVelodyneUrlAdapter
 
 # ── KITTI constants (duplicated here so the example is self-contained) ──
 
@@ -276,11 +273,8 @@ def main() -> None:
     parser.add_argument("--if-exists", default="overwrite", choices=["overwrite", "rename", "raise"])
     args = parser.parse_args()
 
-    # When installed via pip/uv, the adapter is auto-discovered via entry points.
-    # Register manually only if not already registered (e.g. running without installing).
-    if "kitti-velodyne" not in UrlAdapterRegistry.get_registered_schemes():
-        UrlAdapterRegistry.register_url_adapter_for_scheme("kitti-velodyne", KittiVelodyneUrlAdapter())
-
+    # The `kitti-velodyne` adapter is registered via the `tlc.url_adapters` entry point declared in pyproject.toml.
+    # If you see an "unknown scheme" error from tlc.Url, install this package (e.g. `pip install -e .`).
     table = create_virtual_kitti_table(
         kitti_det_root=args.kitti_root,
         max_frames=args.max_frames,

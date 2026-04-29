@@ -38,10 +38,7 @@ import nibabel as nib
 import numpy as np
 import tlc
 from tlc.helpers import SegmentationHelper
-from tlcurl.url_adapter_registry import UrlAdapterRegistry
 from tqdm import tqdm
-
-from .adapter import NiftiSliceUrlAdapter
 
 ALL_MODALITIES = ("flair", "t1", "t1ce", "t2")
 
@@ -310,10 +307,8 @@ def main() -> None:
     parser.add_argument("--if-exists", default="overwrite", choices=["overwrite", "rename", "raise"])
     args = parser.parse_args()
 
-    # Register adapter if not already discovered via entry points
-    if "nifti-slice" not in UrlAdapterRegistry.get_registered_schemes():
-        UrlAdapterRegistry.register_url_adapter_for_scheme("nifti-slice", NiftiSliceUrlAdapter())
-
+    # The `nifti-slice` adapter is registered via the `tlc.url_adapters` entry point declared in pyproject.toml.
+    # If you see an "unknown scheme" error from tlc.Url, install this package (e.g. `pip install -e .`).
     table = create_virtual_brats_table(
         brats_root=args.brats_root,
         max_subjects=args.max_subjects,

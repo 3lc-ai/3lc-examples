@@ -26,8 +26,7 @@ from __future__ import annotations
 
 from urllib.request import urlopen
 
-from tlcurl.url import Url
-from tlcurl.url_adapter import UrlAdapter
+from tlc import Url, UrlAdapter
 
 
 class HttpImageUrlAdapter(UrlAdapter):

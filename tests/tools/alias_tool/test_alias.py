@@ -410,7 +410,7 @@ def test_replace_pa_table_backup_none_changed(mocker):
     )
 
     mock_backup = mocker.patch("tlc_tools.alias.replace.backup_file")
-    mock_write = mocker.patch("tlcurl.url_adapter_registry.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write = mocker.patch("tlcurl.url_adapters._registry.UrlAdapterRegistry.write_binary_content_to_url")
 
     # Process with rewrites that won't affect anything
     replace_aliases_in_pa_table(Url("test.parquet"), table, [], [("/nonexistent", "<ALIAS>")])
@@ -434,7 +434,7 @@ def test_replace_pa_table_backup_on_error(mocker):
     mock_restore = mocker.patch("tlc_tools.alias.replace.restore_from_backup")
 
     # Make write fail
-    mock_write = mocker.patch("tlcurl.url_adapter_registry.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write = mocker.patch("tlcurl.url_adapters._registry.UrlAdapterRegistry.write_binary_content_to_url")
     mock_write.side_effect = OSError("Write failed")
 
     with pytest.raises(OSError, match="Write failed"):
@@ -464,7 +464,7 @@ def test_replace_pa_table_backup_restore_integration(tmp_path, mocker):
     pq.write_table(original_table, original_path)
 
     # Mock only the write to fail
-    mock_write = mocker.patch("tlcurl.url_adapter_registry.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write = mocker.patch("tlcurl.url_adapters._registry.UrlAdapterRegistry.write_binary_content_to_url")
     mock_write.side_effect = OSError("Write failed")
 
     # Attempt the replacement which should fail

@@ -5,7 +5,6 @@ import io
 import pyarrow as pa
 import pyarrow.parquet as pq
 from tlc import Run, Table, Url
-from tlcurl.url_adapter_registry import UrlAdapterRegistry
 
 
 def get_input_table(input_url: Url) -> Table:
@@ -19,7 +18,7 @@ def get_input_run(input_url: Url) -> Run:
 
 
 def get_input_parquet(input_url: Url) -> pa.Table:
-    parquet_data = UrlAdapterRegistry.read_binary_content_from_url(input_url)
+    parquet_data = input_url.read_bytes()
     if parquet_data[:4] != b"PAR1":
         raise ValueError(f"Input file '{input_url}' is not a Parquet. Header is {(parquet_data[:4]).decode()}")
 
