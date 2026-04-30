@@ -7,9 +7,11 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from tlc import Table, TableFromParquet, TableFromPydict, Url
+from tlc import Table, Url
 from tlc._core.object_registry import ObjectRegistry
+from tlc._core.objects.tables.from_python_object.table_from_pydict import TableFromPydict
 from tlc._core.objects.tables.from_table.edited_table import EditedTable
+from tlc._core.objects.tables.from_url.table_from_parquet import TableFromParquet
 from tlc.helpers import ProjectLayout
 
 from tlc_tools.alias.common import get_input_object
