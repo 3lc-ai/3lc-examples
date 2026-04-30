@@ -169,21 +169,21 @@ def create_virtual_kitti_table(
     assert kitti_det_root.exists(), f"KITTI root {kitti_det_root} does not exist!"
 
     # Schema: geometry with bulk-data vertices + intensity, inline bounding boxes
-    lidar_schema = tlc.Geometry3DSchema(
+    lidar_schema = tlc.schemas.Geometry3DSchema(
         per_vertex_schemas={
-            "intensity": tlc.Float32ListSchema(),
+            "intensity": tlc.schemas.Float32ListSchema(),
         },
         is_bulk_data=True,
     )
 
-    obb_schema = tlc.OrientedBoundingBoxes3DSchema(
+    obb_schema = tlc.schemas.OrientedBoundingBoxes3DSchema(
         classes=KITTI_DETECTION_VALUE_MAP.keys(),
         per_instance_schemas={
-            "occlusion": tlc.CategoricalLabelListSchema(
+            "occlusion": tlc.schemas.CategoricalLabelListSchema(
                 {0: "fully visible", 1: "partly visible", 2: "largely occluded", 3: "unknown", -1: "unknown"},
                 writable=False,
             ),
-            "truncation": tlc.Float32ListSchema(writable=False),
+            "truncation": tlc.schemas.Float32ListSchema(writable=False),
         },
     )
 
@@ -196,8 +196,8 @@ def create_virtual_kitti_table(
         schema={
             "lidar": lidar_schema,
             "bbs": obb_schema,
-            "image_2": tlc.ImageUrlSchema(),
-            "input_file": tlc.StringSchema(writable=False, default_visible=False),
+            "image_2": tlc.schemas.ImageUrlSchema(),
+            "input_file": tlc.schemas.StringSchema(writable=False, default_visible=False),
         },
     )
 

@@ -100,10 +100,10 @@ def bbs_to_segments(
             "segments": segmentations,
         },
         schemas={
-            "segments": tlc.SegmentationMasksSchema(
+            "segments": tlc.schemas.SegmentationMasksSchema(
                 classes=value_map,
                 per_instance_schemas={
-                    "score": tlc.Schema(value=tlc.Float32Value(0, 1), writable=False),
+                    "score": tlc.schemas.ConfidenceSchema(writable=False),
                 },
             ),
         },

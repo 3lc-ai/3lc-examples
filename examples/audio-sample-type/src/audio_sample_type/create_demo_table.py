@@ -48,9 +48,9 @@ def main() -> None:
         table_name="initial",
         schema={
             "audio": AudioSchema(sample_rate=SAMPLE_RATE),
-            "note": tlc.StringSchema(),
-            "frequency_hz": tlc.Float32Schema(writable=False),
-            "duration_s": tlc.Float32Schema(writable=False),
+            "note": tlc.schemas.StringSchema(),
+            "frequency_hz": tlc.schemas.Float32Schema(writable=False),
+            "duration_s": tlc.schemas.Float32Schema(writable=False),
         },
         if_exists="overwrite",
     )

@@ -193,21 +193,21 @@ def create_virtual_brats_table(
 
     # Build schema
     schema: dict[str, tlc.Schema] = {
-        "subject_id": tlc.StringSchema(writable=False),
-        "slice_index": tlc.Int32Schema(writable=False),
+        "subject_id": tlc.schemas.StringSchema(writable=False),
+        "slice_index": tlc.schemas.Int32Schema(writable=False),
     }
     for mod in modalities:
-        schema[mod] = tlc.ImageUrlSchema()
-    schema["segmentation"] = tlc.SegmentationMasksSchema(
+        schema[mod] = tlc.schemas.ImageUrlSchema()
+    schema["segmentation"] = tlc.schemas.SegmentationMasksSchema(
         classes=SEG_LABEL_MAP,
     )
-    schema["has_tumor"] = tlc.BoolSchema(writable=False)
+    schema["has_tumor"] = tlc.schemas.BoolSchema(writable=False)
 
     # CSV-derived metadata columns
-    schema["grade"] = tlc.StringSchema(writable=False)
-    schema["age"] = tlc.Float32Schema(writable=False)
-    schema["survival_days"] = tlc.Int32Schema(writable=False)
-    schema["resection"] = tlc.StringSchema(writable=False)
+    schema["grade"] = tlc.schemas.StringSchema(writable=False)
+    schema["age"] = tlc.schemas.Float32Schema(writable=False)
+    schema["survival_days"] = tlc.schemas.Int32Schema(writable=False)
+    schema["resection"] = tlc.schemas.StringSchema(writable=False)
 
     table_writer = tlc.TableWriter(
         table_name=table_name,
