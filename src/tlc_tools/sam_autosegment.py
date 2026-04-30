@@ -6,7 +6,7 @@ import torch
 import tqdm
 from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
-from tlc import BoundingBoxes2D
+from tlc.data_types import BoundingBoxes2D
 from tlc.helpers import AnnotationHelper, AnnotationType
 
 from tlc_tools.add_columns_to_table import add_columns_to_table

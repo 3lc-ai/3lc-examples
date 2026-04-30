@@ -12,6 +12,7 @@ import numpy as np
 import tlc
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle as sk_shuffle
+from tlc._core.objects.tables.from_table.edited_table import EditedTable
 
 
 class _SplitStrategy(abc.ABC):
@@ -403,13 +404,13 @@ def set_value_in_column_to_fixed_value(
     :param value: The value to set.
     :returns: The modified table.
     """
-    runs = tlc.EditedTable.indices_to_run(indices)
+    runs = EditedTable.indices_to_run(indices)
 
     edits = {
         column: {"runs_and_values": [runs, value]},
     }
 
-    edited_table = tlc.EditedTable(
+    edited_table = EditedTable(
         url=table.url.create_sibling(f"set_{column}_to_0_in_{len(indices)}_rows").create_unique(),
         input_table_url=table,
         edits=edits,

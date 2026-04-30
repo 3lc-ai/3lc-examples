@@ -8,7 +8,7 @@ import numpy as np
 import tlc
 import torch
 from PIL import Image
-from tlc import BoundingBoxes2D
+from tlc.data_types import BoundingBoxes2D
 from tlc.helpers import SegmentationHelper
 from torch.utils.data import Dataset
 

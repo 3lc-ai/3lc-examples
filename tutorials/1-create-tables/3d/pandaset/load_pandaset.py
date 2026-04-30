@@ -22,7 +22,7 @@ with open(Path(__file__).parent / "pandaset_scan_summary.json") as f:
 FRAMES_PER_SEQUENCE = 80
 
 # Global isotropic bounds for PandaSet
-PANDASET_BOUNDS = tlc.GeometryHelper.create_isotropic_bounds_3d(
+PANDASET_BOUNDS = tlc.helpers.GeometryHelper.create_isotropic_bounds_3d(
     scan_summary["bounds_world"]["x"]["min"],
     scan_summary["bounds_world"]["x"]["max"],
     scan_summary["bounds_world"]["y"]["min"],
@@ -137,7 +137,7 @@ def load_car(data_path: str) -> tuple[dict, tlc.Schema]:
         ],
         dtype=np.float32,
     )
-    car_geometry = tlc.GeometryHelper.load_obj_geometry(car_obj_path, scale, transform, PANDASET_BOUNDS)
+    car_geometry = tlc.helpers.GeometryHelper.load_obj_geometry(car_obj_path, scale, transform, PANDASET_BOUNDS)
 
     car_schema = tlc.schemas.Geometry3DSchema(
         per_triangle_schemas={
