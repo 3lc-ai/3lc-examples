@@ -17,9 +17,7 @@ from __future__ import annotations
 
 import numpy as np
 import tlc
-
-# Importing the package registers the sample type
-from audio_sample_type import AudioSchema
+from audio_sample_type import WavAudioSampleType
 
 SAMPLE_RATE = 16000
 DURATION_S = 1.0
@@ -47,7 +45,7 @@ def main() -> None:
         dataset_name="sine-waves",
         table_name="initial",
         schema={
-            "audio": AudioSchema(sample_rate=SAMPLE_RATE),
+            "audio": WavAudioSampleType.schema(sample_rate=SAMPLE_RATE),
             "note": tlc.schemas.StringSchema(),
             "frequency_hz": tlc.schemas.Float32Schema(writable=False),
             "duration_s": tlc.schemas.Float32Schema(writable=False),
