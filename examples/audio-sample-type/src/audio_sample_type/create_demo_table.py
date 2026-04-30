@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import numpy as np
 import tlc
+
 from audio_sample_type import WavAudioSampleType
 
 SAMPLE_RATE = 16000

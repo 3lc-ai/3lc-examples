@@ -282,7 +282,7 @@ def load_pandaset(
 
             # Create a new geometry object to store the transformed LiDAR points
             x_min, x_max, y_min, y_max, z_min, z_max = PANDASET_BOUNDS
-            geometry_0 = tlc.Geometry3D.create_empty(
+            geometry_0 = tlc.data_types.Geometry3D.create_empty(
                 x_min=x_min,
                 y_min=y_min,
                 z_min=z_min,
@@ -290,7 +290,7 @@ def load_pandaset(
                 y_max=y_max,
                 z_max=z_max,
             )
-            geometry_1 = tlc.Geometry3D.create_empty(
+            geometry_1 = tlc.data_types.Geometry3D.create_empty(
                 x_min=x_min,
                 y_min=y_min,
                 z_min=z_min,
@@ -357,7 +357,7 @@ def transform_cuboids(
     cuboids: pd.DataFrame,
     R_inv: np.ndarray,
     t_inv: np.ndarray,
-) -> tlc.OrientedBoundingBoxes3D:
+) -> tlc.data_types.OrientedBoundingBoxes3D:
     # Vectorized world->ego transform for centers and yaw
     centers_world = np.stack(
         [cuboids["position.x"].values, cuboids["position.y"].values, cuboids["position.z"].values],
@@ -380,7 +380,7 @@ def transform_cuboids(
     dir_ego = dir_world @ R_inv.T
     yaw_ego = np.arctan2(dir_ego[:, 1], dir_ego[:, 0]).astype(np.float32, copy=False)
 
-    obbs = tlc.OrientedBoundingBoxes3D.create_empty(
+    obbs = tlc.data_types.OrientedBoundingBoxes3D.create_empty(
         x_min=PANDASET_BOUNDS[0],
         x_max=PANDASET_BOUNDS[1],
         y_min=PANDASET_BOUNDS[2],

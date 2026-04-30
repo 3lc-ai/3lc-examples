@@ -117,10 +117,10 @@ def kitti_box_to_lidar(label_line: str, calib: tuple) -> tuple[np.ndarray, dict[
     }
 
 
-def parse_kitti_3d_obb(label_file: Path, calib_file: Path) -> tlc.OrientedBoundingBoxes3D:
+def parse_kitti_3d_obb(label_file: Path, calib_file: Path) -> tlc.data_types.OrientedBoundingBoxes3D:
     calib = load_kitti_calib(calib_file)
     x_min, x_max, y_min, y_max, z_min, z_max = KITTI_BOUNDS
-    obbs = tlc.OrientedBoundingBoxes3D.create_empty(
+    obbs = tlc.data_types.OrientedBoundingBoxes3D.create_empty(
         x_min=x_min,
         y_min=y_min,
         z_min=z_min,
@@ -235,7 +235,7 @@ def create_virtual_kitti_table(
 
         # Create a Geometry3D in externalized mode — URLs instead of arrays
         x_min, x_max, y_min, y_max, z_min, z_max = KITTI_BOUNDS
-        lidar = tlc.Geometry3D.create_empty(
+        lidar = tlc.data_types.Geometry3D.create_empty(
             x_min=x_min,
             y_min=y_min,
             z_min=z_min,
