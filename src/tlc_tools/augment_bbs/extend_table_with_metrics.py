@@ -71,7 +71,7 @@ def create_label_schema(
         label_schema = tlc.schemas.Int32Schema(writable=False)
 
     label_schema.size0 = (
-        tlc.DimensionNumericValue(0, 1000) if _needs_array_schema(instance_type, is_legacy_bb) else None
+        tlc._core.schema.DimensionNumericValue(0, 1000) if _needs_array_schema(instance_type, is_legacy_bb) else None
     )
 
     return label_schema
