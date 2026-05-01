@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Literal, cast
 
 import cv2
@@ -46,10 +47,9 @@ def create_embedding_schema(
     is_legacy_bb: bool = False,
 ) -> tlc.Schema:
     """Create embedding schema appropriate for instance type."""
-    return tlc.Schema(
-        value=tlc.Float32Value(),
-        size0=tlc.DimensionNumericValue(num_components, num_components),
-        size1=tlc.DimensionNumericValue(0, 1000) if _needs_array_schema(instance_type, is_legacy_bb) else None,
+    return tlc.schemas.EmbeddingSchema(
+        shape=(num_components, -1),
+        sample_type="hidden",
     )
 
 
@@ -68,11 +68,10 @@ def create_label_schema(
             label_schema.value.map[background_label] = tlc.MapElement("background")
     else:
         # Label-free mode - create integer schema for predicted labels
-        label_schema = tlc.Schema(value=tlc.Int32Value(), writable=False)
+        label_schema = tlc.schemas.Int32Schema(writable=False)
 
-    label_schema.writable = False
     label_schema.size0 = (
-        tlc.DimensionNumericValue(0, 1000) if _needs_array_schema(instance_type, is_legacy_bb) else None
+        tlc._core.schema.DimensionNumericValue(0, 1000) if _needs_array_schema(instance_type, is_legacy_bb) else None
     )
 
     return label_schema
@@ -82,10 +81,9 @@ def create_confidence_schema(
     instance_type: Literal["bounding_boxes", "segmentations"], is_legacy_bb: bool = False
 ) -> tlc.Schema:
     """Create confidence schema appropriate for instance type."""
-    return tlc.Schema(
-        value=tlc.Float32Value(),
-        writable=False,
-        size0=tlc.DimensionNumericValue(0, 1000) if _needs_array_schema(instance_type, is_legacy_bb) else None,
+    return tlc.schemas.ConfidenceSchema(
+        shape=(-1,) if _needs_array_schema(instance_type, is_legacy_bb) else None,
+        sample_type="hidden",
     )
 
 
@@ -94,10 +92,9 @@ def create_metrics_schema(
     is_legacy_bb: bool = False,
 ) -> tlc.Schema:
     """Create image metrics schema appropriate for instance type."""
-    return tlc.Schema(
-        value=tlc.schema.Float32Value(),
+    return tlc.schemas.Float32Schema(
+        shape=(-1,) if _needs_array_schema(instance_type, is_legacy_bb) else None,
         writable=False,
-        size0=tlc.DimensionNumericValue(0, 1000) if _needs_array_schema(instance_type, is_legacy_bb) else None,
     )
 
 
@@ -400,6 +397,7 @@ def extend_table_with_metrics(
                 # Save chunk if it reaches CHUNK_SIZE
                 if len(current_chunk) >= CHUNK_SIZE:
                     chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_count}.npy")
+                    Path(chunk_path).parent.mkdir(parents=True, exist_ok=True)
                     np.save(chunk_path, np.array(current_chunk[:CHUNK_SIZE]))
                     current_chunk = current_chunk[CHUNK_SIZE:]
                     chunk_count += 1

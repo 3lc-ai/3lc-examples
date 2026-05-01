@@ -29,8 +29,7 @@ from pathlib import Path
 from urllib.parse import parse_qs
 
 import numpy as np
-from tlcurl.url import Url
-from tlcurl.url_adapter import UrlAdapter
+from tlc import Url, UrlAdapter
 
 # Alignment matrix to match LiDAR orientation with camera left/right
 _R_ALIGN = np.diag([1.0, -1.0, 1.0]).astype(np.float32)

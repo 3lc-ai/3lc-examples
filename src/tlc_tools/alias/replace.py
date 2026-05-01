@@ -9,7 +9,11 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from tlc.core import EditedTable, Run, SchemaHelper, Table, TableFromParquet, Url, UrlAdapterRegistry
+from tlc import Run, Table, Url
+from tlc._core.objects.tables.from_table.edited_table import EditedTable
+from tlc._core.objects.tables.from_url.table_from_parquet import TableFromParquet
+from tlc.helpers import SchemaHelper
+from tlcurl.url_adapters._registry import UrlAdapterRegistry
 
 from .common import get_input_parquet
 
@@ -171,7 +175,7 @@ def replace_aliases_in_pa_table(
                 pq_writer.write_table(output_pa_table)
                 pq_writer.close()
                 buffer.seek(0)
-                UrlAdapterRegistry.write_binary_content_to_url(target_url, buffer.read())
+                target_url.write_bytes(buffer.read())
             logger.info(f"Changes written to '{target_url}'")
         except Exception as e:
             if backup_url:

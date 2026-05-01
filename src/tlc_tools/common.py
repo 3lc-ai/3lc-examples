@@ -121,30 +121,24 @@ def check_is_bb_column(
 
     :raises ValueError: If the column is not a recognized bounding box format.
     """
-    from tlc.core.helpers.annotation_helper import get_label_subpath
+    from tlc.helpers import AnnotationHelper, AnnotationType
 
-    if bb_column not in input_table.columns:
-        raise ValueError(f"Column {bb_column} not found in table {input_table.name}")
+    try:
+        ann = AnnotationHelper.get(input_table, bb_column)
+    except KeyError:
+        raise ValueError(f"Column {bb_column} not found in table {input_table.name}") from None
+    except ValueError:
+        raise ValueError(f"Column {bb_column} is not a recognized bounding box format") from None
 
-    column_schema = input_table.rows_schema.values[bb_column]
-
-    # Check for new format (BoundingBoxes2DSchema) or legacy format (BoundingBoxListSchema)
-    sample_type_config = column_schema.sample_type_config
-    is_new_format = sample_type_config is not None and sample_type_config.name == "bounding_boxes_2d"
-    is_legacy_format = "bb_list" in column_schema.values
-
-    if not is_new_format and not is_legacy_format:
+    if ann.type not in (AnnotationType.BOUNDING_BOXES, AnnotationType.LEGACY_BOUNDING_BOXES):
         raise ValueError(f"Column {bb_column} is not a recognized bounding box format")
-
-    # Verify label path exists
-    label_subpath = get_label_subpath(column_schema)
-    if label_subpath is None:
+    if ann.label_path is None:
         raise ValueError(f"Column {bb_column} does not contain a label field")
 
 
 def check_is_segmentation_column(
     input_table: tlc.Table,
-    segmentation_column: str = tlc.SEGMENTATIONS,
+    segmentation_column: str = "segmentations",
     sample_type: Literal["segmentation_masks", "segmentation_polygons", ""] = "",
 ) -> None:
     """Check that a column conforms to 3LC's segmentation format.

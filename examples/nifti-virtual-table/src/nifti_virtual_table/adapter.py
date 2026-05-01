@@ -38,8 +38,7 @@ from urllib.parse import parse_qs
 
 import numpy as np
 from PIL import Image
-from tlcurl.url import Url
-from tlcurl.url_adapter import UrlAdapter
+from tlc import Url, UrlAdapter
 
 _DTYPE_MAP: dict[str, np.dtype[Any]] = {
     "int16": np.dtype(np.int16),

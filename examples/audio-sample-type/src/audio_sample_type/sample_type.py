@@ -18,8 +18,8 @@ from typing import Any
 
 import numpy as np
 import tlc
-from tlc.core.sample_types.sample_type import ExternalSampleType
-from tlc.core.url import Url
+from tlc import ExternalSampleType, Schema, Url
+from tlc.schemas import StringSchema
 
 
 class WavAudioSampleType(ExternalSampleType):
@@ -66,3 +66,53 @@ class WavAudioSampleType(ExternalSampleType):
     def accepts(self, value: Any) -> bool:
         """Auto-detection: accept 1D NumPy arrays."""
         return isinstance(value, np.ndarray) and value.ndim == 1
+
+    @classmethod
+    def schema(
+        cls,
+        sample_rate: int = 16000,
+        display_name: str = "",
+        description: str = "",
+        writable: bool = True,
+        visible: bool = True,
+        display_importance: float = 0,
+        default_value: Any = None,
+        bulk_data_location: str | None = None,
+    ) -> Schema:
+        """Build a :class:`~tlc.schemas.StringSchema` configured for this sample type.
+
+        Args:
+            sample_rate: Audio sample rate in Hz. Defaults to 16000.
+            display_name: Column display name in the Dashboard.
+            description: Column description.
+            writable: Whether the column is editable in the Dashboard.
+            visible: Whether the column is visible by default.
+            display_importance: Ordering weight for column display.
+            default_value: Default value for new rows.
+            bulk_data_location: URL override for bulk data storage.
+
+        Returns:
+            A schema that stores WAV-file URLs and decodes to NumPy arrays in sample view.
+
+        Example::
+
+            import tlc
+            from audio_sample_type import WavAudioSampleType
+
+            writer = tlc.TableWriter(
+                project_name="Audio Project",
+                schema={"audio": WavAudioSampleType.schema(sample_rate=22050)},
+            )
+
+        """
+        return StringSchema(
+            string_role="URL/Audio",
+            sample_type={"name": "wav_audio", "sample_rate": sample_rate},
+            display_name=display_name,
+            description=description,
+            writable=writable,
+            default_visible=visible,
+            display_importance=display_importance,
+            default_value=default_value,
+            bulk_data_location=bulk_data_location,
+        )

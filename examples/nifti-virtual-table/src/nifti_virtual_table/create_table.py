@@ -37,11 +37,8 @@ from typing import Any, Literal
 import nibabel as nib
 import numpy as np
 import tlc
-from tlc.core.helpers.segmentation_helper import SegmentationHelper
-from tlcurl.url_adapter_registry import UrlAdapterRegistry
+from tlc.helpers import SegmentationHelper
 from tqdm import tqdm
-
-from .adapter import NiftiSliceUrlAdapter
 
 ALL_MODALITIES = ("flair", "t1", "t1ce", "t2")
 
@@ -196,21 +193,21 @@ def create_virtual_brats_table(
 
     # Build schema
     schema: dict[str, tlc.Schema] = {
-        "subject_id": tlc.StringSchema(writable=False),
-        "slice_index": tlc.Int32Schema(writable=False),
+        "subject_id": tlc.schemas.StringSchema(writable=False),
+        "slice_index": tlc.schemas.Int32Schema(writable=False),
     }
     for mod in modalities:
-        schema[mod] = tlc.ImageUrlSchema()
-    schema["segmentation"] = tlc.SegmentationMasksSchema(
+        schema[mod] = tlc.schemas.ImageUrlSchema()
+    schema["segmentation"] = tlc.schemas.SegmentationMasksSchema(
         classes=SEG_LABEL_MAP,
     )
-    schema["has_tumor"] = tlc.BoolSchema(writable=False)
+    schema["has_tumor"] = tlc.schemas.BoolSchema(writable=False)
 
     # CSV-derived metadata columns
-    schema["grade"] = tlc.StringSchema(writable=False)
-    schema["age"] = tlc.Float32Schema(writable=False)
-    schema["survival_days"] = tlc.Int32Schema(writable=False)
-    schema["resection"] = tlc.StringSchema(writable=False)
+    schema["grade"] = tlc.schemas.StringSchema(writable=False)
+    schema["age"] = tlc.schemas.Float32Schema(writable=False)
+    schema["survival_days"] = tlc.schemas.Int32Schema(writable=False)
+    schema["resection"] = tlc.schemas.StringSchema(writable=False)
 
     table_writer = tlc.TableWriter(
         table_name=table_name,
@@ -310,10 +307,8 @@ def main() -> None:
     parser.add_argument("--if-exists", default="overwrite", choices=["overwrite", "rename", "raise"])
     args = parser.parse_args()
 
-    # Register adapter if not already discovered via entry points
-    if "nifti-slice" not in UrlAdapterRegistry.get_registered_schemes():
-        UrlAdapterRegistry.register_url_adapter_for_scheme("nifti-slice", NiftiSliceUrlAdapter())
-
+    # The `nifti-slice` adapter is registered via the `tlc.url_adapters` entry point declared in pyproject.toml.
+    # If you see an "unknown scheme" error from tlc.Url, install this package (e.g. `pip install -e .`).
     table = create_virtual_brats_table(
         brats_root=args.brats_root,
         max_subjects=args.max_subjects,

@@ -7,8 +7,12 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from tlc.core import EditedTable, ObjectRegistry, Table, TableFromParquet, TableFromPydict, Url
-from tlc.core.helpers.project_layout import ProjectLayout
+from tlc import Table, Url
+from tlc._core.object_registry import ObjectRegistry
+from tlc._core.objects.tables.from_python_object.table_from_pydict import TableFromPydict
+from tlc._core.objects.tables.from_table.edited_table import EditedTable
+from tlc._core.objects.tables.from_url.table_from_parquet import TableFromParquet
+from tlc.helpers import ProjectLayout
 
 from tlc_tools.alias.common import get_input_object
 from tlc_tools.alias.find_aliases import (
@@ -408,7 +412,7 @@ def test_replace_pa_table_backup_none_changed(mocker):
     )
 
     mock_backup = mocker.patch("tlc_tools.alias.replace.backup_file")
-    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write = mocker.patch("tlcurl.url_adapters._registry.UrlAdapterRegistry.write_binary_content_to_url")
 
     # Process with rewrites that won't affect anything
     replace_aliases_in_pa_table(Url("test.parquet"), table, [], [("/nonexistent", "<ALIAS>")])
@@ -432,7 +436,7 @@ def test_replace_pa_table_backup_on_error(mocker):
     mock_restore = mocker.patch("tlc_tools.alias.replace.restore_from_backup")
 
     # Make write fail
-    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write = mocker.patch("tlcurl.url_adapters._registry.UrlAdapterRegistry.write_binary_content_to_url")
     mock_write.side_effect = OSError("Write failed")
 
     with pytest.raises(OSError, match="Write failed"):
@@ -462,7 +466,7 @@ def test_replace_pa_table_backup_restore_integration(tmp_path, mocker):
     pq.write_table(original_table, original_path)
 
     # Mock only the write to fail
-    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write = mocker.patch("tlcurl.url_adapters._registry.UrlAdapterRegistry.write_binary_content_to_url")
     mock_write.side_effect = OSError("Write failed")
 
     # Attempt the replacement which should fail

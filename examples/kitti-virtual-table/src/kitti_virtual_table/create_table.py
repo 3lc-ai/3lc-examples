@@ -35,10 +35,7 @@ from typing import Any, Literal
 
 import numpy as np
 import tlc
-from tlcurl.url_adapter_registry import UrlAdapterRegistry
 from tqdm import tqdm
-
-from .adapter import KittiVelodyneUrlAdapter
 
 # ── KITTI constants (duplicated here so the example is self-contained) ──
 
@@ -120,10 +117,10 @@ def kitti_box_to_lidar(label_line: str, calib: tuple) -> tuple[np.ndarray, dict[
     }
 
 
-def parse_kitti_3d_obb(label_file: Path, calib_file: Path) -> tlc.OrientedBoundingBoxes3D:
+def parse_kitti_3d_obb(label_file: Path, calib_file: Path) -> tlc.data_types.OrientedBoundingBoxes3D:
     calib = load_kitti_calib(calib_file)
     x_min, x_max, y_min, y_max, z_min, z_max = KITTI_BOUNDS
-    obbs = tlc.OrientedBoundingBoxes3D.create_empty(
+    obbs = tlc.data_types.OrientedBoundingBoxes3D.create_empty(
         x_min=x_min,
         y_min=y_min,
         z_min=z_min,
@@ -172,21 +169,21 @@ def create_virtual_kitti_table(
     assert kitti_det_root.exists(), f"KITTI root {kitti_det_root} does not exist!"
 
     # Schema: geometry with bulk-data vertices + intensity, inline bounding boxes
-    lidar_schema = tlc.Geometry3DSchema(
+    lidar_schema = tlc.schemas.Geometry3DSchema(
         per_vertex_schemas={
-            "intensity": tlc.Float32ListSchema(),
+            "intensity": tlc.schemas.Float32ListSchema(),
         },
         is_bulk_data=True,
     )
 
-    obb_schema = tlc.OrientedBoundingBoxes3DSchema(
+    obb_schema = tlc.schemas.OrientedBoundingBoxes3DSchema(
         classes=KITTI_DETECTION_VALUE_MAP.keys(),
         per_instance_schemas={
-            "occlusion": tlc.CategoricalLabelListSchema(
+            "occlusion": tlc.schemas.CategoricalLabelListSchema(
                 {0: "fully visible", 1: "partly visible", 2: "largely occluded", 3: "unknown", -1: "unknown"},
                 writable=False,
             ),
-            "truncation": tlc.Float32ListSchema(writable=False),
+            "truncation": tlc.schemas.Float32ListSchema(writable=False),
         },
     )
 
@@ -199,8 +196,8 @@ def create_virtual_kitti_table(
         schema={
             "lidar": lidar_schema,
             "bbs": obb_schema,
-            "image_2": tlc.ImageUrlSchema(),
-            "input_file": tlc.StringSchema(writable=False, default_visible=False),
+            "image_2": tlc.schemas.ImageUrlSchema(),
+            "input_file": tlc.schemas.StringSchema(writable=False, default_visible=False),
         },
     )
 
@@ -238,7 +235,7 @@ def create_virtual_kitti_table(
 
         # Create a Geometry3D in externalized mode — URLs instead of arrays
         x_min, x_max, y_min, y_max, z_min, z_max = KITTI_BOUNDS
-        lidar = tlc.Geometry3D.create_empty(
+        lidar = tlc.data_types.Geometry3D.create_empty(
             x_min=x_min,
             y_min=y_min,
             z_min=z_min,
@@ -276,11 +273,8 @@ def main() -> None:
     parser.add_argument("--if-exists", default="overwrite", choices=["overwrite", "rename", "raise"])
     args = parser.parse_args()
 
-    # When installed via pip/uv, the adapter is auto-discovered via entry points.
-    # Register manually only if not already registered (e.g. running without installing).
-    if "kitti-velodyne" not in UrlAdapterRegistry.get_registered_schemes():
-        UrlAdapterRegistry.register_url_adapter_for_scheme("kitti-velodyne", KittiVelodyneUrlAdapter())
-
+    # The `kitti-velodyne` adapter is registered via the `tlc.url_adapters` entry point declared in pyproject.toml.
+    # If you see an "unknown scheme" error from tlc.Url, install this package (e.g. `pip install -e .`).
     table = create_virtual_kitti_table(
         kitti_det_root=args.kitti_root,
         max_frames=args.max_frames,

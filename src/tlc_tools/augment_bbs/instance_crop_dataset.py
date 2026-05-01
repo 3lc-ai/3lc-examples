@@ -8,9 +8,8 @@ import numpy as np
 import tlc
 import torch
 from PIL import Image
-from tlc.core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
-from tlc.core.data_formats.bounding_boxes import BoundingBoxes2D
-from tlc.core.helpers.segmentation_helper import SegmentationHelper
+from tlc.data_types import BoundingBoxes2D
+from tlc.helpers import SegmentationHelper
 from torch.utils.data import Dataset
 
 from tlc_tools.augment_bbs.instance_config import InstanceConfig
@@ -161,7 +160,7 @@ class InstanceCropDataset(Dataset):
         raw = row[self.instance_config.instance_column]
         if self.instance_config.is_legacy_bb:
             schema = self.table.rows_schema.values[self.instance_config.instance_column]
-            return legacy_bb_row_to_bounding_boxes_2d(raw, schema)
+            return BoundingBoxes2D.from_legacy_row(raw, schema)
         else:
             return BoundingBoxes2D.from_row(raw)
 
@@ -311,10 +310,8 @@ class InstanceCropDataset(Dataset):
 
     def _generate_background_crop(self, image, bb2d, max_attempts=100):
         """Generate a background patch from the image."""
-        from tlc.core.data_formats.bb_conversions import xyxy_to_xywh
-
         # Convert GT boxes to xywh for intersection check
-        gt_boxes_xywh = xyxy_to_xywh(bb2d.bboxes) if bb2d.num_instances > 0 else np.empty((0, 4), dtype=np.float32)
+        gt_boxes_xywh = bb2d.bboxes_xywh if bb2d.num_instances > 0 else np.empty((0, 4), dtype=np.float32)
 
         for _attempt_idx in range(max_attempts):
             bbox_instances = [inst for inst in self.all_instances if inst[1]["type"] == "bbox"]
@@ -323,7 +320,8 @@ class InstanceCropDataset(Dataset):
 
             _, random_instance = self.random_gen.choice(bbox_instances)
             proposed_xyxy = random_instance["xyxy"]
-            proposed_xywh = xyxy_to_xywh(proposed_xyxy)
+            x1, y1, x2, y2 = proposed_xyxy
+            proposed_xywh = (x1, y1, x2 - x1, y2 - y1)
 
             if not any(self._intersects(proposed_xywh, gt_boxes_xywh[i]) for i in range(len(gt_boxes_xywh))):
                 break

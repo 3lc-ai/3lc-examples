@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal, cast
 
 import tlc
-from tlc.core.helpers.annotation_helper import get_label_subpath, is_legacy_bb_column
+from tlc.helpers import AnnotationHelper, AnnotationType
 
 
 class InstanceConfig:
@@ -96,20 +96,16 @@ class InstanceConfig:
         assert instance_type in ["bounding_boxes", "segmentations"]
         instance_type = cast(Literal["bounding_boxes", "segmentations"], instance_type)
 
-        # Step 2: Detect if legacy BB format
+        # Step 2 + 3: Inspect annotation column for legacy format and label path
         legacy_bb = False
-        if instance_type == "bounding_boxes":
-            column_schema = input_table.rows_schema.values.get(instance_column)
-            if column_schema is not None:
-                legacy_bb = is_legacy_bb_column(column_schema)
-
-        # Step 3: Resolve label column path using schema-aware detection
-        column_schema = input_table.rows_schema.values.get(instance_column)
-        if column_schema is not None:
-            label_subpath = get_label_subpath(column_schema)
-            resolved_label_path = f"{instance_column}.{label_subpath}" if label_subpath else None
-        else:
-            resolved_label_path = None
+        resolved_label_path = None
+        try:
+            ann = AnnotationHelper.get(input_table, instance_column)
+        except (KeyError, ValueError):
+            ann = None
+        if ann is not None:
+            legacy_bb = ann.type is AnnotationType.LEGACY_BOUNDING_BOXES
+            resolved_label_path = ann.label_path
 
         # Step 4: Create and validate configuration
         config = cls(

@@ -6,9 +6,8 @@ import torch
 import tqdm
 from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
-from tlc.core.data_formats.bb_conversions import legacy_bb_row_to_bounding_boxes_2d
-from tlc.core.data_formats.bounding_boxes import BoundingBoxes2D
-from tlc.core.helpers.annotation_helper import get_label_path, is_legacy_bb_column
+from tlc.data_types import BoundingBoxes2D
+from tlc.helpers import AnnotationHelper, AnnotationType
 
 from tlc_tools.add_columns_to_table import add_columns_to_table
 
@@ -30,16 +29,16 @@ def bbs_to_segments(
 
     check_is_bb_column(input_table, bb_column)
 
-    # Detect format and get value map
+    # Detect format and get value map via AnnotationHelper
+    ann = AnnotationHelper.get(input_table, bb_column)
     column_schema = input_table.rows_schema.values[bb_column]
-    is_legacy = is_legacy_bb_column(column_schema)
+    is_legacy = ann.type is AnnotationType.LEGACY_BOUNDING_BOXES
 
-    label_path = get_label_path(input_table, bb_column)
-    if not label_path:
+    if ann.label_path is None:
         raise ValueError(f"Could not find label path for column {bb_column}")
-    value_map = input_table.get_value_map(label_path)
+    value_map = input_table.get_value_map(ann.label_path)
     if not value_map:
-        raise ValueError(f"Could not find value map for label path {label_path}")
+        raise ValueError(f"Could not find value map for label path {ann.label_path}")
 
     # Load the SAM model
     sam_model = sam_model_registry[sam_model_type](checkpoint=checkpoint)
@@ -59,7 +58,7 @@ def bbs_to_segments(
 
         # Get BoundingBoxes2D — handles both legacy and new format
         raw = row[bb_column]
-        bb2d = legacy_bb_row_to_bounding_boxes_2d(raw, column_schema) if is_legacy else BoundingBoxes2D.from_row(raw)
+        bb2d = BoundingBoxes2D.from_legacy_row(raw, column_schema) if is_legacy else BoundingBoxes2D.from_row(raw)
 
         # bb2d.bboxes is (N, 4) in absolute XYXY — exactly what SAM expects
         labels = bb2d.instance_labels.tolist() if bb2d.instance_labels is not None else []
@@ -100,10 +99,10 @@ def bbs_to_segments(
             "segments": segmentations,
         },
         schemas={
-            "segments": tlc.SegmentationMasksSchema(
+            "segments": tlc.schemas.SegmentationMasksSchema(
                 classes=value_map,
                 per_instance_schemas={
-                    "score": tlc.Schema(value=tlc.Float32Value(0, 1), writable=False),
+                    "score": tlc.schemas.ConfidenceSchema(writable=False),
                 },
             ),
         },

@@ -10,12 +10,11 @@ from typing import Any, Literal, cast
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
+import tlc.schemas
 import torch
-from tlc.client.reduce.reduce import _unique_datasets
-from tlc.core.builtins.constants.column_names import EXAMPLE_ID, RUN_STATUS, RUN_STATUS_COMPLETED
-from tlc.core.objects.mutable_objects.run import Run
-from tlc.core.objects.table import Table
-from tlc.core.schema import Float32Value, Schema
+from tlc import Run, Table
+from tlc._core.reduction.reduce import _unique_datasets
+from tlc.constants import EXAMPLE_ID
 
 logger = logging.getLogger(__name__)
 
@@ -92,14 +91,13 @@ def compute_metric_jumps_on_run(
                 for metric_name in metric_column_names:
                     jump = result.metric_jumps[metric_name][example_idx, epoch_idx]
                     data[f"{metric_name}_jump"].append(jump)
-                data[EXAMPLE_ID].append(example_id)
+                data[tlc.constants.EXAMPLE_ID].append(example_id)
                 data[temporal_column_name].append(epoch)
 
         # Create schemas for each metric's jumps
         column_schemas = {
-            f"{metric_name}_jump": Schema(
+            f"{metric_name}_jump": tlc.schemas.Float32Schema(
                 f"{metric_name}_jump",
-                value=Float32Value(),
                 description=f"Jump in {metric_name} value from previous {temporal_column_name}",
             )
             for metric_name in metric_column_names
@@ -116,7 +114,7 @@ def compute_metric_jumps_on_run(
     logger.info(
         f"Metric jumps of {', '.join(metric_column_names)} over {temporal_column_name} computed for {len(urls)} streams"
     )
-    run.update_attribute(RUN_STATUS, RUN_STATUS_COMPLETED)
+    run.set_status_completed()
 
 
 def compute_metric_jumps(

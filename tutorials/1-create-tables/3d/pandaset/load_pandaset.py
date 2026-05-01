@@ -22,7 +22,7 @@ with open(Path(__file__).parent / "pandaset_scan_summary.json") as f:
 FRAMES_PER_SEQUENCE = 80
 
 # Global isotropic bounds for PandaSet
-PANDASET_BOUNDS = tlc.GeometryHelper.create_isotropic_bounds_3d(
+PANDASET_BOUNDS = tlc.helpers.GeometryHelper.create_isotropic_bounds_3d(
     scan_summary["bounds_world"]["x"]["min"],
     scan_summary["bounds_world"]["x"]["max"],
     scan_summary["bounds_world"]["y"]["min"],
@@ -74,12 +74,12 @@ pedestrian_age_classes = {
 
 
 def get_lidar_schema() -> tlc.Schema:
-    schema = tlc.Geometry3DSchema(
+    schema = tlc.schemas.Geometry3DSchema(
         is_bulk_data=True,
         per_vertex_schemas={
-            "intensity": tlc.Float32ListSchema(),
-            "distance": tlc.Float32ListSchema(),
-            "semseg": tlc.CategoricalLabelListSchema(SEMSEG_CLASSES),
+            "intensity": tlc.schemas.Float32ListSchema(),
+            "distance": tlc.schemas.Float32ListSchema(),
+            "semseg": tlc.schemas.CategoricalLabelListSchema(SEMSEG_CLASSES),
         },
     )
 
@@ -87,27 +87,27 @@ def get_lidar_schema() -> tlc.Schema:
 
 
 def get_bb_schema() -> tlc.Schema:
-    schema = tlc.OrientedBoundingBoxes3DSchema(
+    schema = tlc.schemas.OrientedBoundingBoxes3DSchema(
         classes=CUBOID_CLASSES.keys(),
         # Cuboid attributes are not included for now, can be added if needed
         # per_instance_schemas={
-        #     "uuid": tlc.StringSchema(shape=(-1,), writable=False),
-        #     "stationary": tlc.BoolSchema(shape=(-1,)),
-        #     "camera_used": tlc.Int32Schema(shape=(-1,), writable=False),
-        #     "object_motion": tlc.CategoricalLabelListSchema(
+        #     "uuid": tlc.schemas.StringSchema(shape=(-1,), writable=False),
+        #     "stationary": tlc.schemas.BoolSchema(shape=(-1,)),
+        #     "camera_used": tlc.schemas.Int32Schema(shape=(-1,), writable=False),
+        #     "object_motion": tlc.schemas.CategoricalLabelListSchema(
         #         {v: k for k, v in object_motion_classes.items()}
         #     ),
-        #     "rider_status": tlc.CategoricalLabelListSchema(
+        #     "rider_status": tlc.schemas.CategoricalLabelListSchema(
         #         {v: k for k, v in rider_status_classes.items()}
         #     ),
-        #     "pedestrian_behavior": tlc.CategoricalLabelListSchema(
+        #     "pedestrian_behavior": tlc.schemas.CategoricalLabelListSchema(
         #         {v: k for k, v in pedestrian_behavior_classes.items()}
         #     ),
-        #     "pedestrian_age": tlc.CategoricalLabelListSchema(
+        #     "pedestrian_age": tlc.schemas.CategoricalLabelListSchema(
         #         {v: k for k, v in pedestrian_age_classes.items()}
         #     ),
-        #     "sensor_id": tlc.Int32Schema(shape=(-1,), writable=False),
-        #     "sibling_id": tlc.StringSchema(shape=(-1,), writable=False),
+        #     "sensor_id": tlc.schemas.Int32Schema(shape=(-1,), writable=False),
+        #     "sibling_id": tlc.schemas.StringSchema(shape=(-1,), writable=False),
         # },
     )
 
@@ -115,7 +115,7 @@ def get_bb_schema() -> tlc.Schema:
 
 
 def get_camera_schema(camera_name: str) -> tlc.Schema:
-    return tlc.ImageUrlSchema(
+    return tlc.schemas.ImageUrlSchema(
         metadata={
             "intrinsics": scan_summary["camera_intrinsics"][camera_name],
             "extrinsics": scan_summary["extrinsics_cam_from_lidar"][camera_name]["lidar_0"]["T_cam_from_lidar"],
@@ -137,13 +137,13 @@ def load_car(data_path: str) -> tuple[dict, tlc.Schema]:
         ],
         dtype=np.float32,
     )
-    car_geometry = tlc.GeometryHelper.load_obj_geometry(car_obj_path, scale, transform, PANDASET_BOUNDS)
+    car_geometry = tlc.helpers.GeometryHelper.load_obj_geometry(car_obj_path, scale, transform, PANDASET_BOUNDS)
 
-    car_schema = tlc.Geometry3DSchema(
+    car_schema = tlc.schemas.Geometry3DSchema(
         per_triangle_schemas={
-            "red": tlc.Float32ListSchema(),
-            "green": tlc.Float32ListSchema(),
-            "blue": tlc.Float32ListSchema(),
+            "red": tlc.schemas.Float32ListSchema(),
+            "green": tlc.schemas.Float32ListSchema(),
+            "blue": tlc.schemas.Float32ListSchema(),
         },
         is_bulk_data=True,
     )
@@ -282,7 +282,7 @@ def load_pandaset(
 
             # Create a new geometry object to store the transformed LiDAR points
             x_min, x_max, y_min, y_max, z_min, z_max = PANDASET_BOUNDS
-            geometry_0 = tlc.Geometry3D.create_empty(
+            geometry_0 = tlc.data_types.Geometry3D.create_empty(
                 x_min=x_min,
                 y_min=y_min,
                 z_min=z_min,
@@ -290,7 +290,7 @@ def load_pandaset(
                 y_max=y_max,
                 z_max=z_max,
             )
-            geometry_1 = tlc.Geometry3D.create_empty(
+            geometry_1 = tlc.data_types.Geometry3D.create_empty(
                 x_min=x_min,
                 y_min=y_min,
                 z_min=z_min,
@@ -357,7 +357,7 @@ def transform_cuboids(
     cuboids: pd.DataFrame,
     R_inv: np.ndarray,
     t_inv: np.ndarray,
-) -> tlc.OrientedBoundingBoxes3D:
+) -> tlc.data_types.OrientedBoundingBoxes3D:
     # Vectorized world->ego transform for centers and yaw
     centers_world = np.stack(
         [cuboids["position.x"].values, cuboids["position.y"].values, cuboids["position.z"].values],
@@ -380,7 +380,7 @@ def transform_cuboids(
     dir_ego = dir_world @ R_inv.T
     yaw_ego = np.arctan2(dir_ego[:, 1], dir_ego[:, 0]).astype(np.float32, copy=False)
 
-    obbs = tlc.OrientedBoundingBoxes3D.create_empty(
+    obbs = tlc.data_types.OrientedBoundingBoxes3D.create_empty(
         x_min=PANDASET_BOUNDS[0],
         x_max=PANDASET_BOUNDS[1],
         y_min=PANDASET_BOUNDS[2],

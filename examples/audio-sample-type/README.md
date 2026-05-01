@@ -9,7 +9,7 @@ to a data type that 3LC doesn't have builtin support for.
 ## What it demonstrates
 
 1. **Custom sample type** (`WavAudioSampleType`): A `SampleType` subclass with `save()`/`load()` for WAV I/O
-2. **Convenience schema** (`AudioSchema`): Wraps `Schema(value=UrlStringValue(), sample_type=...)` into a clean API
+2. **Schema factory** (`WavAudioSampleType.schema()`): Classmethod that returns a configured `StringSchema`
 3. **Round-trip**: Write NumPy arrays → stored as WAV files → read back as NumPy arrays
 
 ## Quick start
@@ -34,8 +34,7 @@ audio player.
 ```
 src/audio_sample_type/
 ├── __init__.py           # Package exports
-├── sample_type.py        # WavAudioSampleType — the core save/load logic
-├── schema.py             # AudioSchema — convenience wrapper
+├── sample_type.py        # WavAudioSampleType — save/load logic + schema() factory
 └── create_demo_table.py  # Demo script generating synthetic audio
 ```
 
@@ -43,12 +42,12 @@ src/audio_sample_type/
 
 ```python
 import tlc
-from audio_sample_type import AudioSchema
+from audio_sample_type import WavAudioSampleType
 
 writer = tlc.TableWriter(
     project_name="My Audio Project",
     schema={
-        "audio": AudioSchema(sample_rate=22050),
+        "audio": WavAudioSampleType.schema(sample_rate=22050),
         "label": tlc.CategoricalLabelSchema(classes=["speech", "music", "noise"]),
     },
 )
