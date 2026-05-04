@@ -13,8 +13,8 @@ import pyarrow.compute as pc
 import tlc.schemas
 import torch
 from tlc import Run, Table
-from tlc._core.reduction.reduce import _unique_datasets
 from tlc.constants import EXAMPLE_ID
+from tlc.reduction.reduce import _unique_datasets
 
 logger = logging.getLogger(__name__)
 
