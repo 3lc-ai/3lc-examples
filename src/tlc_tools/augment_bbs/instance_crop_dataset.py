@@ -128,8 +128,8 @@ class InstanceCropDataset(Dataset):
                         (
                             row_idx,
                             {
-                                "type": "bbox",
-                                "xyxy": bb2d.bboxes[i],  # (4,) float32 array [x_min, y_min, x_max, y_max]
+                                "type": "bb",
+                                "xyxy": bb2d.bbs[i],  # (4,) float32 array [x_min, y_min, x_max, y_max]
                                 "label": label,
                             },
                         )
@@ -196,7 +196,7 @@ class InstanceCropDataset(Dataset):
         row = self.table.table_rows[row_idx]
         image = self._load_image_data(row)
 
-        if instance_data["type"] == "bbox":
+        if instance_data["type"] == "bb":
             xyxy = instance_data["xyxy"]  # absolute [x_min, y_min, x_max, y_max]
             crop = self._crop_from_xyxy(image, xyxy)
             label = instance_data["label"]
@@ -231,9 +231,9 @@ class InstanceCropDataset(Dataset):
         rle = instance_data["rle"]
         label = instance_data.get("label")
 
-        # Convert RLE to mask and bbox
+        # Convert RLE to mask and bb
         coco = {"size": [h, w], "counts": rle}
-        bbox = SegmentationHelper.bbox_from_rle(coco)  # [x, y, w, h] format
+        bb = SegmentationHelper.bb_from_rle(coco)  # [x, y, w, h] format
         mask = SegmentationHelper.mask_from_rle(coco)
 
         # Apply mask to image
@@ -243,8 +243,8 @@ class InstanceCropDataset(Dataset):
         masked_image = image_array * mask
         masked_image = Image.fromarray(masked_image.astype(np.uint8), mode="RGB")
 
-        # Convert bbox from [x, y, w, h] to [x_min, y_min, x_max, y_max]
-        xyxy = np.array([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]], dtype=np.float32)
+        # Convert bb from [x, y, w, h] to [x_min, y_min, x_max, y_max]
+        xyxy = np.array([bb[0], bb[1], bb[0] + bb[2], bb[1] + bb[3]], dtype=np.float32)
         crop = self._crop_from_xyxy(masked_image, xyxy)
 
         return crop, label
@@ -311,14 +311,14 @@ class InstanceCropDataset(Dataset):
     def _generate_background_crop(self, image, bb2d, max_attempts=100):
         """Generate a background patch from the image."""
         # Convert GT boxes to xywh for intersection check
-        gt_boxes_xywh = bb2d.bboxes_xywh if bb2d.num_instances > 0 else np.empty((0, 4), dtype=np.float32)
+        gt_boxes_xywh = bb2d.bbs_xywh if bb2d.num_instances > 0 else np.empty((0, 4), dtype=np.float32)
 
         for _attempt_idx in range(max_attempts):
-            bbox_instances = [inst for inst in self.all_instances if inst[1]["type"] == "bbox"]
-            if not bbox_instances:
+            bb_instances = [inst for inst in self.all_instances if inst[1]["type"] == "bb"]
+            if not bb_instances:
                 break
 
-            _, random_instance = self.random_gen.choice(bbox_instances)
+            _, random_instance = self.random_gen.choice(bb_instances)
             proposed_xyxy = random_instance["xyxy"]
             x1, y1, x2, y2 = proposed_xyxy
             proposed_xywh = (x1, y1, x2 - x1, y2 - y1)
