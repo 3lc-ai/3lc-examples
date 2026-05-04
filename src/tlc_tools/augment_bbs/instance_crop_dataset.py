@@ -123,13 +123,13 @@ class InstanceCropDataset(Dataset):
             if ic.instance_type == "bounding_boxes":
                 bb2d = self._get_bounding_boxes_2d(row)
                 for i in range(bb2d.num_instances):
-                    label = int(bb2d.instance_labels[i]) if bb2d.instance_labels is not None else None
+                    label = int(bb2d.labels[i]) if bb2d.labels is not None else None
                     instances.append(
                         (
                             row_idx,
                             {
                                 "type": "bb",
-                                "xyxy": bb2d.bbs[i],  # (4,) float32 array [x_min, y_min, x_max, y_max]
+                                "xyxy": bb2d.bounding_boxes[i],  # (4,) float32 array [x_min, y_min, x_max, y_max]
                                 "label": label,
                             },
                         )
@@ -233,7 +233,7 @@ class InstanceCropDataset(Dataset):
 
         # Convert RLE to mask and bb
         coco = {"size": [h, w], "counts": rle}
-        bb = SegmentationHelper.bb_from_rle(coco)  # [x, y, w, h] format
+        bb = SegmentationHelper.bounding_box_from_rle(coco)  # [x, y, w, h] format
         mask = SegmentationHelper.mask_from_rle(coco)
 
         # Apply mask to image
@@ -311,7 +311,7 @@ class InstanceCropDataset(Dataset):
     def _generate_background_crop(self, image, bb2d, max_attempts=100):
         """Generate a background patch from the image."""
         # Convert GT boxes to xywh for intersection check
-        gt_boxes_xywh = bb2d.bbs_xywh if bb2d.num_instances > 0 else np.empty((0, 4), dtype=np.float32)
+        gt_boxes_xywh = bb2d.bounding_boxes_xywh if bb2d.num_instances > 0 else np.empty((0, 4), dtype=np.float32)
 
         for _attempt_idx in range(max_attempts):
             bb_instances = [inst for inst in self.all_instances if inst[1]["type"] == "bb"]
