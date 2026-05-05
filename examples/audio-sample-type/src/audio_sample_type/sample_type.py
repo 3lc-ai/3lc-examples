@@ -8,7 +8,7 @@ pointing to WAV files, and the sample type handles saving/loading NumPy arrays.
 The sample type is registered as ``"wav_audio"`` via the ``tlc.sample_types``
 entry point in ``pyproject.toml`` — ``pip install`` is all that's needed to make
 it available. It can also be registered explicitly with
-``@tlc.register_sample_type("wav_audio")`` if entry points are not desired.
+``@tlc.sample_types.register_sample_type("wav_audio")`` if entry points are not desired.
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ import io
 from typing import Any
 
 import numpy as np
-import tlc
-from tlc import ExternalSampleType, Schema, Url
+from tlc import Schema, Url
+from tlc.sample_types import EncodedSample, ExternalSampleType, ValidationError
 from tlc.schemas import StringSchema
 
 
@@ -55,16 +55,27 @@ class WavAudioSampleType(ExternalSampleType):
         data: np.ndarray = sf.read(io.BytesIO(url.read_bytes()), dtype="float32")[0]
         return data
 
-    def validate_sample(self, sample: Any) -> list[tlc.ValidationError]:
-        """Check that the sample is a 1D NumPy array."""
+    def validate_sample(self, sample: Any) -> list[ValidationError]:
+        """Check that the sample is a 1D NumPy array, raw bytes, or EncodedSample."""
+        if isinstance(sample, (bytes, EncodedSample)):
+            return []
         if not isinstance(sample, np.ndarray):
-            return [tlc.ValidationError("", f"Expected numpy.ndarray, got {type(sample).__name__}")]
+            return [ValidationError("", f"Expected numpy.ndarray, got {type(sample).__name__}")]
         if sample.ndim != 1:
-            return [tlc.ValidationError("", f"Expected 1D array, got {sample.ndim}D")]
+            return [ValidationError("", f"Expected 1D array, got {sample.ndim}D")]
         return []
 
     def accepts(self, value: Any) -> bool:
-        """Auto-detection: accept 1D NumPy arrays."""
+        """Auto-detection: accept 1D NumPy arrays, raw bytes, or EncodedSample.
+
+        Raw bytes / EncodedSample inputs flow through the
+        :meth:`ExternalSampleType.externalize` pre-encoded-bytes fastpath, which
+        writes them verbatim without a decode/re-encode cycle. This is what the
+        Hugging Face import pipeline relies on when ``datasets.Audio(decode=False)``
+        yields raw WAV bytes from parquet.
+        """
+        if isinstance(value, (bytes, EncodedSample)):
+            return True
         return isinstance(value, np.ndarray) and value.ndim == 1
 
     @classmethod
