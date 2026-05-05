@@ -36,7 +36,7 @@ def _needs_array_schema(instance_type: Literal["bounding_boxes", "segmentations"
     """Check if per-instance data needs array (variable-length) schemas.
 
     New-format BB stores per-instance data as arrays in instances_additional_data,
-    same as segmentations. Only legacy BB (bb_list) stores data as scalars per bbox dict.
+    same as segmentations. Only legacy BB (bb_list) stores data as scalars per bb dict.
     """
     return instance_type == "segmentations" or (instance_type == "bounding_boxes" and not is_legacy_bb)
 
@@ -71,7 +71,7 @@ def create_label_schema(
         label_schema = tlc.schemas.Int32Schema(writable=False)
 
     label_schema.size0 = (
-        tlc._core.schema.DimensionNumericValue(0, 1000) if _needs_array_schema(instance_type, is_legacy_bb) else None
+        tlc.schemas.values.DimensionNumericValue(0, 1000) if _needs_array_schema(instance_type, is_legacy_bb) else None
     )
 
     return label_schema
@@ -706,7 +706,7 @@ def get_instance_count_for_row(
     """Get the number of instances in a row."""
     if instance_type == "bounding_boxes":
         if instance_properties_column == "bb_list":
-            # Legacy format: bb_list is a list of bbox dicts
+            # Legacy format: bb_list is a list of bb dicts
             return len(new_row[instance_column][instance_properties_column])
         else:
             # New format: count from instances list
