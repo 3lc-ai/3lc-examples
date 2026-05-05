@@ -198,7 +198,7 @@ def create_virtual_brats_table(
     }
     for mod in modalities:
         schema[mod] = tlc.schemas.ImageUrlSchema()
-    schema["segmentation"] = tlc.schemas.SegmentationMasksSchema(
+    schema["segmentation"] = tlc.data_types.SegmentationMasks.schema(
         classes=SEG_LABEL_MAP,
     )
     schema["has_tumor"] = tlc.schemas.BoolSchema(writable=False)

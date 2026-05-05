@@ -114,7 +114,7 @@ def check_is_bb_column(
     """Check that a column conforms to 3LC's bounding box format (legacy or new).
 
     Supports both legacy BoundingBoxListSchema (``bb_list`` sub-column) and
-    new BoundingBoxes2DSchema (``instances`` sub-column) formats.
+    the new ``BoundingBoxes2D.schema()`` (``instances`` sub-column) format.
 
     :param input_table: The table to check.
     :param bb_column: The name of the column to check.

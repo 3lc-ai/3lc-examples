@@ -169,14 +169,14 @@ def create_virtual_kitti_table(
     assert kitti_det_root.exists(), f"KITTI root {kitti_det_root} does not exist!"
 
     # Schema: geometry with bulk-data vertices + intensity, inline bounding boxes
-    lidar_schema = tlc.schemas.Geometry3DSchema(
+    lidar_schema = tlc.data_types.Geometry3D.schema(
         per_vertex_schemas={
             "intensity": tlc.schemas.Float32ListSchema(),
         },
         is_bulk_data=True,
     )
 
-    obb_schema = tlc.schemas.OrientedBoundingBoxes3DSchema(
+    obb_schema = tlc.data_types.OrientedBoundingBoxes3D.schema(
         classes=KITTI_DETECTION_VALUE_MAP.keys(),
         per_instance_schemas={
             "occlusion": tlc.schemas.CategoricalLabelListSchema(
