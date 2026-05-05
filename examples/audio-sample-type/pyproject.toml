@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "audio-sample-type"
 version = "0.1.0"
 description = "Example: custom file-backed sample type for WAV audio in 3LC"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = ["3lc", "soundfile", "numpy"]
 
