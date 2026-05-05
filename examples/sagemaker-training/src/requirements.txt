@@ -1,6 +1,12 @@
 # Installed inside the training container before train.py runs.
 # The base PyTorch DLC already has torch/torchvision.
+
+# 3LC + framework. The only line that's both 3LC-aware AND task-specific:
+# `3lc-ultralytics` is a 3LC-aware fork of the YOLO library. Swap it
+# for whatever your training code needs (e.g. `transformers`, `timm`,
+# `tlc[pytorch]`).
 3lc-ultralytics
-# Uncomment for Apple Silicon local mode: default polars uses AVX/AVX2
-# which Rosetta doesn't emulate, causing SIGILL. Not needed on real x86.
+
+# Apple Silicon local mode only: default polars uses AVX/AVX2 which
+# Rosetta doesn't emulate, causing SIGILL. Not needed on real x86.
 # polars[rtcompat]

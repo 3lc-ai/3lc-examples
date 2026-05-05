@@ -9,17 +9,19 @@ aws:
   # profile: my-profile
 
 s3:
-  # Where the COCO dataset lives. Expected layout under inputs_prefix:
-  #   annotations/instances_train.json
-  #   annotations/instances_val.json
-  #   images/train/...
-  #   images/val/...
+  # Where the dataset lives. Default layout (Mode A — fresh tables built
+  # from raw data each run) is COCO-style under inputs_prefix:
+  #   train/train-annotations.json + image files
+  #   val/val-annotations.json   + image files
+  # Mode B (existing tables) doesn't read raw data here, but the channels
+  # are still mounted; point at any non-empty S3 prefix.
   inputs_bucket: my-input-bucket
-  inputs_prefix: datasets/coco-sample
+  inputs_prefix: datasets/balloons
 
-  # Where model artifacts and run metrics go. May be the same bucket as inputs.
-  # Model artifacts land at:   s3://<outputs_bucket>/<outputs_prefix>/models/<job>/output/model.tar.gz
-  # Run metrics land at:       s3://<outputs_bucket>/<outputs_prefix>/runs/<job>/metrics.json
+  # Where model artifacts and 3LC artifacts go. May be the same bucket as inputs.
+  # Model artifacts:   s3://<outputs_bucket>/<outputs_prefix>/models/<job>/output/model.tar.gz
+  # 3LC tables/runs:   under whatever you set as indexing.project_root_url
+  #                    in config.3lc.yaml (typically s3://<outputs_bucket>/<outputs_prefix>).
   outputs_bucket: my-output-bucket
   outputs_prefix: sagemaker
 
@@ -31,13 +33,19 @@ training:
   framework_version: "2.3"
   py_version: py311
   max_run_seconds: 3600
-  job_base_name: coco-detection
+  job_base_name: balloons-detection
 
 # Passed to train.py as CLI flags. Key names must match argparse flags
 # in src/train.py (SageMaker passes them as --<key> <value>).
 # Hyperparameters show up in the SageMaker console, get searched/filtered,
 # and are the right home for training knobs (including project name).
 hyperparameters:
+  # Module under src/tasks/ to dispatch into. Each task module exposes
+  # build_tables(args) and train(args, tables). Pre-seeded:
+  #   balloons_yolo  — Mode A native (build tables in-job from raw data)
+  #   pyronear_yolo  — Mode B native (load tables seeded out-of-job)
+  # See README §"Adding a task" to plug in your own.
+  task: balloons_yolo
   epochs: 1
   batch_size: 4
   project: my-project
@@ -46,6 +54,11 @@ hyperparameters:
   # If true, train.py follows each 3LC table to its latest revision before
   # training (i.e. picks up edits/fixes made in the 3LC UI).
   use_latest: false
+  # Mode B: load existing tables instead of building from raw data.
+  # Set both to enable; train.py skips task.build_tables() entirely.
+  # See README §"Three table-creation strategies".
+  train_table_url: ""
+  val_table_url: ""
 
 # Forwarded into the training container as environment variables.
 # Reserve this for secrets — hyperparameters are better for everything

@@ -1,57 +1,97 @@
 # 3LC on SageMaker — Remote Training Template
 
 A working reference for running [3LC](https://3lc.ai)–instrumented training
-jobs on SageMaker with every 3LC artifact (tables, runs, URL aliases) living
-in S3. Fork it, swap the balloons-detection bits for your model + dataset,
-and you have a production-shaped remote training pipeline.
+jobs on SageMaker with every 3LC artifact (tables, runs, URL aliases)
+living on S3. Fork it, swap the table-creation and training bits for
+your model + dataset, and you have a production-shaped remote training
+pipeline.
 
-## Why this template exists
+> **The point of this template is not SageMaker.** It's understanding
+> how 3LC behaves when *data lives in one place, training runs in another,
+> and viewing happens in a third*. SageMaker is a convenient stand-in
+> for that topology. The three concepts that matter — **aliases**,
+> **`project_root_url`**, and **shipping the 3LC config to the
+> trainer** — apply to any setup with the same shape (Vertex AI,
+> Kubernetes jobs, an HPC cluster, your colleague's GPU box).
 
-Running 3LC locally is easy. Running 3LC **remotely**, with data in S3 and
-tables/runs that must outlive the container, is subtly hard. The config is
-small but several independent things each have to be right:
+## What's actually 3LC-specific?
 
-1. **The 3LC config file must reach the container.** `TLC_CONFIG_FILE` has
-   to point at its **in-container** path, not the path on your laptop.
-2. **URL aliases have two different jobs, done in two different places.**
-   *Static* aliases in `config.3lc.yaml` mask the SageMaker mount points
-   (`/opt/ml/input/data`, `/opt/ml/model`) so those ephemeral paths never
-   get embedded in serialized tables. *Project-persisted* aliases
-   (`tlc.register_project_url_alias` from `train.py`) give those tokens a
-   default resolution target on S3, so future readers (the 3LC UI, the
-   Object Service, downstream jobs) can actually open the tables later.
-   Getting one without the other leaves you with unresolvable tokens or
-   container paths leaking into your artifacts.
-3. **3LC tables and runs must materialize on S3,** not in the container's
-   ephemeral filesystem. That's driven by 3LC's `indexing.project_root_url`
-   (in `config.3lc.yaml`), not by any SageMaker setting. Aliases are a
-   *separate* concern — they govern how paths are *referred to*, not where
-   objects are created.
+Surprisingly little. Every 3LC-specific line in this template is one of:
 
-Each of these is one wrong line away from a confusing failure. This
-template encodes the right answer for each, at the right spot in the code.
+| Where                          | What                                                        |
+|--------------------------------|-------------------------------------------------------------|
+| `config.3lc.yaml`              | The whole file (aliases, `project_root_url`)                |
+| `launch.py`, lines 104–111     | Ship `config.3lc.yaml` into the container, set `TLC_CONFIG_FILE` |
+| `launch.py`, `TRAIN_S3_URI` / `VAL_S3_URI` env vars | Forward S3 source URIs so `train.py` can register aliases |
+| `src/train.py`                 | One `import tlc`, one `setup_project_aliases()` call — fenced with `# 3LC` |
+| `src/tasks/<name>/task.py`     | `tlc.Table.from_*` for table creation; pick a 3LC-aware trainer (e.g. `tlc_ultralytics`) |
+| `src/requirements.txt`         | The 3LC-aware framework (`3lc-ultralytics` here)            |
+
+Everything else (channels, role, output paths, hyperparameters, the
+training loop scaffolding) is plain SageMaker. The dispatcher in
+`train.py` is framework-agnostic — strip 3LC and you'd still have a
+working SageMaker task-dispatcher template.
+
+## The three concepts
+
+1. **`indexing.project_root_url` decides *where* tables and runs are
+   created.** Set it to `s3://...` and your artifacts outlive the
+   container. This is in `config.3lc.yaml`.
+
+2. **Static aliases (in `config.3lc.yaml`) decide *what gets embedded*
+   when serializing tables.** They're path-prefix tokens that mask
+   ephemeral container paths (`/opt/ml/input/data`, `/opt/ml/model`)
+   so those don't leak into stored artifacts.
+
+3. **Project-persisted aliases (`tlc.register_project_url_alias`)
+   decide *how those tokens resolve later*.** They give future readers
+   (the 3LC UI, downstream jobs, the Object Service) a default target
+   for whichever tokens your tables embedded.
+
+(2) and (3) operate on the same alias names but in opposite directions
+(serialize vs resolve), which is why they're easy to confuse. Getting
+one without the other leaves you with unresolvable tokens or container
+paths leaking into artifacts.
+
+The "shipping" detail: `TLC_CONFIG_FILE` must point at the
+**in-container** path of `config.3lc.yaml`, not the path on your
+laptop. `launch.py` adds the file to `dependencies` and sets the env
+var to `/opt/ml/code/config.3lc.yaml`.
 
 ---
 
 ## Project layout
 
 ```
-launch.py                   # run on your laptop — orchestrates the job
-config.example.yaml         # template → copy to config.yaml (gitignored)
-config.3lc.example.yaml     # template → copy to config.3lc.yaml (gitignored)
-pyproject.toml              # laptop deps (managed by uv)
+launch.py                              # laptop — orchestrates the job
+config.example.yaml                    # template → copy to config.yaml (gitignored)
+config.3lc.example.yaml                # template → copy to config.3lc.yaml (gitignored)  ★ 3LC
+pyproject.toml                         # laptop deps (managed by uv)
 src/
-├── train.py                # runs inside the training container
-└── requirements.txt        # container deps installed before train.py starts
+├── train.py                           # container entry point — dispatcher (~10 lines of 3LC)
+├── requirements.txt                   # container deps installed before train.py starts
+└── tasks/                             # one folder per task — what you swap when forking
+    ├── balloons_yolo/                 # Mode A native (build tables in-job from raw COCO)
+    │   ├── __init__.py                #   re-exports build_tables, train
+    │   └── task.py                    #   build_tables() + train()
+    └── pyronear_yolo/                 # Mode B native (load tables seeded out-of-job)
+        ├── __init__.py                #   re-exports build_tables, train
+        ├── task.py                    #   build_tables() + train()
+        └── create_tables.py           #   laptop-only: seeds tables for this task
 ```
 
-Two mental models:
+Mental model:
 
 - **`launch.py`** runs on your laptop. Loads `config.yaml`, builds a
   `sagemaker.pytorch.PyTorch` estimator, calls `.fit()`.
-- **`src/train.py`** runs inside the SageMaker container. Reads
-  hyperparameters from CLI, channel paths from `SM_CHANNEL_*`, creates 3LC
-  tables with URL aliases, trains, saves to `SM_MODEL_DIR`.
+- **`src/train.py`** runs inside the SageMaker container. It's a thin
+  dispatcher: SageMaker plumbing + 3LC integration + `import_module`
+  of the task picked by the `task` hyperparameter.
+- **`src/tasks/<name>/`** is the per-task package. Its `__init__.py`
+  re-exports `build_tables(args)` and `train(args, tables)` from
+  `task.py`. This is the only place that's task-specific.
+- **`src/tasks/<name>/create_tables.py`** (optional) seeds 3LC tables
+  out-of-job for Mode B tasks. Runs on the laptop, not in the container.
 
 ### Training-time flow
 
@@ -149,7 +189,7 @@ users: see the note at the bottom + uncomment `polars[rtcompat]` in
 ## 2. Configure
 
 ```bash
-cp config.example.yaml   config.yaml
+cp config.example.yaml     config.yaml
 cp config.3lc.example.yaml config.3lc.yaml
 ```
 
@@ -160,17 +200,70 @@ Fill in `config.yaml`:
   can be the same bucket as inputs)
 - `hyperparameters.project` — your 3LC project name
 
-Fill in `config.3lc.yaml` with 3LC settings. For tables and runs to land
-on S3, set `indexing.project_root_url` to `s3://<outputs_bucket>/<outputs_prefix>`.
-See the file itself for the distinction between that and `aliases:`.
+Fill in `config.3lc.yaml`:
+- `indexing.project_root_url: s3://<outputs_bucket>/<outputs_prefix>`
+  so tables and runs land on S3.
+- `aliases:` — see §"The three concepts" above and the file itself.
 
 Both files are gitignored.
 
 ---
 
-## 3. Dataset layout
+## 3. Tasks and table-creation strategies
 
-The template expects a COCO-style dataset under
+### Tasks
+
+A **task** is a Python package under `src/tasks/<name>/` that exposes:
+
+```python
+def build_tables(args) -> tuple[tlc.Table, tlc.Table]: ...
+def train(args, train_table, val_table) -> None: ...
+```
+
+Convention: implement these in `task.py` and re-export them from
+`__init__.py` with `from .task import build_tables, train`.
+
+Pick which task runs by setting the `task` hyperparameter in
+`config.yaml`. `train.py` is a tiny dispatcher — it imports
+`tasks.<name>` and calls those two functions. Switching tasks is a
+config change, not a code change.
+
+Pre-seeded tasks:
+
+| Task            | Native mode | Notes                                              |
+|-----------------|-------------|----------------------------------------------------|
+| `balloons_yolo` | A           | YOLO on a COCO-style dataset mounted from S3       |
+| `pyronear_yolo` | B           | YOLO on the pyronear/pyro-sdis HuggingFace dataset |
+
+### Table-creation strategies (modes)
+
+Independent of which task you pick, tables can come from three places:
+
+| Mode | Tables created…                       | Configure with                                              | When to use |
+|------|---------------------------------------|-------------------------------------------------------------|-------------|
+| **A** | by the training job, every run       | (default — leave `train_table_url` / `val_table_url` empty) | Stable datasets in S3, simple COCO/folder-style layouts |
+| **B** | once, outside the training job        | Set `train_table_url` / `val_table_url` in `config.yaml`    | Iterating on labels in the 3LC UI between runs; data not in S3 (HuggingFace, etc.) |
+| **C** | by an upstream pipeline you don't own | Set `train_table_url` / `val_table_url` to whatever URLs they give you | Data team owns the tables; your job just trains |
+
+In Modes B/C, `train.py` skips `task.build_tables()` and calls
+`tlc.Table.from_url(...)` instead. A task can be Mode-A-native (its
+`build_tables()` does the work — `balloons_yolo` is the example here),
+or Mode-B-native (its `build_tables()` raises and you're expected to
+seed tables out-of-job — `pyronear_yolo` is the example).
+
+For Mode B, by convention the seeding script lives inside the task
+package as `src/tasks/<task>/create_tables.py`. It runs on the laptop:
+
+```bash
+uv run python src/tasks/pyronear_yolo/create_tables.py
+```
+
+It prints the table URLs at the end — copy them into `config.yaml`
+under `train_table_url` / `val_table_url`, then `uv run launch.py`.
+
+### Dataset layout (Mode A only)
+
+The default `balloons_yolo` task expects COCO-style under
 `s3://<inputs_bucket>/<inputs_prefix>/`:
 
 ```
@@ -184,13 +277,13 @@ val/
 
 `launch.py` mounts `.../train/` and `.../val/` as **separate** SageMaker
 channels, visible inside the container as `/opt/ml/input/data/train` and
-`/opt/ml/input/data/val`. Each mount's original S3 URI is forwarded as
-`TRAIN_S3_URI` / `VAL_S3_URI` — `train.py` reads these to persist
-project-level URL aliases (the default resolution target for future
-readers, see §6).
+`/opt/ml/input/data/val`. Customize the layout by editing the task's
+`build_tables()` and (if mount points change) `channel_s3_uris()` in
+`launch.py`.
 
-Customize the layout by editing `create_tables()` in `src/train.py` and
-`channel_s3_uris()` in `launch.py`.
+In Mode B/C the channels are still mounted (SageMaker requires at
+least one channel) but `build_tables()` is never called — you can
+point them at any non-empty S3 prefix.
 
 ---
 
@@ -225,15 +318,15 @@ After a successful run:
 |-------------------------------------|------------------------------------------------------------------------------|
 | Source code tar                     | `s3://<out>/<prefix>/code/<job>/source/sourcedir.tar.gz`                     |
 | Model artifact (`SM_MODEL_DIR`)     | `s3://<out>/<prefix>/models/<job>/output/model.tar.gz`                       |
-| 3LC tables                          | `s3://<out>/projects/<project>/datasets/<dataset>/tables/...`                |
-| 3LC runs                            | `s3://<out>/projects/<project>/runs/...`                                     |
+| 3LC tables                          | `<project_root_url>/projects/<project>/datasets/<dataset>/tables/...`        |
+| 3LC runs                            | `<project_root_url>/projects/<project>/runs/...`                             |
 
-Exact 3LC paths depend on `indexing.project_root_url` in your
-`config.3lc.yaml`; the paths above assume it's set to `s3://<out>/projects`.
+The 3LC paths are driven by `indexing.project_root_url` in
+`config.3lc.yaml`, *not* by SageMaker's `output_path`.
 
-Which alias tokens end up in the serialized tables is driven by the
-static aliases in `config.3lc.yaml` (e.g. `SM_INPUT: /opt/ml/input/data`).
-The runtime `register_project_url_alias` calls in `create_tables` do
+Which alias tokens end up *inside* the serialized tables is driven by
+the static aliases in `config.3lc.yaml`. The runtime
+`register_project_url_alias` calls in `setup_project_aliases()` do
 something different — see the next section.
 
 ---
@@ -248,8 +341,8 @@ tokens inside the tables and serves data to the 3LC UI.
 Alias resolution order:
 
 1. Alias overrides configured on the object service itself (highest)
-2. Aliases persisted into the project on S3 (what `register_project_url_alias`
-   writes from `create_tables`)
+2. Aliases persisted into the project on S3 (what `setup_project_aliases`
+   writes)
 
 ```mermaid
 flowchart LR
@@ -272,7 +365,7 @@ flowchart LR
     IMG -->|resolved via<br/>persisted alias default| SVC
 ```
 
-Out of the box, #2 takes effect: the tokens we persisted at training time
+Out of the box, #2 takes effect: the tokens persisted at training time
 (`SM_TRAIN_INPUT_DATA`, `SM_VAL_INPUT_DATA`) resolve to their original
 S3 URIs, so images load straight from S3. No extra config needed.
 
@@ -292,28 +385,101 @@ Now paths resolve to the local copy instead of round-tripping to S3.
 The persisted S3 default still applies for anyone else viewing the
 project through a different service.
 
-This is what the `register_project_url_alias` work in `create_tables`
-buys you: a sensible S3 default for everyone, overridable per-service
-when there's a reason.
+This is what `setup_project_aliases()` buys you: a sensible S3 default
+for everyone, overridable per-service when there's a reason.
 
 ---
 
-## 7. Cloning this as a starter for another project
+## 7. Adding a task
 
-Grep for `CUSTOMIZE:` — every spot you actually need to touch is marked.
+The two places that change project-to-project are **table creation**
+and **training**. Both live in `src/tasks/<name>/task.py`. Adding a
+task is creating two files:
 
-At minimum:
-1. `config.yaml` — bucket names, role ARN, region, `hyperparameters.project`
-2. `src/train.py:create_tables()` — `dataset_name`, annotations filenames,
-   any task-specific table setup
-3. `src/train.py:main()` — the YOLO block → your model + framework call
-4. `src/requirements.txt` — container deps for the new training code
-5. `config.3lc.yaml` — 3LC aliases/overrides
+```python
+# src/tasks/my_task/__init__.py
+from .task import build_tables, train
+```
+
+```python
+# src/tasks/my_task/task.py
+import tlc
+import my_framework  # or tlc-aware variant
+
+def build_tables(args):
+    # Mode A: build from raw data mounted at args.train / args.val.
+    # Mode-B-only? raise NotImplementedError("see create_tables.py").
+    return train_table, val_table
+
+def train(args, train_table, val_table):
+    ...  # your training loop; respect args.epochs, args.device, args.model_dir
+```
+
+Then in `config.yaml`:
+
+```yaml
+hyperparameters:
+  task: my_task
+```
+
+For Mode B tasks, add a sibling `src/tasks/my_task/create_tables.py`
+that runs on the laptop, writes the tables, and prints their URLs.
+See `src/tasks/pyronear_yolo/create_tables.py` for the pattern.
+
+Tasks can grow more files as needed (custom dataset classes,
+label-mapping helpers, schema files) — they all live alongside
+`task.py` in the same package.
+
+Other things you'll usually touch:
+
+1. `config.yaml` — bucket names, role ARN, region, `hyperparameters.project`.
+2. `src/requirements.txt` — container deps for the new training code.
+3. `config.3lc.yaml` — adjust aliases if your dataset uses different
+   path conventions than the SageMaker mount points.
 
 Things you should **not** need to touch:
+
 - SageMaker plumbing in `launch.py` (channels, env vars, code/output paths)
 - The `TLC_CONFIG_FILE` wiring
-- The URL alias pattern (`register_project_url_alias` calls)
+- `train.py` itself — the dispatcher, the 3LC integration, and the
+  Mode-A-vs-Mode-B branching all stay
+- `setup_project_aliases()` — the alias-name choices and the
+  `register_project_url_alias` pattern travel with the template
+
+### Task module dependencies
+
+Importing a task imports its dependencies. If two tasks need
+incompatible deps, either keep them in separate forks of the
+template, or guard imports inside the functions (so only the
+selected task's dependencies are pulled in at module import time).
+
+---
+
+## 3LC config
+
+`config.3lc.yaml` has two blocks worth knowing:
+
+```yaml
+indexing:
+  project_root_url: s3://<outputs_bucket>/<outputs_prefix>
+
+aliases:
+  SM_INPUT: /opt/ml/input/data
+  SM_MODEL: /opt/ml/model
+```
+
+- **`indexing.project_root_url`** — destination for new tables and runs.
+- **`aliases`** — path-prefix substitutions applied when serializing
+  paths in *this* job. Don't decide *where* anything is written;
+  give paths a portable name.
+
+Static aliases here live only in whichever process reads this file —
+they mask paths locally but don't travel with the project. To make an
+alias *persist into the project itself* (visible from the 3LC UI and
+future jobs), call `tlc.register_project_url_alias(...)` at runtime —
+that's `setup_project_aliases()` in `src/train.py`.
+
+Full reference: <https://docs.3lc.ai/latest/configuration/>
 
 ---
 
@@ -322,13 +488,16 @@ Things you should **not** need to touch:
 Defined in `config.yaml` under `hyperparameters:`, arrive in `train.py` as
 CLI args. Visible in the SageMaker console's job metadata.
 
-| Key           | Type | Purpose                                                                 |
-|---------------|------|-------------------------------------------------------------------------|
-| `epochs`      | int  | YOLO epochs                                                             |
-| `batch_size`  | int  | YOLO batch size                                                         |
-| `project`     | str  | 3LC project name                                                        |
-| `device`      | str  | `cpu` for local, `"0"` or `"cuda"` for GPU instances                    |
-| `use_latest`  | bool | Follow each 3LC table to its latest revision before training            |
+| Key                 | Type | Purpose                                                                 |
+|---------------------|------|-------------------------------------------------------------------------|
+| `task`              | str  | Module under `src/tasks/` to dispatch into                              |
+| `epochs`            | int  | Training epochs (consumed by the task's `train()`)                       |
+| `batch_size`        | int  | Batch size (consumed by the task's `train()`)                            |
+| `project`           | str  | 3LC project name                                                        |
+| `device`            | str  | `cpu` for local, `"0"` or `"cuda"` for GPU instances                    |
+| `use_latest`        | bool | Follow each 3LC table to its latest revision before training            |
+| `train_table_url`   | str  | Mode B/C: load existing train table by URL (skip `task.build_tables`)   |
+| `val_table_url`     | str  | Mode B/C: load existing val table by URL (skip `task.build_tables`)     |
 
 For bool hyperparameters: SageMaker serializes all hyperparameters as
 strings, so use a string→bool coercer in argparse (`--use_latest` shows
