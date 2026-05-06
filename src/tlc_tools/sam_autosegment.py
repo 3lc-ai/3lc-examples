@@ -99,7 +99,7 @@ def bbs_to_segments(
             "segments": segmentations,
         },
         schemas={
-            "segments": tlc.schemas.SegmentationMasksSchema(
+            "segments": tlc.data_types.SegmentationMasks.schema(
                 classes=value_map,
                 per_instance_schemas={
                     "score": tlc.schemas.ConfidenceSchema(writable=False),
