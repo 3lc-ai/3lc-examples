@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from typing import Callable
 
 import tlc
@@ -14,26 +13,6 @@ from tlc_tools import add_columns_to_table
 from tlc_tools.common import infer_torch_device
 
 
-@contextmanager
-def temporary_table_map(table: tlc.Table, map_fn: Callable | None = None):
-    """
-    Context manager for temporarily mapping a table. The table will be unmapped
-    when exiting the context, regardless of whether an exception occurred.
-
-    :param table: The table to temporarily map
-    :param map_fn: Optional mapping function to apply
-    """
-    if map_fn is None:
-        yield table
-        return
-
-    try:
-        table.map(map_fn)
-        yield table
-    finally:
-        table._map_functions.pop()
-
-
 def add_embeddings_to_table(
     table: tlc.Table,
     model: torch.nn.Module | None = None,
@@ -42,6 +21,7 @@ def add_embeddings_to_table(
     batch_size: int = 4,
     device: str | torch.device | None = None,
     preprocess_fn: Callable | None = None,
+    image_column: str = "image",
 ) -> tlc.Table:
     """
     Adds embeddings to a table using a specified model and optional
@@ -56,44 +36,60 @@ def add_embeddings_to_table(
     :param embedding_column: Column name to add embeddings to in the table.
     :param batch_size: Batch size for processing images.
     :param device: Device to use for inference.
-    :param preprocess_fn: Preprocessing function for images. If model is None,
-        this argument is ignored and the function defaults to a standard ViT
-        preprocessing pipeline.
+    :param preprocess_fn: Preprocessing function applied to each sample before
+        being passed to the model. If model is None, this argument is ignored
+        and the function defaults to extracting ``image_column`` from the
+        sample dict and applying a standard ViT preprocessing pipeline.
+    :param image_column: Name of the column from which to read images when
+        using the default preprocessing pipeline. If not present in the
+        sample, falls back to the first available "image"/"Image" key.
 
     :returns: Table with an added column containing embeddings.
     """
-    device = device or infer_torch_device()
+    device = torch.device(device or infer_torch_device())
 
     # Load default model if none provided
     if model is None:
         model_name = "google/vit-base-patch16-224"
-        model = ViTModel.from_pretrained(model_name).to(device)
+        model = ViTModel.from_pretrained(model_name).to(device)  # type: ignore[arg-type]
         image_processor = ViTImageProcessor.from_pretrained(model_name)
-        preprocess_fn = transforms.Compose(
+        image_transform = transforms.Compose(
             [
                 transforms.Resize((224, 224)),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=image_processor.image_mean, std=image_processor.image_std),
             ]
         )
+
+        def preprocess_fn(sample):
+            if image_column in sample:
+                image = sample[image_column]
+            elif "image" in sample:
+                image = sample["image"]
+            elif "Image" in sample:
+                image = sample["Image"]
+            else:
+                msg = f"Sample has no '{image_column}', 'image', or 'Image' key: {list(sample)}"
+                raise KeyError(msg)
+            return image_transform(image)
+
         embedding_extraction_fn = lambda output: output.last_hidden_state[:, 0, :].cpu().numpy()  # noqa: E731
 
     if embedding_extraction_fn is None:
         embedding_extraction_fn = lambda output: output.cpu().numpy() if isinstance(output, torch.Tensor) else output  # noqa: E731
 
-    # Map the table to ensure samples are compatible with the model
-    with temporary_table_map(table, preprocess_fn):
-        # Set up DataLoader
-        dataloader = torch.utils.data.DataLoader(table, batch_size=batch_size, shuffle=False)
+    # Build a non-mutating view that applies the preprocessing on read
+    view = table.with_transform(preprocess_fn) if preprocess_fn is not None else table
 
-        # Run inference and extract embeddings
-        all_embeddings = []
-        for batch in tqdm.tqdm(dataloader, total=len(dataloader), desc="Extracting embeddings"):
-            with torch.no_grad():
-                outputs = model(batch.to(device))
-                embeddings = embedding_extraction_fn(outputs)
+    dataloader = torch.utils.data.DataLoader(view, batch_size=batch_size, shuffle=False)
 
-            all_embeddings.extend(embeddings.tolist())
+    all_embeddings = []
+    for batch in tqdm.tqdm(dataloader, total=len(dataloader), desc="Extracting embeddings"):
+        with torch.no_grad():
+            outputs = model(batch.to(device))
+            embeddings = embedding_extraction_fn(outputs)
+
+        all_embeddings.extend(embeddings.tolist())
 
     # We assign a special number role to the embedding column so that it will be
     # automatically selected for dimensionality reduction, and will not be sent
