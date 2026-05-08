@@ -6,6 +6,7 @@ import tlc
 import torch
 import torch.utils.data
 import tqdm
+from PIL import Image
 from torchvision import transforms
 from transformers import ViTImageProcessor, ViTModel
 
@@ -71,6 +72,10 @@ def add_embeddings_to_table(
             else:
                 msg = f"Sample has no '{image_column}', 'image', or 'Image' key: {list(sample)}"
                 raise KeyError(msg)
+
+            if isinstance(image, str):
+                image = Image.open(image).convert("RGB")
+
             return image_transform(image)
 
         embedding_extraction_fn = lambda output: output.last_hidden_state[:, 0, :].cpu().numpy()  # noqa: E731
