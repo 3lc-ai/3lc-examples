@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "tlc-ndjson-exporter"
 version = "0.1.0"
 description = "Toy example: 3LC exporter plugin that writes tables as newline-delimited JSON"
-license = "MIT"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = ["3lc"]
 

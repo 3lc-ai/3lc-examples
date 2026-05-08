@@ -12,7 +12,7 @@ import numpy as np
 import tlc
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle as sk_shuffle
-from tlc._core.objects.tables.from_table.edited_table import EditedTable
+from tlc._core.objects.tables.from_table import EditedTable
 
 
 class _SplitStrategy(abc.ABC):

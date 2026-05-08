@@ -74,12 +74,12 @@ pedestrian_age_classes = {
 
 
 def get_lidar_schema() -> tlc.Schema:
-    schema = tlc.schemas.Geometry3DSchema(
+    schema = tlc.data_types.Geometry3D.schema(
         is_bulk_data=True,
         per_vertex_schemas={
-            "intensity": tlc.schemas.Float32ListSchema(),
-            "distance": tlc.schemas.Float32ListSchema(),
-            "semseg": tlc.schemas.CategoricalLabelListSchema(SEMSEG_CLASSES),
+            "intensity": tlc.schemas.Float32Schema(),
+            "distance": tlc.schemas.Float32Schema(),
+            "semseg": tlc.schemas.CategoricalLabelSchema(classes=SEMSEG_CLASSES),
         },
     )
 
@@ -87,7 +87,7 @@ def get_lidar_schema() -> tlc.Schema:
 
 
 def get_bb_schema() -> tlc.Schema:
-    schema = tlc.schemas.OrientedBoundingBoxes3DSchema(
+    schema = tlc.data_types.OrientedBoundingBoxes3D.schema(
         classes=CUBOID_CLASSES.keys(),
         # Cuboid attributes are not included for now, can be added if needed
         # per_instance_schemas={
@@ -139,11 +139,11 @@ def load_car(data_path: str) -> tuple[dict, tlc.Schema]:
     )
     car_geometry = tlc.helpers.GeometryHelper.load_obj_geometry(car_obj_path, scale, transform, PANDASET_BOUNDS)
 
-    car_schema = tlc.schemas.Geometry3DSchema(
+    car_schema = tlc.data_types.Geometry3D.schema(
         per_triangle_schemas={
-            "red": tlc.schemas.Float32ListSchema(),
-            "green": tlc.schemas.Float32ListSchema(),
-            "blue": tlc.schemas.Float32ListSchema(),
+            "red": tlc.schemas.Float32Schema(),
+            "green": tlc.schemas.Float32Schema(),
+            "blue": tlc.schemas.Float32Schema(),
         },
         is_bulk_data=True,
     )
