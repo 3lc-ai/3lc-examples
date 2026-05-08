@@ -48,7 +48,7 @@ def create_embedding_schema(
 ) -> tlc.Schema:
     """Create embedding schema appropriate for instance type."""
     return tlc.schemas.EmbeddingSchema(
-        shape=(num_components, -1),
+        shape=(-1, num_components),
         sample_type="hidden",
     )
 
