@@ -24,13 +24,16 @@ from __future__ import annotations
 
 import datasets
 import tlc
-
+import os
+from tqdm import tqdm
+os.environ["AWS_PROFILE"] = "dev"
 # CUSTOMIZE: project/dataset names and where bulk image data lives.
 # BULK_DATA_ROOT can be local (laptop iteration) or s3:// (so a
 # SageMaker training job can read the same tables).
 PROJECT_NAME = "hf-pyronear"
 DATASET_NAME = "pyro-sdis"
-BULK_DATA_ROOT = "/Users/gudbrand/Data/pyro-sdis"  # or "s3://my-bucket/pyronear"
+PROJECT_ROOT_URL = "s3://3lc-projects"
+BULK_DATA_ROOT = "s3://3lc-projects/data/pyronear"
 ALIAS_NAME = "PYRONEAR"
 
 
@@ -46,20 +49,40 @@ def anns_to_3lc_bbs(anns: str, image_w: int, image_h: int) -> tlc.data_types.Bou
     return tlc.data_types.BoundingBoxes2D(
         image_width=image_w,
         image_height=image_h,
-        bboxes=boxes,
+        bounding_boxes=boxes,
         labels=labels,
-        bbox_format="cxywh",
+        bounding_box_format="cxywh",
         normalized=True,
     )
 
+def get_camera_and_partner_maps(ds_dict: datasets.DatasetDict) -> tuple[dict[str, int], dict[str, int]]:
+    cameras = set()
+    partners = set()
+
+    for split in ds_dict.values():
+        cameras.update(split.unique("camera"))
+        partners.update(split.unique("partner"))
+
+    camera_map = {v: i for i, v in enumerate(sorted(cameras))}
+    partner_map = {v: i for i, v in enumerate(sorted(partners))}
+
+    return camera_map, partner_map
 
 def main() -> None:
     # Persist the alias *into the project* so future readers (the 3LC UI,
     # the SageMaker training job, downstream consumers) can resolve the
     # `<PYRONEAR>` tokens that end up in serialized tables.
-    tlc.register_project_url_alias(ALIAS_NAME, BULK_DATA_ROOT, project=PROJECT_NAME, force=False)
+    tlc.helpers.ProjectHelper.register_project_url_alias(
+        ALIAS_NAME,
+        BULK_DATA_ROOT,
+        project_name=PROJECT_NAME,
+        root_url=PROJECT_ROOT_URL,
+        force=False,
+    )
 
     ds_dict = datasets.load_dataset("pyronear/pyro-sdis")
+    camera_map, partner_map = get_camera_and_partner_maps(ds_dict)
+
     for split in ["train", "val"]:
         bulk_data_location = f"{BULK_DATA_ROOT}/{split}"
         writer = tlc.TableWriter(
@@ -71,16 +94,23 @@ def main() -> None:
                 "image": tlc.schemas.ImageSchema(format="jpeg", bulk_data_location=bulk_data_location),
                 "bbs": tlc.schemas.BoundingBoxes2DSchema(["fire"]),
                 "weight": tlc.schemas.SampleWeightSchema(),
+                "date": tlc.schemas.DatetimeStringSchema(),
+                "camera": tlc.schemas.CategoricalLabelSchema(classes=list(camera_map.keys())),
+                "partner": tlc.schemas.CategoricalLabelSchema(classes=list(partner_map.keys())),
             },
+            root_url=PROJECT_ROOT_URL,
         )
         ds = ds_dict[split]
-        for i in range(len(ds)):
+
+        for i in tqdm(range(len(ds)), desc=f"Writing {split} table"):
             row = ds[i]
+            camera = camera_map[row["camera"]]
+            partner = partner_map[row["partner"]]
             image = row["image"]
             bbs = anns_to_3lc_bbs(row["annotations"], image.width, image.height)
-            writer.add_row({"image": image, "bbs": bbs})
+            writer.add_row({"image": image, "bbs": bbs, "date": row["date"], "camera": camera, "partner": partner})
         table = writer.finalize()
-        print(f"{split}: {len(table.table_rows)} rows -> {table.url}")
+        print(f"{split}: {len(table)} rows -> {table.url}")
 
 
 if __name__ == "__main__":
