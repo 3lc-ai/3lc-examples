@@ -7,12 +7,14 @@ from tlc_tools.common import check_is_segmentation_column
 def masks_to_polygons(
     table: tlc.Table,
     segmentation_column: str = "segmentations",
+    relative: bool = True,
     output_table_name: str = "polygons",
 ) -> tlc.Table:
     """Convert a table of instance segmentation masks to a table of instance segmentation polygons.
 
     :param table: The table to convert.
     :param segmentation_column: The name of the column containing the segmentation masks.
+    :param relative: Whether the polygons are relative to the image size.
     :param output_table_name: The name of the output table.
     :return: A table of instance segmentation polygons.
     """
@@ -23,7 +25,7 @@ def masks_to_polygons(
         override_table_rows_schema={
             "values": {
                 segmentation_column: {
-                    "sample_type": "segmentation_polygons",
+                    "sample_type": {"name": "segmentation_polygons", "relative": relative},
                 },
             },
         },
