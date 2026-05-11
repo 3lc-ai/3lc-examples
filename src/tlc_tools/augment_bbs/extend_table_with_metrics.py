@@ -65,7 +65,7 @@ def create_label_schema(
         label_schema = deepcopy(label_schema_template)
         if background_label is not None:
             assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
-            label_schema.value.map[background_label] = tlc.MapElement("background")
+            label_schema.value.map[background_label] = tlc.schemas.MapElement("background")
     else:
         # Label-free mode - create integer schema for predicted labels
         label_schema = tlc.schemas.Int32Schema(writable=False)
