@@ -8,12 +8,13 @@ at a time (jq, DuckDB's ``read_ndjson``, BigQuery load jobs, etc.).
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import Any
 
 import tlc
 
 
-class NdjsonExporter(tlc.RowExporter):
+class NdjsonExporter(tlc.export.RowExporter):
     """Export a 3LC table as newline-delimited JSON.
 
     The exporter is discovered automatically via the ``tlc.exporters`` entry point — no
@@ -31,7 +32,7 @@ class NdjsonExporter(tlc.RowExporter):
     file_extensions = frozenset({".ndjson", ".jsonl"})
     separator = "\n"
 
-    def export_row(self, row: dict[str, Any], ensure_ascii: bool = False, **_: Any) -> str:
+    def export_row(self, row: Mapping[str, object], ensure_ascii: bool = False, **_: Any) -> str:
         """Convert a single row to a single JSON object on one line.
 
         Args:
