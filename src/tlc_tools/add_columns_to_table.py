@@ -47,7 +47,7 @@ def add_columns_to_table(
     schemas = _infer_schemas(columns, schemas)
     _check_columns_and_schemas(columns, schemas)
 
-    input_schemas = table.row_schema.values
+    input_schemas = table.rows_schema.values
     schemas.update(input_schemas)
 
     # Existing columns from table_rows are already in row form; new columns may be in sample form.
