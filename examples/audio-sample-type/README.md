@@ -1,16 +1,19 @@
 # Audio Sample Type Example
 
 Demonstrates how to build a **custom file-backed sample type** for 3LC. The sample type stores audio waveforms as WAV
-files and returns NumPy arrays in sample view.
+files and returns `AudioWaveform` instances (waveform + sample rate, packaged together) in sample view.
 
-This is a teaching example — it shows the same pattern used internally by `ImageSchema` and `NumpyArraySchema`, applied
-to a data type that 3LC doesn't have builtin support for.
+This is a teaching example — it shows the same pattern used internally by `ImageSchema` and the
+`Float32Schema(sample_type="numpy_array")` shorthand, applied to a data type that 3LC doesn't have builtin
+support for.
 
 ## What it demonstrates
 
-1. **Custom sample type** (`WavAudioSampleType`): A `SampleType` subclass with `save()`/`load()` for WAV I/O
-2. **Schema factory** (`WavAudioSampleType.schema()`): Classmethod that returns a configured `StringSchema`
-3. **Round-trip**: Write NumPy arrays → stored as WAV files → read back as NumPy arrays
+1. **Custom sample type** (`WavAudioSampleType`): An `ExternalSampleType` subclass with `save()`/`load()` for WAV I/O
+2. **Sample dataclass** (`AudioWaveform`): A small dataclass that bundles the waveform with its sample rate, so the
+   rate travels with the data instead of being baked into the column's sample-type config
+3. **Schema factory** (`WavAudioSampleType.schema()`): Classmethod that returns a configured `UrlSchema`
+4. **Round-trip**: Write `AudioWaveform` → stored as WAV files → read back as `AudioWaveform`
 
 ## Quick start
 
@@ -34,7 +37,7 @@ audio player.
 ```
 src/audio_sample_type/
 ├── __init__.py           # Package exports
-├── sample_type.py        # WavAudioSampleType — save/load logic + schema() factory
+├── sample_type.py        # AudioWaveform dataclass + WavAudioSampleType (save/load + schema() factory)
 └── create_demo_table.py  # Demo script generating synthetic audio
 ```
 
@@ -42,22 +45,23 @@ src/audio_sample_type/
 
 ```python
 import tlc
-from audio_sample_type import WavAudioSampleType
+from audio_sample_type import AudioWaveform, WavAudioSampleType
 
 writer = tlc.TableWriter(
     project_name="My Audio Project",
     schema={
-        "audio": WavAudioSampleType.schema(sample_rate=22050),
-        "label": tlc.CategoricalLabelSchema(classes=["speech", "music", "noise"]),
+        "audio": WavAudioSampleType.schema(),
+        "label": tlc.schemas.CategoricalLabelSchema(classes=["speech", "music", "noise"]),
     },
 )
 
-for waveform, label in my_audio_data:
-    writer.add_row({"audio": waveform, "label": label})
+for waveform, sample_rate, label in my_audio_data:
+    writer.add_row({"audio": AudioWaveform(waveform=waveform, sample_rate=sample_rate), "label": label})
 
 table = writer.finalize()
 
-# Sample view: audio column returns numpy arrays
+# Sample view: audio column returns AudioWaveform instances
 sample = table[0]
-sample["audio"]  # numpy.ndarray, shape=(num_samples,), dtype=float32
+sample["audio"].waveform      # numpy.ndarray, shape=(num_samples,), dtype=float32
+sample["audio"].sample_rate   # int
 ```

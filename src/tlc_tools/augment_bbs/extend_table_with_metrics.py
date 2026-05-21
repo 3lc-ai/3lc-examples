@@ -84,6 +84,7 @@ def create_confidence_schema(
     return tlc.schemas.ConfidenceSchema(
         shape=(-1,) if _needs_array_schema(instance_type, is_legacy_bb) else None,
         sample_type="hidden",
+        writable=False,
     )
 
 

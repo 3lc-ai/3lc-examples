@@ -115,7 +115,8 @@ def get_bb_schema() -> tlc.Schema:
 
 
 def get_camera_schema(camera_name: str) -> tlc.Schema:
-    return tlc.schemas.ImageUrlSchema(
+    return tlc.schemas.ImageSchema(
+        sample_type="url",
         metadata={
             "intrinsics": scan_summary["camera_intrinsics"][camera_name],
             "extrinsics": scan_summary["extrinsics_cam_from_lidar"][camera_name]["lidar_0"]["T_cam_from_lidar"],

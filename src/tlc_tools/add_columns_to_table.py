@@ -28,7 +28,7 @@ def _infer_schemas(
     for column_name in missing_schemas:
         column_values = columns[column_name]
         inferred_schema = tlc.Schema.from_sample(column_values[0])
-        inferred_schema.sample_type_config = "hidden"
+        inferred_schema.sample_type = "hidden"
         inferred_schema.writable = False
         inferred_schemas[column_name] = inferred_schema
 
