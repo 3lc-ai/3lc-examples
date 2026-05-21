@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "digifarm-virtual-table"
+version = "0.1.0"
+description = "Example: 3LC URL adapter for virtualizing DigiFarm field-delineation .npz tiles"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = ["3lc", "numpy", "Pillow", "tqdm"]
+
+[project.scripts]
+create-digifarm-virtual-table = "digifarm_virtual_table.create_table:main"
+
+[project.entry-points."tlc.url_adapters"]
+digifarm-npz = "digifarm_virtual_table.adapter:DigiFarmNpzUrlAdapter"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/digifarm_virtual_table"]
