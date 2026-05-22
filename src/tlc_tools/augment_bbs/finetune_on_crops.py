@@ -384,7 +384,7 @@ def compute_instance_weights(train_table, total_instances, class_weights, instan
                 idx += 1
         else:
             props = row[instance_config.instance_column][instance_config.instance_properties_column]
-            for label in props["label"]:
+            for label in props.get("label") or []:
                 instance_weights[idx] = class_weights[label]
                 idx += 1
 
@@ -407,7 +407,7 @@ def count_instances(train_table, instance_config: InstanceConfig):
         else:
             # New-format BB and segmentations: labels are in a properties dict as arrays
             props = row[instance_config.instance_column][instance_config.instance_properties_column]
-            for label in props["label"]:
+            for label in props.get("label") or []:
                 class_counts[label] = class_counts.get(label, 0) + 1
                 total_instances += 1
 
