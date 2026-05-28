@@ -11,10 +11,10 @@ This is **not** a production-ready adapter — it has no caching, retries, or au
 pip install -e .
 
 # Create a small demo table with images from picsum.photos
-create-demo-table
+create-http-image-demo-table
 ```
 
-After running `create_table.py`, open the 3LC Dashboard to browse the table. The images are fetched on the fly from picsum.photos whenever 3LC reads a row.
+After running `create-http-image-demo-table`, open the 3LC Dashboard to browse the table. The images are fetched on the fly from picsum.photos whenever 3LC reads a row.
 
 ## How it works
 

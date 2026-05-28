@@ -1,4 +1,5 @@
 *.venv*/
+examples/**/uv.lock
 .env
 .envrc
 .vscode/
