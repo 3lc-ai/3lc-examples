@@ -1,0 +1,18 @@
+# Copy to config.3lc.yaml and edit. Gitignored. launch.py ships this
+# file into the container and sets TLC_CONFIG_FILE so `tlc` picks it up
+# on import. See README §"3LC config" for what each block does.
+
+# Where new tables and runs land. Point at S3 so artifacts outlive
+# the container.
+indexing:
+  project_root_url: s3://my-outputs-bucket/sagemaker
+
+# Static aliases — path-prefix tokens substituted when serializing
+# tables in *this* job. Mask the SageMaker mount points so they
+# don't leak into serialized tables (where they'd be unresolvable
+# after the container exits).
+aliases:
+  SM_INPUT: /opt/ml/input/data
+  SM_MODEL: /opt/ml/model
+
+# Full reference: https://docs.3lc.ai/latest/configuration/
