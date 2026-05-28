@@ -86,7 +86,7 @@ def add_embeddings_to_table(
     # Build a non-mutating view that applies the preprocessing on read
     view = table.with_transform(preprocess_fn) if preprocess_fn is not None else table
 
-    dataloader = torch.utils.data.DataLoader(view, batch_size=batch_size, shuffle=False)
+    dataloader = torch.utils.data.DataLoader(view, batch_size=batch_size, shuffle=False)  # type: ignore[arg-type,var-annotated]
 
     all_embeddings = []
     for batch in tqdm.tqdm(dataloader, total=len(dataloader), desc="Extracting embeddings"):

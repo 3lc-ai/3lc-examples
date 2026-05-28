@@ -88,7 +88,7 @@ def get_lidar_schema() -> tlc.Schema:
 
 def get_bb_schema() -> tlc.Schema:
     schema = tlc.data_types.OrientedBoundingBoxes3D.schema(
-        classes=CUBOID_CLASSES.keys(),
+        classes=list(CUBOID_CLASSES.keys()),
         # Cuboid attributes are not included for now, can be added if needed
         # per_instance_schemas={
         #     "uuid": tlc.schemas.StringSchema(shape=(-1,), writable=False),
@@ -126,7 +126,7 @@ def get_camera_schema(camera_name: str) -> tlc.Schema:
     )
 
 
-def load_car(data_path: str) -> tuple[dict, tlc.Schema]:
+def load_car(data_path: str) -> tuple[tlc.data_types.Geometry3D, tlc.Schema]:
     car_obj_path = (Path(data_path) / "car/NormalCar2.obj").as_posix()
     scale = 1.25
     transform = np.array(

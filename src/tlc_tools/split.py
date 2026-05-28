@@ -378,7 +378,7 @@ def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.
         return pa_column.to_numpy(zero_copy_only=False)  # type: ignore[no-any-return]
 
     if isinstance(column, int):
-        return np.array([row[column] for row in table])
+        return np.array([row[column] for row in table])  # type: ignore[index]
 
     elif callable(column):
         return np.array([column(row) for row in table])

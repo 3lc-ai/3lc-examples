@@ -112,6 +112,7 @@ def list_aliases_in_tlc_table(table: Table, columns: list[str], process_parents:
             if has_cache:
                 pq_url = current_table.row_cache_url.to_absolute(current_table.url)
             else:
+                assert isinstance(current_table, TableFromParquet)
                 pq_url = current_table.input_url.to_absolute(current_table.url)
 
             try:

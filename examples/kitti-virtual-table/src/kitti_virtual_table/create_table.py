@@ -51,7 +51,7 @@ KITTI_DETECTION_VALUE_MAP = {
     "Person_sitting": 8,
 }
 
-KITTI_BOUNDS = tlc.GeometryHelper.create_isotropic_bounds_3d(-80, 80, -80, 80, -3, 3, force_z_min=False)
+KITTI_BOUNDS = tlc.helpers.GeometryHelper.create_isotropic_bounds_3d(-80, 80, -80, 80, -3, 3, force_z_min=False)
 
 
 # ── Calibration & bounding-box helpers (from the original KITTI loader) ──
@@ -177,7 +177,7 @@ def create_virtual_kitti_table(
     )
 
     obb_schema = tlc.data_types.OrientedBoundingBoxes3D.schema(
-        classes=KITTI_DETECTION_VALUE_MAP.keys(),
+        classes=list(KITTI_DETECTION_VALUE_MAP.keys()),
         per_instance_schemas={
             "occlusion": tlc.schemas.CategoricalLabelSchema(
                 classes={0: "fully visible", 1: "partly visible", 2: "largely occluded", 3: "unknown", -1: "unknown"},
