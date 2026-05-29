@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal, cast
 
 import tlc
+from tlc.helpers import AnnotationHelper, AnnotationType
 
 
 class InstanceConfig:
@@ -14,29 +15,31 @@ class InstanceConfig:
         instance_type: Literal["bounding_boxes", "segmentations"],
         label_column_path: str | None = None,
         allow_label_free: bool = False,
+        is_legacy_bb: bool = False,
     ):
         """Initialize instance configuration.
 
         :param instance_column: Name of the column containing instances (e.g., "bbs", "segmentations")
         :param instance_type: Type of instances
-        :param label_column_path: Path to labels within instance column (e.g., "bbs.bb_list.label")
+        :param label_column_path: Path to labels within instance column (e.g., "bbs.instances_additional_data.label")
         :param allow_label_free: Whether to allow processing without labels
+        :param is_legacy_bb: Whether this bounding box column uses the old BoundingBoxListSchema format
         """
         self.instance_column = instance_column
         self.instance_type = instance_type
         self.label_column_path = label_column_path
         self.allow_label_free = allow_label_free
+        self.is_legacy_bb = is_legacy_bb
         self._validated_tables: set[str] = set()  # Cache for validated table URLs
 
     @property
     def instance_properties_column(self) -> str:
         """Get the instance properties column.
 
-        Uses predictable constants based on instance type, which is safe
-        given the standardized schema structure.
+        Uses predictable constants based on instance type and format.
         """
         if self.instance_type == "bounding_boxes":
-            return "bb_list"
+            return "bb_list" if self.is_legacy_bb else "instances_additional_data"
         elif self.instance_type == "segmentations":
             return "instance_properties"
         else:
@@ -93,36 +96,30 @@ class InstanceConfig:
         assert instance_type in ["bounding_boxes", "segmentations"]
         instance_type = cast(Literal["bounding_boxes", "segmentations"], instance_type)
 
-        # Step 2: Resolve label column path
-        resolved_label_path = cls._resolve_label_column_path(
-            instance_column=instance_column, instance_type=instance_type
-        )
+        # Step 2 + 3: Inspect annotation column for legacy format and label path
+        legacy_bb = False
+        resolved_label_path = None
+        try:
+            ann = AnnotationHelper.get(input_table, instance_column)
+        except (KeyError, ValueError):
+            ann = None
+        if ann is not None:
+            legacy_bb = ann.type is AnnotationType.LEGACY_BOUNDING_BOXES
+            resolved_label_path = ann.label_path
 
-        # Step 3: Create and validate configuration
+        # Step 4: Create and validate configuration
         config = cls(
             instance_column=instance_column,
             instance_type=instance_type,
             label_column_path=resolved_label_path,
             allow_label_free=allow_label_free,
+            is_legacy_bb=legacy_bb,
         )
 
         # Step 4: Validate the configuration
         config._validate(input_table)
 
         return config
-
-    @staticmethod
-    def _resolve_label_column_path(
-        instance_column: str,
-        instance_type: Literal["bounding_boxes", "segmentations"],
-    ) -> str | None:
-        """Resolve label column path based on instance type."""
-        if instance_type == "bounding_boxes":
-            return f"{instance_column}.bb_list.label"
-        elif instance_type == "segmentations":
-            return f"{instance_column}.instance_properties.label"
-        else:
-            raise ValueError(f"Invalid instance type: {instance_type}")
 
     @staticmethod
     def _detect_instance_column_and_type(
@@ -158,16 +155,10 @@ class InstanceConfig:
         if self.instance_column not in input_table.columns:
             raise ValueError(f"Instance column '{self.instance_column}' not found in table {input_table.name}")
 
-        # Validate instance properties column exists
+        # Validate instance column is in schema
         instance_schema = input_table.rows_schema.values.get(self.instance_column)
         if not instance_schema:
             raise ValueError(f"Instance column '{self.instance_column}' not found in table schema")
-
-        properties_column = self.instance_properties_column
-        if properties_column not in instance_schema.values:
-            raise ValueError(
-                f"Instance properties column '{properties_column}' not found in '{self.instance_column}' schema"
-            )
 
         # Validate label column if not in label-free mode
         if not self.allow_label_free and self.label_column_path:

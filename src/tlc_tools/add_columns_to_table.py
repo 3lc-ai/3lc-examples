@@ -1,22 +1,15 @@
 from __future__ import annotations
 
-import io
-import typing
 from collections import defaultdict
-from typing import Any, Callable
+from typing import Any
 
 import tlc
-from PIL import Image
 from tqdm.auto import tqdm
 
 from tlc_tools.metrics import IMAGE_METRICS, compute_image_metrics
 
-_SampleTypeStructure = typing.Union[
-    tlc.SampleType, type[tlc.SampleType], list, tuple, dict, tlc.Schema, tlc.ScalarValue, Callable
-]
 
-
-def _check_columns_and_schemas(columns: dict[str, list], schemas: dict[str, _SampleTypeStructure]) -> None:
+def _check_columns_and_schemas(columns: dict[str, list], schemas: dict[str, Any]) -> None:
     assert isinstance(columns, dict), f"columns must be a dictionary, got {type(columns)}"
     assert columns, "columns must not be empty"
     first_column = next(iter(columns.values()))
@@ -27,15 +20,15 @@ def _check_columns_and_schemas(columns: dict[str, list], schemas: dict[str, _Sam
 
 def _infer_schemas(
     columns: dict[str, Any],
-    schemas: dict[str, _SampleTypeStructure] | None,
-) -> dict[str, _SampleTypeStructure]:
+    schemas: dict[str, Any] | None,
+) -> dict[str, Any]:
     inferred_schemas = schemas if schemas is not None else {}
 
     missing_schemas = set(columns.keys()) - set(inferred_schemas.keys())
     for column_name in missing_schemas:
         column_values = columns[column_name]
-        inferred_schema = tlc.SampleType.from_sample(column_values[0], name=column_name).schema
-        inferred_schema.sample_type = tlc.Hidden.sample_type
+        inferred_schema = tlc.Schema.from_sample(column_values[0])
+        inferred_schema.sample_type = "hidden"
         inferred_schema.writable = False
         inferred_schemas[column_name] = inferred_schema
 
@@ -45,7 +38,7 @@ def _infer_schemas(
 def add_columns_to_table(
     table: tlc.Table,
     columns: dict[str, list],
-    schemas: dict[str, _SampleTypeStructure] | None = None,
+    schemas: dict[str, Any] | None = None,
     output_table_name: str = "added_columns",
     description: str = "Table with added columns",
 ) -> tlc.Table:
@@ -54,28 +47,25 @@ def add_columns_to_table(
     schemas = _infer_schemas(columns, schemas)
     _check_columns_and_schemas(columns, schemas)
 
-    input_schemas = table.row_schema.values
+    input_schemas = table.rows_schema.values
     schemas.update(input_schemas)
 
+    # Existing columns from table_rows are already in row form; new columns may be in sample form.
+    # TableWriter auto-detects sample vs row form per column via sample-type ``accepts()``, so no
+    # per-column ``input_mode`` is needed — pre-externalized URL strings are passed through,
+    # live sample-form values (PIL, ndarrays, dataclasses) are transformed.
     table_writer = tlc.TableWriter(
         project_name=table.project_name,
         dataset_name=table.dataset_name,
         description=description,
         table_name=output_table_name,
-        column_schemas=schemas,
+        schema=schemas,
         if_exists="rename",
         input_tables=[table.url],
     )
 
     for i, row in tqdm(enumerate(table.table_rows), desc="Adding columns to table", total=len(table)):
-        output_row = {}
-        for column_name, column_value in row.items():
-            if input_schemas[column_name].sample_type == tlc.PILImage.sample_type:
-                image_url = tlc.Url(column_value).to_absolute(table.url)
-                column_value = Image.open(io.BytesIO(image_url.read()))
-                column_value.filename = image_url.to_str()
-
-            output_row[column_name] = column_value
+        output_row = dict(row)
 
         # Add the new columns
         for column_name in columns:

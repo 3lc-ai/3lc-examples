@@ -1,5 +1,5 @@
 import pytest
-from tlc.core import Url
+from tlc import Url
 
 from tlc_tools.cli.commands.alias import main
 

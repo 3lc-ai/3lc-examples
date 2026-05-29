@@ -7,7 +7,12 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from tlc.core import EditedTable, ObjectRegistry, Table, TableFromParquet, TableFromPydict, Url
+from tlc import Table, Url
+from tlc._core.object_registry import ObjectRegistry
+from tlc._core.objects.tables.from_python_object.table_from_pydict import TableFromPydict
+from tlc._core.objects.tables.from_table.edited_table import EditedTable
+from tlc._core.objects.tables.from_url.table_from_parquet import TableFromParquet
+from tlc.helpers import ProjectLayout
 
 from tlc_tools.alias.common import get_input_object
 from tlc_tools.alias.find_aliases import (
@@ -96,17 +101,16 @@ def sample_table_with_parent() -> Generator[Table, None, None]:
         project_name=TEST_ALIAS_PROJECT_NAME,
         dataset_name=TEST_ALIAS_DATASET_NAME,
         table_name="parent_table",
-        if_exists="raise",
+        if_exists="overwrite",
     )
     parent_table.ensure_fully_defined()
 
     # Create a child table with a reference to the parent table
-    child_table_url = Url.create_table_url(
-        "child_table",
+    child_table_url = ProjectLayout.table_url(
+        table_name="child_table",
         dataset_name=TEST_ALIAS_DATASET_NAME,
         project_name=TEST_ALIAS_PROJECT_NAME,
     )
-    assert not child_table_url.exists()
 
     child_table = EditedTable(
         url=child_table_url,
@@ -141,7 +145,7 @@ def sample_table_with_pseudo_parent() -> Generator[Table, None, None]:
         project_name=TEST_ALIAS_PROJECT_NAME,
         dataset_name=TEST_ALIAS_DATASET_NAME,
         table_name="pseudo_parent_table",
-        if_exists="raise",
+        if_exists="overwrite",
     )
     pseudo_parent_table.ensure_fully_defined()
 
@@ -152,7 +156,7 @@ def sample_table_with_pseudo_parent() -> Generator[Table, None, None]:
         project_name=TEST_ALIAS_PROJECT_NAME,
         dataset_name=TEST_ALIAS_DATASET_NAME,
         table_name="child_table",
-        if_exists="raise",
+        if_exists="overwrite",
         input_tables=[pseudo_parent_table.url],
     )
     child_table.ensure_fully_defined()
@@ -408,7 +412,7 @@ def test_replace_pa_table_backup_none_changed(mocker):
     )
 
     mock_backup = mocker.patch("tlc_tools.alias.replace.backup_file")
-    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write = mocker.patch("tlcurl.url_adapters._registry.UrlAdapterRegistry.write_binary_content_to_url")
 
     # Process with rewrites that won't affect anything
     replace_aliases_in_pa_table(Url("test.parquet"), table, [], [("/nonexistent", "<ALIAS>")])
@@ -432,7 +436,7 @@ def test_replace_pa_table_backup_on_error(mocker):
     mock_restore = mocker.patch("tlc_tools.alias.replace.restore_from_backup")
 
     # Make write fail
-    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write = mocker.patch("tlcurl.url_adapters._registry.UrlAdapterRegistry.write_binary_content_to_url")
     mock_write.side_effect = OSError("Write failed")
 
     with pytest.raises(OSError, match="Write failed"):
@@ -462,7 +466,7 @@ def test_replace_pa_table_backup_restore_integration(tmp_path, mocker):
     pq.write_table(original_table, original_path)
 
     # Mock only the write to fail
-    mock_write = mocker.patch("tlc.core.UrlAdapterRegistry.write_binary_content_to_url")
+    mock_write = mocker.patch("tlcurl.url_adapters._registry.UrlAdapterRegistry.write_binary_content_to_url")
     mock_write.side_effect = OSError("Write failed")
 
     # Attempt the replacement which should fail
@@ -497,7 +501,7 @@ def test_replace_tlc_table_basic(sample_table: Table) -> None:
     reloaded_table = Table.from_url(sample_table.url)
 
     # Check that the table was modified
-    image_column = reloaded_table.get_column("image_path")
+    image_column = reloaded_table.get_column_as_pyarrow_array("image_path")
     assert image_column.to_pylist() == [
         "<PROJECT_PATH>/images/001.jpg",
         "<PROJECT_PATH>/images/002.jpg",
@@ -505,7 +509,7 @@ def test_replace_tlc_table_basic(sample_table: Table) -> None:
         "<BUCKET_PATH>/images/004.jpg",
     ]
 
-    mask_column = reloaded_table.get_column("mask_path")
+    mask_column = reloaded_table.get_column_as_pyarrow_array("mask_path")
     assert mask_column.to_pylist() == [
         "<PROJECT_PATH>/masks/001.png",
         "<PROJECT_PATH>/masks/002.png",
@@ -513,7 +517,7 @@ def test_replace_tlc_table_basic(sample_table: Table) -> None:
         "<BUCKET_PATH>/masks/004.png",
     ]
 
-    metadata_column = reloaded_table.get_column("metadata")
+    metadata_column = reloaded_table.get_column_as_pyarrow_array("metadata")
     assert metadata_column.to_pylist() == [
         {"id": 1, "path": "<PROJECT_PATH>/meta/001.json", "type": "annotation"},
         {"id": 2, "path": "/data/metadata/002.json", "type": "annotation"},
@@ -521,7 +525,7 @@ def test_replace_tlc_table_basic(sample_table: Table) -> None:
         {"id": 4, "path": "<BUCKET_PATH>/meta/004.json", "type": "annotation"},
     ]
 
-    label_column = reloaded_table.get_column("label")
+    label_column = reloaded_table.get_column_as_pyarrow_array("label")
     assert label_column.to_pylist() == [1, 2, 3, 4]
 
 
@@ -529,16 +533,16 @@ def test_replace_tlc_table_selected_columns(sample_table: Table) -> None:
     """Test alias replacement in a TLC table with column selection."""
     rewrites = [("/data/project", "<PROJECT_PATH>")]
 
-    initial_mask_path = sample_table.get_column("mask_path")
-    initial_metadata = sample_table.get_column("metadata")
-    initial_label = sample_table.get_column("label")
+    initial_mask_path = sample_table.get_column_as_pyarrow_array("mask_path")
+    initial_metadata = sample_table.get_column_as_pyarrow_array("metadata")
+    initial_label = sample_table.get_column_as_pyarrow_array("label")
 
     replace_aliases_in_tlc_table(sample_table, ["image_path"], rewrites)
     ObjectRegistry.drop_cache()
     reloaded_table = Table.from_url(sample_table.url)
 
     # Check that only image_path was modified
-    assert reloaded_table.get_column("image_path").to_pylist() == [
+    assert reloaded_table.get_column_as_pyarrow_array("image_path").to_pylist() == [
         "<PROJECT_PATH>/images/001.jpg",
         "<PROJECT_PATH>/images/002.jpg",
         "<DATA_PATH>/images/003.jpg",
@@ -546,9 +550,9 @@ def test_replace_tlc_table_selected_columns(sample_table: Table) -> None:
     ]
 
     # Check that mask_path, metadata, and label remain unchanged
-    assert reloaded_table.get_column("mask_path").equals(initial_mask_path)
-    assert reloaded_table.get_column("metadata").equals(initial_metadata)
-    assert reloaded_table.get_column("label").equals(initial_label)
+    assert reloaded_table.get_column_as_pyarrow_array("mask_path").equals(initial_mask_path)
+    assert reloaded_table.get_column_as_pyarrow_array("metadata").equals(initial_metadata)
+    assert reloaded_table.get_column_as_pyarrow_array("label").equals(initial_label)
 
 
 def test_replace_tlc_table_parent_basic(sample_table_with_parent: Table) -> None:
@@ -571,14 +575,14 @@ def test_replace_tlc_table_parent_basic(sample_table_with_parent: Table) -> None
     assert reloaded_table[1]["mask_path"] == "<MASK_PATH>/002.png"
 
     # Check that the parent table was modified
-    parent_table = reloaded_table.input_table_url.object
+    parent_table = reloaded_table.input_table_url.object  # type: ignore[attr-defined]
     assert isinstance(parent_table, TableFromPydict)
-    assert parent_table.get_column("image_path").to_pylist() == [
+    assert parent_table.get_column_as_pyarrow_array("image_path").to_pylist() == [
         "<DATA_PATH>/001.jpg",
         "<DATA_PATH>/002.jpg",
         "/other/path/003.jpg",
     ]
-    assert parent_table.get_column("mask_path").to_pylist() == [
+    assert parent_table.get_column_as_pyarrow_array("mask_path").to_pylist() == [
         "<MASK_PATH>/001.png",
         "<MASK_PATH>/002.png",
         "<MASK_PATH>/003.png",
@@ -602,14 +606,14 @@ def test_replace_tlc_table_parent_disabled(sample_table_with_parent: Table) -> N
     assert reloaded_table[0]["mask_path"] == "/data/masks/001.png"  # parent table data not replaced
 
     # Check that the parent table was not modified
-    parent_table = reloaded_table.input_table_url.object
+    parent_table = reloaded_table.input_table_url.object  # type: ignore[attr-defined]
     assert isinstance(parent_table, TableFromPydict)
-    assert parent_table.get_column("image_path").to_pylist() == [
+    assert parent_table.get_column_as_pyarrow_array("image_path").to_pylist() == [
         "/data/images/001.jpg",
         "/data/images/002.jpg",
         "/other/path/003.jpg",
     ]
-    assert parent_table.get_column("mask_path").to_pylist() == [
+    assert parent_table.get_column_as_pyarrow_array("mask_path").to_pylist() == [
         "/data/masks/001.png",
         "/data/masks/002.png",
         "/data/masks/003.png",
@@ -630,24 +634,27 @@ def test_replace_tlc_table_pseudo_parent(sample_table_with_pseudo_parent: Table)
     # Check that the child table was modified
     reloaded_table = Table.from_url(sample_table_with_pseudo_parent.url)
 
-    assert reloaded_table.get_column("other_path").to_pylist() == ["<OTHER_PATH>/001.jpg", "<DATA_PATH>/002.jpg"]
+    assert reloaded_table.get_column_as_pyarrow_array("other_path").to_pylist() == [
+        "<OTHER_PATH>/001.jpg",
+        "<DATA_PATH>/002.jpg",
+    ]
 
     # Check that the pseudo parent table was modified
     pseudo_parent_table = Table.from_url(reloaded_table.input_tables[0].to_absolute(reloaded_table.url))
 
-    assert pseudo_parent_table.get_column("image_path").to_pylist() == [
+    assert pseudo_parent_table.get_column_as_pyarrow_array("image_path").to_pylist() == [
         "<DATA_PATH>/001.jpg",
         "<DATA_PATH>/002.jpg",
         "<OTHER_PATH>/003.jpg",
     ]
 
-    assert pseudo_parent_table.get_column("mask_path").to_pylist() == [
+    assert pseudo_parent_table.get_column_as_pyarrow_array("mask_path").to_pylist() == [
         "/data/masks/001.png",
         "/data/masks/002.png",
         "/data/masks/003.png",
     ]
 
-    assert pseudo_parent_table.get_column("label").to_pylist() == [1, 2, 3]
+    assert pseudo_parent_table.get_column_as_pyarrow_array("label").to_pylist() == [1, 2, 3]
 
 
 def test_get_input_object(sample_table: Table, tmp_path: Path) -> None:

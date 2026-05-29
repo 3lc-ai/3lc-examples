@@ -110,54 +110,49 @@ def is_windows() -> bool:
 def check_is_bb_column(
     input_table: tlc.Table,
     bb_column: str = "bbs",
-    bb_list_column: str = "bb_list",
 ) -> None:
-    """Check that a column conforms to 3LC's bounding box format.
+    """Check that a column conforms to 3LC's bounding box format (legacy or new).
 
-    Ensures that the `bb_list_column` is present in the `bb_column`'s schema.
-
-    Ensures the required "label", "x1", "y1", "x0", "y0" sub-columns are present
-    in the `bb_list_column`'s schema.
+    Supports both legacy BoundingBoxListSchema (``bb_list`` sub-column) and
+    new BoundingBoxes2D.schema (``instances`` sub-column) formats.
 
     :param input_table: The table to check.
     :param bb_column: The name of the column to check.
-    :param bb_list_column: The name of the sub-column in the column to check.
 
-    :raises ValueError: If the column is missing the `bb_list_column` or any of
-        the required sub-columns.
+    :raises ValueError: If the column is not a recognized bounding box format.
     """
-    if bb_column not in input_table.columns:
-        raise ValueError(f"Column {bb_column} not found in table {input_table.name}")
+    from tlc.helpers import AnnotationHelper, AnnotationType
 
-    if bb_list_column not in input_table.rows_schema.values[bb_column].values:
-        raise ValueError(f"Column {bb_column} is missing the {bb_list_column} sub-column")
+    try:
+        ann = AnnotationHelper.get(input_table, bb_column)
+    except KeyError:
+        raise ValueError(f"Column {bb_column} not found in table {input_table.name}") from None
+    except ValueError:
+        raise ValueError(f"Column {bb_column} is not a recognized bounding box format") from None
 
-    bb_list_schema = input_table.rows_schema.values[bb_column].values[bb_list_column]
-
-    for column in ["label", "x1", "y1", "x0", "y0"]:
-        if column not in bb_list_schema.values:
-            raise ValueError(f"Column {bb_column} is missing the {column} sub-column")
+    if ann.type not in (AnnotationType.BOUNDING_BOXES, AnnotationType.LEGACY_BOUNDING_BOXES):
+        raise ValueError(f"Column {bb_column} is not a recognized bounding box format")
+    if ann.label_path is None:
+        raise ValueError(f"Column {bb_column} does not contain a label field")
 
 
 def check_is_segmentation_column(
     input_table: tlc.Table,
-    segmentation_column: str = tlc.SEGMENTATIONS,
-    sample_type: Literal["instance_segmentation_masks", "instance_segmentation_polygons", ""] = "",
+    segmentation_column: str = "segmentations",
+    sample_type: Literal["segmentation_masks", "segmentation_polygons", ""] = "",
 ) -> None:
     """Check that a column conforms to 3LC's segmentation format.
 
     Ensures that the `segmentation_column` is present in the `input_table`'s schema.
 
-    Ensures that the `segmentation_column`'s schema is a `tlc.InstanceSegmentationMasks`
-    or `tlc.InstanceSegmentationPolygons` sample type.
+    Ensures that the `segmentation_column`'s schema has a segmentation masks or polygons sample type.
 
     :param input_table: The table to check.
     :param segmentation_column: The name of the column to check.
-    :param sample_type: The sample type of the segmentation column.
+    :param sample_type: The expected sample type name of the segmentation column.
 
     :raises ValueError: If the column is missing the `segmentation_column` or
-        the `segmentation_column`'s schema is not a `tlc.InstanceSegmentationMasks`
-        or `tlc.InstanceSegmentationPolygons` sample type.
+        the `segmentation_column`'s schema does not have the expected sample type.
     """
     if segmentation_column not in input_table.columns:
         raise ValueError(f"Column {segmentation_column} not found in table {input_table.name}")
@@ -165,7 +160,8 @@ def check_is_segmentation_column(
     if segmentation_column not in input_table.rows_schema.values:
         raise ValueError(f"Column {segmentation_column} not found in table {input_table.name}")
 
-    if sample_type and input_table.rows_schema.values[segmentation_column].sample_type != sample_type:
+    actual_sample_type = input_table.rows_schema.values[segmentation_column].sample_type
+    if sample_type and actual_sample_type != sample_type:
         raise ValueError(f"Column {segmentation_column} is not a {sample_type} sample type")
 
 

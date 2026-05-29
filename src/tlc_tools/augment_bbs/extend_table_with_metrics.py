@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Literal, cast
 
 import cv2
@@ -31,14 +32,24 @@ logger = logging.getLogger(__name__)
 # ========================
 
 
+def _needs_array_schema(instance_type: Literal["bounding_boxes", "segmentations"], is_legacy_bb: bool) -> bool:
+    """Check if per-instance data needs array (variable-length) schemas.
+
+    New-format BB stores per-instance data as arrays in instances_additional_data,
+    same as segmentations. Only legacy BB (bb_list) stores data as scalars per bb dict.
+    """
+    return instance_type == "segmentations" or (instance_type == "bounding_boxes" and not is_legacy_bb)
+
+
 def create_embedding_schema(
-    instance_type: Literal["bounding_boxes", "segmentations"], num_components: int
+    instance_type: Literal["bounding_boxes", "segmentations"],
+    num_components: int,
+    is_legacy_bb: bool = False,
 ) -> tlc.Schema:
     """Create embedding schema appropriate for instance type."""
-    return tlc.Schema(
-        value=tlc.Float32Value(),
-        size0=tlc.DimensionNumericValue(num_components, num_components),
-        size1=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
+    return tlc.schemas.EmbeddingSchema(
+        shape=(-1, num_components),
+        sample_type="hidden",
     )
 
 
@@ -46,39 +57,45 @@ def create_label_schema(
     instance_type: Literal["bounding_boxes", "segmentations"],
     label_schema_template: tlc.Schema | None = None,
     background_label: int | None = None,
+    is_legacy_bb: bool = False,
 ) -> tlc.Schema:
     """Create label schema appropriate for instance type."""
     if label_schema_template:
         # Use existing label schema as template
         label_schema = deepcopy(label_schema_template)
         if background_label is not None:
-            assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
-            label_schema.value.map[background_label] = tlc.MapElement("background")
+            assert label_schema.value is not None and getattr(label_schema.value, "map", None) is not None
+            label_schema.value.map[background_label] = tlc.schemas.MapElement("background")  # type: ignore[attr-defined]
     else:
         # Label-free mode - create integer schema for predicted labels
-        label_schema = tlc.Schema(value=tlc.Int32Value(), writable=False)
+        label_schema = tlc.schemas.Int32Schema(writable=False)
 
-    label_schema.writable = False
-    label_schema.size0 = tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None
+    label_schema.size0 = (
+        tlc.schemas.values.DimensionNumericValue(0, 1000) if _needs_array_schema(instance_type, is_legacy_bb) else None
+    )
 
     return label_schema
 
 
-def create_confidence_schema(instance_type: Literal["bounding_boxes", "segmentations"]) -> tlc.Schema:
+def create_confidence_schema(
+    instance_type: Literal["bounding_boxes", "segmentations"], is_legacy_bb: bool = False
+) -> tlc.Schema:
     """Create confidence schema appropriate for instance type."""
-    return tlc.Schema(
-        value=tlc.Float32Value(),
+    return tlc.schemas.ConfidenceSchema(
+        shape=(-1,) if _needs_array_schema(instance_type, is_legacy_bb) else None,
+        sample_type="hidden",
         writable=False,
-        size0=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
     )
 
 
-def create_metrics_schema(instance_type: Literal["bounding_boxes", "segmentations"]) -> tlc.Schema:
+def create_metrics_schema(
+    instance_type: Literal["bounding_boxes", "segmentations"],
+    is_legacy_bb: bool = False,
+) -> tlc.Schema:
     """Create image metrics schema appropriate for instance type."""
-    return tlc.Schema(
-        value=tlc.schema.Float32Value(),
+    return tlc.schemas.Float32Schema(
+        shape=(-1,) if _needs_array_schema(instance_type, is_legacy_bb) else None,
         writable=False,
-        size0=tlc.DimensionNumericValue(0, 1000) if instance_type == "segmentations" else None,
     )
 
 
@@ -91,10 +108,11 @@ def add_embedding_schemas_to_instance_properties(
     allow_label_free: bool,
     background_label: int | None,
     new_table_schema: tlc.Schema,
+    is_legacy_bb: bool = False,
 ) -> None:
     """Add embedding-related schemas to instance properties schema."""
     # Create and add embedding schema
-    embedding_schema = create_embedding_schema(instance_type, num_components)
+    embedding_schema = create_embedding_schema(instance_type, num_components, is_legacy_bb=is_legacy_bb)
     if CLASSIFIER_EMBEDDING not in instance_properties_schema.values:
         instance_properties_schema.add_sub_schema(CLASSIFIER_EMBEDDING, embedding_schema)
 
@@ -110,8 +128,10 @@ def add_embedding_schemas_to_instance_properties(
                 temp_schema = temp_schema.values[part]
             label_schema_template = temp_schema
 
-        label_schema = create_label_schema(instance_type, label_schema_template, background_label)
-        confidence_schema = create_confidence_schema(instance_type)
+        label_schema = create_label_schema(
+            instance_type, label_schema_template, background_label, is_legacy_bb=is_legacy_bb
+        )
+        confidence_schema = create_confidence_schema(instance_type, is_legacy_bb=is_legacy_bb)
 
         if CLASSIFIER_LABEL not in instance_properties_schema.values:
             instance_properties_schema.add_sub_schema(CLASSIFIER_LABEL, label_schema)
@@ -122,9 +142,10 @@ def add_embedding_schemas_to_instance_properties(
 def add_metrics_schemas_to_instance_properties(
     instance_properties_schema: tlc.Schema,
     instance_type: Literal["bounding_boxes", "segmentations"],
+    is_legacy_bb: bool = False,
 ) -> None:
     """Add image metrics schemas to instance properties schema."""
-    metrics_schema = create_metrics_schema(instance_type)
+    metrics_schema = create_metrics_schema(instance_type, is_legacy_bb=is_legacy_bb)
 
     for metric_name in ["brightness", "contrast", "sharpness"]:
         if metric_name not in instance_properties_schema.values:
@@ -247,7 +268,7 @@ def extend_table_with_metrics(
             logger.info("Using pretrained model (label-free mode)")
             # For pretrained model, we don't have custom classes
             num_classes = 1000  # Standard ImageNet classes
-            label_map = {}
+            label_map: dict[int, str] = {}
             label_2_contiguous_idx: dict[int, int] = {}
             contiguous_2_label: dict[int, int] = {}
             background_label = None
@@ -260,9 +281,10 @@ def extend_table_with_metrics(
 
             # Get label map and determine if background was used - use instance_config
             if instance_config.label_column_path:
-                label_map = input_table.get_simple_value_map(instance_config.label_column_path)
-                if not label_map:
+                maybe_label_map = input_table.get_simple_value_map(instance_config.label_column_path)
+                if not maybe_label_map:
                     raise ValueError(f"Label map not found in table at path: {instance_config.label_column_path}")
+                label_map = maybe_label_map
             else:
                 # Label-free mode - create dummy mappings
                 label_map = {}
@@ -278,7 +300,7 @@ def extend_table_with_metrics(
 
         import timm
 
-        model = timm.create_model(model_name, pretrained=use_pretrained, num_classes=num_classes)
+        model: Any = timm.create_model(model_name, pretrained=use_pretrained, num_classes=num_classes)
         if not use_pretrained:
             model.load_state_dict(checkpoint)
         model = model.to(device)
@@ -377,6 +399,7 @@ def extend_table_with_metrics(
                 # Save chunk if it reaches CHUNK_SIZE
                 if len(current_chunk) >= CHUNK_SIZE:
                     chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_count}.npy")
+                    Path(chunk_path).parent.mkdir(parents=True, exist_ok=True)
                     np.save(chunk_path, np.array(current_chunk[:CHUNK_SIZE]))
                     current_chunk = current_chunk[CHUNK_SIZE:]
                     chunk_count += 1
@@ -474,6 +497,8 @@ def extend_table_with_metrics(
     # Get the target schema for instance properties based on instance config
     instance_properties_schema = new_table_schema.values[instance_column].values[instance_properties_column]
 
+    is_legacy_bb = instance_config.is_legacy_bb
+
     if add_embeddings:
         add_embedding_schemas_to_instance_properties(
             instance_properties_schema=instance_properties_schema,
@@ -484,6 +509,7 @@ def extend_table_with_metrics(
             allow_label_free=instance_config.allow_label_free,
             background_label=background_label,
             new_table_schema=new_table_schema,
+            is_legacy_bb=is_legacy_bb,
         )
 
     # Add image metrics schema if needed
@@ -491,21 +517,26 @@ def extend_table_with_metrics(
         add_metrics_schemas_to_instance_properties(
             instance_properties_schema=instance_properties_schema,
             instance_type=instance_type,
+            is_legacy_bb=is_legacy_bb,
         )
 
     # Create TableWriter
     table_writer = tlc.TableWriter(
-        root_url=input_table.root,
+        root_url=input_table.root_url,
         project_name=input_table.project_name,
         dataset_name=input_table.dataset_name,
         table_name=output_table_name,
         description="Extended table with per instance embeddings and/or image metrics",
-        column_schemas=new_table_schema.values,
+        schema=new_table_schema.values,
         input_tables=[input_table.url],
     )
 
     # Get the hidden columns in the table (columns which are not part of the sample view of the table, e.g. "weight")
-    hidden_column_names = [child.name for child in input_table.row_schema.sample_type_object.hidden_children]
+    hidden_column_names = [
+        name
+        for name, col in input_table.rows_schema.values.items()
+        if not col.resolved_sample_type.is_included_in_sample
+    ]
     hidden_columns = {key: [row[key] for row in input_table.table_rows] for key in hidden_column_names}
 
     logger.info(f"Processing with: embeddings={add_embeddings}, image_metrics={add_image_metrics}")
@@ -525,13 +556,14 @@ def extend_table_with_metrics(
     ):
         new_row = row.copy()
 
-        # Initialize embedding/label/confidence/metrics lists for this row's instances
-        if instance_type == "segmentations":
-            # For segmentations, we need to initialize lists in instance_properties
+        # Initialize embedding/label/confidence/metrics lists for this row's instances.
+        # Both segmentations and new-format BB use list-append to a properties dict.
+        # Only legacy BB (bb_list) assigns directly to each instance dict.
+        is_legacy_bb = instance_type == "bounding_boxes" and instance_properties_column == "bb_list"
+        if not is_legacy_bb:
             initialize_segmentation_lists(
                 new_row, instance_column, instance_properties_column, add_embeddings, add_image_metrics, use_pretrained
             )
-            # Note: For bounding boxes, we add directly to each bb_list item (no initialization needed)
 
         # Process each instance in this row
         process_instances_for_row(
@@ -555,8 +587,7 @@ def extend_table_with_metrics(
             new_row[key] = hidden_columns[key][row_index]
 
         # Convert to sample view for adding to the table
-        sample_type_object = new_table_schema.sample_type_object
-        new_row = sample_type_object.sample_from_row([new_row])[0]
+        new_row = new_table_schema.from_row(new_row)
 
         table_writer.add_row(new_row)
 
@@ -668,17 +699,22 @@ def create_metrics_data(
     return image_metrics_list[embedding_idx]
 
 
-def get_instances_for_row(
+def get_instance_count_for_row(
     new_row: dict,
     instance_column: str,
     instance_type: Literal["bounding_boxes", "segmentations"],
     instance_properties_column: str,
-) -> list[Any]:
-    """Get the list of instances for a row based on instance type."""
+) -> int:
+    """Get the number of instances in a row."""
     if instance_type == "bounding_boxes":
-        return cast(list[Any], new_row[instance_column][instance_properties_column])
+        if instance_properties_column == "bb_list":
+            # Legacy format: bb_list is a list of bb dicts
+            return len(new_row[instance_column][instance_properties_column])
+        else:
+            # New format: count from instances list
+            return len(new_row[instance_column].get("instances", []))
     elif instance_type == "segmentations":
-        return cast(list[Any], new_row[instance_column]["rles"])
+        return len(new_row[instance_column].get("rles", []))
     else:
         raise ValueError(f"Invalid instance type: {instance_type}")
 
@@ -699,15 +735,15 @@ def process_instances_for_row(
     use_pretrained: bool = False,
 ) -> None:
     """Process all instances for a single row and assign data."""
-    instances = get_instances_for_row(new_row, instance_column, instance_type, instance_properties_column)
+    num_instances = get_instance_count_for_row(new_row, instance_column, instance_type, instance_properties_column)
+    is_legacy_bb = instance_type == "bounding_boxes" and instance_properties_column == "bb_list"
 
     # Process each instance in this row
-    for instance_index in range(len(instances)):
+    for instance_index in range(num_instances):
         # Fast O(1) lookup to find the corresponding dataset index
         dataset_idx = row_instance_to_dataset_index.get((row_index, instance_index))
 
         if dataset_idx is None:
-            # This instance wasn't processed by the dataset (shouldn't happen in normal cases)
             continue
 
         # Create data objects
@@ -720,10 +756,12 @@ def process_instances_for_row(
         if add_image_metrics:
             metrics_data = create_metrics_data(dataset_idx, image_metrics_list or [])
 
-        # Assign data based on instance type
-        if instance_type == "bounding_boxes":
+        # Assign data based on instance type and format
+        if instance_type == "bounding_boxes" and is_legacy_bb:
+            instances = new_row[instance_column][instance_properties_column]
             assign_data_to_bbox_instance(instances[instance_index], embedding_data, metrics_data)
-        elif instance_type == "segmentations":
+        else:
+            # New-format BB and segmentations both use list-append to a properties dict
             assign_data_to_segmentation_lists(
                 new_row, instance_column, instance_properties_column, embedding_data, metrics_data
             )
