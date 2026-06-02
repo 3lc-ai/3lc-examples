@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "supervision-sample-type"
+version = "0.1.0"
+description = "Example: custom 3LC sample type that accepts Roboflow supervision detections"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = ["3lc", "supervision>=0.25", "numpy", "pillow"]
+
+[project.scripts]
+create-supervision-demo-table = "supervision_sample_type.create_demo_table:main"
+check-supervision-compatibility = "supervision_sample_type.compat_check:main"
+
+[project.entry-points."tlc.sample_types"]
+supervision_detections = "supervision_sample_type.sample_type:SupervisionDetectionsSampleType"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/supervision_sample_type"]
