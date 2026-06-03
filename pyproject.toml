@@ -101,5 +101,11 @@ ignore_missing_imports = true
 module = "yaml"
 ignore_missing_imports = true
 
+[[tool.uv.index]]
+name = "3lc"
+url = "https://pypi.3lc.ai/public/repositories/releases-public"
+explicit = true
+
 [tool.uv.sources]
+3lc = { index = "3lc" }
 pandaset = { git = "https://github.com/scaleapi/pandaset-devkit.git", subdirectory = "python", rev = "master" }
