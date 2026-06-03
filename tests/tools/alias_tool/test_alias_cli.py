@@ -8,7 +8,7 @@ def test_main_basic_replace(mocker):
     """Test basic replace command with minimal arguments."""
     mock_replace_aliases = mocker.patch("tlc_tools.cli.commands.alias.replace_aliases")
     mock_get_input = mocker.patch("tlc_tools.cli.commands.alias.get_input_object")
-    mock_get_aliases = mocker.patch("tlc.get_registered_url_aliases")
+    mock_get_aliases = mocker.patch("tlc.url.get_registered_url_aliases")
     mock_get_aliases.return_value = {"<DATA_PATH>": "/data/path"}
 
     main(["replace", "table.parquet", "--apply", "DATA_PATH"])
@@ -25,7 +25,7 @@ def test_main_apply_single_alias(mocker):
     """Test applying a single alias."""
     mock_replace_aliases = mocker.patch("tlc_tools.cli.commands.alias.replace_aliases")
     mocker.patch("tlc_tools.cli.commands.alias.get_input_object")
-    mock_get_aliases = mocker.patch("tlc.get_registered_url_aliases")
+    mock_get_aliases = mocker.patch("tlc.url.get_registered_url_aliases")
     mock_get_aliases.return_value = {"<DATA_PATH>": "/data/path"}
 
     main(["replace", "table.parquet", "--apply", "DATA_PATH"])
@@ -40,7 +40,7 @@ def test_main_apply_multiple_aliases(mocker):
     """Test applying multiple aliases."""
     mock_replace_aliases = mocker.patch("tlc_tools.cli.commands.alias.replace_aliases")
     mocker.patch("tlc_tools.cli.commands.alias.get_input_object")
-    mock_get_aliases = mocker.patch("tlc.get_registered_url_aliases")
+    mock_get_aliases = mocker.patch("tlc.url.get_registered_url_aliases")
     mock_get_aliases.return_value = {"<DATA_PATH>": "/data/path", "<CACHE>": "/cache/path"}
 
     main(["replace", "table.parquet", "--apply", "DATA_PATH,CACHE"])
@@ -98,7 +98,7 @@ def test_main_columns(mocker):
     """Test processing specific columns."""
     mock_replace_aliases = mocker.patch("tlc_tools.cli.commands.alias.replace_aliases")
     mocker.patch("tlc_tools.cli.commands.alias.get_input_object")
-    mock_get_aliases = mocker.patch("tlc.get_registered_url_aliases")
+    mock_get_aliases = mocker.patch("tlc.url.get_registered_url_aliases")
     mock_get_aliases.return_value = {"<DATA_PATH>": "/data/path"}
 
     main(["replace", "table.parquet", "--columns", "col1,col2", "--apply", "DATA_PATH"])
@@ -137,7 +137,7 @@ def test_main_no_process_parents(mocker):
     """Test that --no-process-parents flag is respected."""
     mock_replace_aliases = mocker.patch("tlc_tools.cli.commands.alias.replace_aliases")
     mocker.patch("tlc_tools.cli.commands.alias.get_input_object")
-    mock_get_aliases = mocker.patch("tlc.get_registered_url_aliases")
+    mock_get_aliases = mocker.patch("tlc.url.get_registered_url_aliases")
     mock_get_aliases.return_value = {"<DATA_PATH>": "/data/path"}
 
     main(["replace", "table.parquet", "--no-process-parents", "--apply", "DATA_PATH"])
