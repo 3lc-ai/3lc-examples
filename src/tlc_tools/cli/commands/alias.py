@@ -200,7 +200,7 @@ def create_rewrites_from_aliases(alias_names: Sequence[str]) -> list[tuple[str, 
         ValueError: If an alias is not found in registered aliases.
     """
 
-    registered_aliases = tlc.get_registered_url_aliases()
+    registered_aliases = tlc.url.get_registered_url_aliases()
     rewrites = []
 
     for name in alias_names:

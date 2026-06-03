@@ -123,7 +123,7 @@ class WavAudioSampleType(ExternalSampleType):
         """
         return StringSchema(
             string_role="URL/Audio",
-            sample_type="wav_audio",
+            sample_type="wav_audio",  # type: ignore[arg-type]
             display_name=display_name,
             description=description,
             writable=writable,

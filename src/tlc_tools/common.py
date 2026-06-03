@@ -38,7 +38,7 @@ def check_tlc_package_version() -> str:
     except ImportError:
         return "tlc package is not installed."
     else:
-        return f"tlc version: {tlc.__version__}"
+        return f"tlc version: {tlc.__version__}"  # type: ignore[attr-defined]
 
 
 def check_package_version(package_name: str, required_min_version: str) -> None:
