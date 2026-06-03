@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kitti-virtual-table"
+version = "0.1.0"
+description = "Example: 3LC URL adapter for virtualizing KITTI LiDAR point clouds"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = ["3lc", "numpy", "tqdm"]
+
+[project.scripts]
+create-kitti-virtual-table = "kitti_virtual_table.create_table:main"
+
+[project.entry-points."tlc.url_adapters"]
+kitti-velodyne = "kitti_virtual_table.adapter:KittiVelodyneUrlAdapter"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kitti_virtual_table"]

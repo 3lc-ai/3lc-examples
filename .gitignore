@@ -1,5 +1,7 @@
 *.venv*/
+examples/**/uv.lock
 .env
+.envrc
 .vscode/
 __pycache__/
 dist/
@@ -11,3 +13,4 @@ dist/
 .coverage
 coverage.xml
 .notes/
+tutorials/transient_data/

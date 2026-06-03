@@ -4,7 +4,9 @@ import logging
 import re
 
 import pyarrow as pa
-from tlc.core import Run, SchemaHelper, Table, TableFromParquet, Url
+from tlc import Run, Table, Url
+from tlc._core.objects.tables.from_url.table_from_parquet import TableFromParquet
+from tlc.helpers import SchemaHelper
 
 from .common import get_input_parquet
 
@@ -110,6 +112,7 @@ def list_aliases_in_tlc_table(table: Table, columns: list[str], process_parents:
             if has_cache:
                 pq_url = current_table.row_cache_url.to_absolute(current_table.url)
             else:
+                assert isinstance(current_table, TableFromParquet)
                 pq_url = current_table.input_url.to_absolute(current_table.url)
 
             try:

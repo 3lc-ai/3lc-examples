@@ -12,6 +12,7 @@ import numpy as np
 import tlc
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle as sk_shuffle
+from tlc._core.objects.tables.from_table import EditedTable
 
 
 class _SplitStrategy(abc.ABC):
@@ -363,7 +364,7 @@ def split_table(
 
 def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.ndarray:
     if isinstance(column, str):
-        pa_column = table.get_column(column)
+        pa_column = table.get_column_as_pyarrow_array(column)
 
         # Handle FixedSizeListType specifically
         if hasattr(pa_column.type, "list_size"):
@@ -377,7 +378,7 @@ def _get_column(table: tlc.Table, column: int | str | Callable[..., int]) -> np.
         return pa_column.to_numpy(zero_copy_only=False)  # type: ignore[no-any-return]
 
     if isinstance(column, int):
-        return np.array([row[column] for row in table])
+        return np.array([row[column] for row in table])  # type: ignore[index]
 
     elif callable(column):
         return np.array([column(row) for row in table])
@@ -403,13 +404,13 @@ def set_value_in_column_to_fixed_value(
     :param value: The value to set.
     :returns: The modified table.
     """
-    runs = tlc.EditedTable.indices_to_run(indices)
+    runs = EditedTable.indices_to_run(indices)
 
     edits = {
         column: {"runs_and_values": [runs, value]},
     }
 
-    edited_table = tlc.EditedTable(
+    edited_table = EditedTable(
         url=table.url.create_sibling(f"set_{column}_to_0_in_{len(indices)}_rows").create_unique(),
         input_table_url=table,
         edits=edits,

@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tlc-ndjson-exporter"
+version = "0.1.0"
+description = "Toy example: 3LC exporter plugin that writes tables as newline-delimited JSON"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = ["3lc"]
+
+[project.entry-points."tlc.exporters"]
+ndjson = "tlc_ndjson_exporter.exporter:NdjsonExporter"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tlc_ndjson_exporter"]
