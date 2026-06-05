@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "semseg-sample-type"
+version = "0.1.0"
+description = "POC: semantic segmentation as an RLE-backed 3LC sample type"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = ["3lc", "numpy", "pycocotools"]
+
+[project.optional-dependencies]
+train = ["torch", "torchvision", "tqdm"]
+
+[project.entry-points."tlc.sample_types"]
+semantic_segmentation = "semseg_sample_type.sample_type:SemanticSegmentationSampleType"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/semseg_sample_type"]
