@@ -16,21 +16,28 @@ dispatches on `sample_type == "semantic_segmentation"`.
 - `src/semseg_sample_type/sample_type.py` — dataclass, sample type, schema
 - `scripts/ingest_oxford_pets.py` — ingest an Oxford-IIIT Pets subset
   (image, trimap-derived semseg-as-RLE, species + breed categoricals)
-- `scripts/train_unet.py` — train a tiny UNet, collect per-sample
-  predicted-segmentation-as-RLE and mean IoU into a Run
+- `scripts/train_unet.py` — train a tiny UNet (random flip / affine / color-jitter
+  augmentation, cosine LR schedule) and collect per-sample metrics into a Run every
+  `--collect-frequency` epochs (final epoch always collected): predicted-segmentation-as-RLE,
+  mean IoU, foreground (pet) IoU, cross-entropy loss, mean prediction entropy, and a
+  pooled bottleneck embedding. After training, the embeddings are reduced to 2D with
+  PaCMAP (one model fit on the final-epoch val embeddings, applied to all metrics tables
+  for a shared space) and the raw embedding vectors are dropped.
 
 ## Usage
 
 ```bash
 pip install -e .[train]
 
-# Expects the Oxford-IIIT Pets dataset (images/ + annotations/) at ~/Data/Oxford-IIIT-Pets
-python scripts/ingest_oxford_pets.py --n-train 200 --n-val 50
-python scripts/train_unet.py --epochs 10
+# Expects the Oxford-IIIT Pets dataset (images/ + annotations/) at ~/data/Oxford-IIIT-Pets
+python scripts/ingest_oxford_pets.py  # full trainval split: 3000 train / 680 val
+python scripts/train_unet.py --epochs 40 --collect-frequency 10
 ```
 
 The sample type is registered via the `tlc.sample_types` entry point on
-install; a plain `import semseg_sample_type` also registers it.
+install; a plain `import semseg_sample_type` also registers it (via the
+`@register_sample_type` decorator) for uninstalled / from-source use. When
+both fire, the registry treats the duplicate as a no-op.
 
 ## Classes
 

@@ -106,9 +106,9 @@ def write_table(samples: list[dict], table_name: str, breeds: list[str]) -> tlc.
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data-root", type=Path, default=Path.home() / "Data" / "Oxford-IIIT-Pets")
-    parser.add_argument("--n-train", type=int, default=200)
-    parser.add_argument("--n-val", type=int, default=50)
+    parser.add_argument("--data-root", type=Path, default=Path.home() / "data" / "Oxford-IIIT-Pets")
+    parser.add_argument("--n-train", type=int, default=3000)
+    parser.add_argument("--n-val", type=int, default=680)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 

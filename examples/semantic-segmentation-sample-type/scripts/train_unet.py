@@ -7,7 +7,8 @@ ignore region, not a prediction target: the model outputs only background/pet,
 border pixels are excluded from the loss (``ignore_index``), and IoU is computed
 only over pixels where GT != border.
 
-Collects, per sample and split:
+Collects, per sample and split, every ``--collect-frequency`` epochs (the final
+epoch is always collected):
 - predicted_segmentation: model prediction at original image size, stored as
   semseg-as-RLE via the "semantic_segmentation" sample type (background/pet only)
 - iou: mean IoU over the real classes, with border pixels masked out
@@ -16,19 +17,24 @@ Collects, per sample and split:
 from __future__ import annotations
 
 import argparse
+import random
 
 import numpy as np
 import tlc
 import torch
 import torch.nn as nn
 import torch.nn.functional as F  # noqa: N812
+import torchvision.transforms.functional as TF  # noqa: N812
+from PIL import Image
 from semseg_sample_type import SemanticSegmentation, SemanticSegmentationSampleType
+from tlc.constants import SAMPLE_WEIGHT
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 PROJECT_NAME = "oxford-pets-semseg-poc"
 DATASET_NAME = "oxford-pets"
 NUM_CLASSES = 2  # background, pet — border is ignore-only, never predicted
+FOREGROUND_CLASS_ID = 1  # "pet" — the class that actually matters for this dataset
 IGNORE_CLASS_ID = 2  # "border" in the GT tables
 IGNORE_INDEX = 255
 PREDICTED_CLASSES = {
@@ -89,33 +95,69 @@ class TinyUNet(nn.Module):
 
 
 class PetsSegDataset(Dataset):
-    """Wraps a tlc Table's sample view as a torch Dataset of resized (image, label_map) pairs."""
+    """Wraps a tlc Table's sample view as a torch Dataset of resized (image, label_map) pairs.
 
-    def __init__(self, table: tlc.Table, image_size: int) -> None:
+    When ``augment`` is set (training only), applies random horizontal flip and a
+    small rotation/scale jointly to image and label, plus image-only color jitter.
+    Geometric transforms use bilinear for the image and nearest for the label;
+    pixels rotated/scaled in from outside the frame become ``IGNORE_INDEX`` in the
+    label (excluded from the loss) rather than spurious background.
+
+    Rows with sample ``weight == 0`` are dropped, so samples excluded during
+    Dashboard curation leave the training set without any code changes.
+    """
+
+    def __init__(self, table: tlc.Table, image_size: int, *, augment: bool = False) -> None:
         self.table = table
         self.image_size = image_size
+        self.augment = augment
+        # Honor curation: keep only rows with non-zero sample weight (default weight is 1.0).
+        self.indices = [
+            i for i, row in enumerate(table.table_rows) if float(row.get(SAMPLE_WEIGHT, 1.0)) > 0.0
+        ]
 
     def __len__(self) -> int:
-        return len(self.table)
+        return len(self.indices)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        row = self.table[idx]
+        row = self.table[self.indices[idx]]
         image = row["image"].convert("RGB").resize((self.image_size, self.image_size))
-        image_tensor = torch.from_numpy(np.asarray(image)).permute(2, 0, 1).float() / 255.0
 
         seg: SemanticSegmentation = row["segmentation"]
         label_map = seg.label_map.copy()
         label_map[label_map == IGNORE_CLASS_ID] = IGNORE_INDEX
-        label_tensor = (
-            F.interpolate(
-                torch.from_numpy(label_map).long()[None, None].float(),
-                size=(self.image_size, self.image_size),
-                mode="nearest",
-            )
-            .long()
-            .squeeze()
+        label = Image.fromarray(label_map.astype(np.uint8), mode="L").resize(
+            (self.image_size, self.image_size), Image.NEAREST
         )
+
+        if self.augment:
+            image, label = self._augment(image, label)
+
+        image_tensor = torch.from_numpy(np.asarray(image).copy()).permute(2, 0, 1).float() / 255.0
+        label_tensor = torch.from_numpy(np.asarray(label).copy()).long()
         return image_tensor, label_tensor
+
+    def _augment(self, image: Image.Image, label: Image.Image) -> tuple[Image.Image, Image.Image]:
+        # torch RNG is seeded per-worker by the DataLoader, so this is reproducible and decorrelated.
+        if torch.rand(1).item() < 0.5:
+            image, label = TF.hflip(image), TF.hflip(label)
+
+        angle = torch.empty(1).uniform_(-15, 15).item()
+        scale = torch.empty(1).uniform_(0.9, 1.1).item()
+        image = TF.affine(
+            image, angle=angle, translate=(0, 0), scale=scale, shear=0,
+            interpolation=TF.InterpolationMode.BILINEAR, fill=0,
+        )
+        label = TF.affine(
+            label, angle=angle, translate=(0, 0), scale=scale, shear=0,
+            interpolation=TF.InterpolationMode.NEAREST, fill=IGNORE_INDEX,
+        )
+
+        # Color jitter on the image only.
+        image = TF.adjust_brightness(image, torch.empty(1).uniform_(0.8, 1.2).item())
+        image = TF.adjust_contrast(image, torch.empty(1).uniform_(0.8, 1.2).item())
+        image = TF.adjust_saturation(image, torch.empty(1).uniform_(0.8, 1.2).item())
+        return image, label
 
 
 # METRICS ###################################################################
@@ -135,6 +177,15 @@ def mean_iou(pred: np.ndarray, gt: np.ndarray, num_classes: int, ignore_class_id
     return float(np.mean(ious)) if ious else 1.0
 
 
+def class_iou(pred: np.ndarray, gt: np.ndarray, class_id: int, ignore_class_id: int) -> float:
+    """IoU for a single class, evaluated only where GT is not the ignore class."""
+    valid = gt != ignore_class_id
+    pred_mask = (pred == class_id) & valid
+    gt_mask = (gt == class_id) & valid
+    union = (pred_mask | gt_mask).sum()
+    return float((pred_mask & gt_mask).sum() / union) if union else 1.0
+
+
 def collect_metrics(
     run: tlc.Run,
     table: tlc.Table,
@@ -143,10 +194,25 @@ def collect_metrics(
     image_size: int,
     epoch: int,
 ) -> float:
-    """Predict on every sample at original size, write predicted RLEs + IoU to the run."""
+    """Predict on every sample at original size and write per-sample metrics to the run.
+
+    Per sample: the predicted segmentation (as RLE), mean IoU, foreground (pet) IoU,
+    cross-entropy loss and mean prediction entropy (both at original resolution, border
+    excluded from the loss), and a pooled bottleneck embedding. The embedding is reduced
+    to 2D after the run; ``loss``/``entropy`` are deliberately not proportional to IoU —
+    they surface confidently-wrong and uncertain samples that hard-label IoU misses.
+    """
     sample_type = SemanticSegmentationSampleType()
     predictions: list[dict] = []
     ious: list[float] = []
+    pet_ious: list[float] = []
+    losses: list[float] = []
+    entropies: list[float] = []
+    embeddings: list[np.ndarray] = []
+
+    # Tap the bottleneck activations; one pooled vector per sample becomes the embedding.
+    captured: dict[str, torch.Tensor] = {}
+    handle = model.bottleneck.register_forward_hook(lambda _m, _i, out: captured.__setitem__("emb", out))
 
     model.eval()
     with torch.no_grad():
@@ -160,20 +226,39 @@ def collect_metrics(
                 torch.from_numpy(np.asarray(image.resize((image_size, image_size)))).permute(2, 0, 1).float() / 255.0
             )
             logits = model(image_tensor[None].to(device))
+            embeddings.append(captured["emb"].mean(dim=(2, 3)).squeeze(0).cpu().numpy().astype(np.float32))
+
             logits = F.interpolate(logits, size=(height, width), mode="bilinear", align_corners=False)
             pred_map = logits.argmax(dim=1).squeeze(0).cpu().numpy().astype(np.int32)
+
+            target = seg.label_map.copy()
+            target[target == IGNORE_CLASS_ID] = IGNORE_INDEX
+            target_tensor = torch.from_numpy(target).long()[None].to(device)
+            losses.append(F.cross_entropy(logits, target_tensor, ignore_index=IGNORE_INDEX).item())
+            probs = logits.softmax(dim=1)
+            entropies.append(float((-(probs * probs.clamp_min(1e-12).log()).sum(dim=1)).mean()))
 
             predicted = SemanticSegmentation(image_width=width, image_height=height, label_map=pred_map)
             predictions.append(sample_type.to_row(predicted))
             ious.append(mean_iou(pred_map, seg.label_map, NUM_CLASSES, IGNORE_CLASS_ID))
+            pet_ious.append(class_iou(pred_map, seg.label_map, FOREGROUND_CLASS_ID, IGNORE_CLASS_ID))
+
+    handle.remove()
 
     run.add_metrics(
         {
             "predicted_segmentation": predictions,
             "iou": ious,
+            "pet_iou": pet_ious,
+            "loss": losses,
+            "entropy": entropies,
+            "embedding": embeddings,
             "epoch": [epoch] * len(ious),
         },
-        schema={"predicted_segmentation": SemanticSegmentationSampleType.schema(PREDICTED_CLASSES)},
+        schema={
+            "predicted_segmentation": SemanticSegmentationSampleType.schema(PREDICTED_CLASSES),
+            "embedding": tlc.schemas.EmbeddingSchema(shape=len(embeddings[0])),
+        },
         foreign_table_url=table.url,
     )
     return float(np.mean(ious))
@@ -182,33 +267,89 @@ def collect_metrics(
 # TRAINING ##################################################################
 
 
+def seed_everything(seed: int) -> None:
+    """Seed all RNGs so runs are reproducible and differences are attributable to actual changes."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # Deterministic cuDNN convolutions (slightly slower, no benchmark autotuning).
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+
+def seed_worker(_worker_id: int) -> None:
+    """Reseed per-worker RNGs from the worker's (deterministic) torch seed."""
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=10)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--image-size", type=int, default=128)
+    parser.add_argument("--collect-frequency", type=int, default=10, help="Collect per-sample metrics every N epochs")
+    parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument("--no-augment", action="store_true", help="Disable training-set augmentation")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--description",
+        default="TinyUNet on Oxford-IIIT Pets (fixed edge budget)",
+        help="Run description; use this to distinguish baseline vs curated runs",
+    )
     args = parser.parse_args()
 
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    seed_everything(args.seed)
+
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+    )
     print(f"Using device: {device}")
 
-    train_table = tlc.Table.from_names(table_name="train", dataset_name=DATASET_NAME, project_name=PROJECT_NAME)
-    val_table = tlc.Table.from_names(table_name="val", dataset_name=DATASET_NAME, project_name=PROJECT_NAME)
+    # .latest() picks up the newest revision, so retraining consumes any Dashboard curation
+    # (excluded/relabeled samples) without code changes. Val is the fixed ruler — also latest,
+    # but normally left uncurated.
+    train_table = tlc.Table.from_names(
+        table_name="train", dataset_name=DATASET_NAME, project_name=PROJECT_NAME
+    ).latest()
+    val_table = tlc.Table.from_names(
+        table_name="val", dataset_name=DATASET_NAME, project_name=PROJECT_NAME
+    ).latest()
+
+    train_dataset = PetsSegDataset(train_table, args.image_size, augment=not args.no_augment)
+    val_dataset = PetsSegDataset(val_table, args.image_size)
+    print(f"Train: {len(train_dataset)} of {len(train_table)} rows after weight filtering | Val: {len(val_dataset)}")
 
     run = tlc.init(
         PROJECT_NAME,
-        description="POC: TinyUNet on Oxford-IIIT Pets with semseg-as-RLE predictions",
-        parameters=vars(args),
+        description=args.description,
+        parameters={**vars(args), "train_table": train_table.url.to_str(), "n_train": len(train_dataset)},
     )
 
+    loader_generator = torch.Generator()
+    loader_generator.manual_seed(args.seed)
     train_loader = DataLoader(
-        PetsSegDataset(train_table, args.image_size), batch_size=args.batch_size, shuffle=True
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.num_workers,
+        persistent_workers=args.num_workers > 0,
+        worker_init_fn=seed_worker,
+        generator=loader_generator,
     )
-    val_loader = DataLoader(PetsSegDataset(val_table, args.image_size), batch_size=args.batch_size)
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        persistent_workers=args.num_workers > 0,
+    )
 
     model = TinyUNet(NUM_CLASSES).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
     criterion = nn.CrossEntropyLoss(ignore_index=IGNORE_INDEX)
 
     for epoch in range(args.epochs):
@@ -231,13 +372,29 @@ def main() -> None:
                 val_loss += criterion(model(images), labels).item() * images.shape[0]
         val_loss /= len(val_loader.dataset)
 
-        tlc.log({"epoch": epoch, "train_loss": train_loss, "val_loss": val_loss})
-        print(f"epoch {epoch}: train_loss={train_loss:.4f} val_loss={val_loss:.4f}")
+        log_entry = {
+            "epoch": epoch,
+            "lr": optimizer.param_groups[0]["lr"],
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+        }
+        scheduler.step()
 
-    train_miou = collect_metrics(run, train_table, model, device, args.image_size, epoch=args.epochs - 1)
-    val_miou = collect_metrics(run, val_table, model, device, args.image_size, epoch=args.epochs - 1)
-    tlc.log({"train_miou": train_miou, "val_miou": val_miou})
-    print(f"train mIoU: {train_miou:.4f}, val mIoU: {val_miou:.4f}")
+        is_final = epoch == args.epochs - 1
+        if (epoch + 1) % args.collect_frequency == 0 or is_final:
+            train_miou = collect_metrics(run, train_table, model, device, args.image_size, epoch=epoch)
+            val_miou = collect_metrics(run, val_table, model, device, args.image_size, epoch=epoch)
+            log_entry |= {"train_miou": train_miou, "val_miou": val_miou}
+
+        tlc.log(log_entry)
+        print("  ".join(f"{k}={v:.4f}" if k != "epoch" else f"epoch {v}" for k, v in log_entry.items()))
+
+    # Reduce embeddings to 2D with PaCMAP, fitting one model on the final-epoch val
+    # embeddings and applying it to every metrics table (both splits, all epochs) so
+    # they share a single, stable space. delete_source_tables drops the raw 128-d
+    # vectors afterwards — only the 2D reduction is kept.
+    print("Reducing embeddings (PaCMAP)...")
+    run.reduce_embeddings_by_foreign_table_url(val_table.url, method="pacmap", delete_source_tables=True)
 
     run.set_status_completed()
     print(f"Run: {run.url}")
