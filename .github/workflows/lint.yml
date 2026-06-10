@@ -26,6 +26,9 @@ jobs:
     - name: Install dependencies
       run: uv sync --all-extras --dev
 
+    - name: Check notebooks.yaml is in sync with notebook content
+      run: uv run python -m utils.notebooks_metadata check
+
     - name: Run pre-commit on all files
       run: uv run pre-commit run --all-files
 
