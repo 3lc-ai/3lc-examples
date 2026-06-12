@@ -26,6 +26,7 @@ from __future__ import annotations
 import os
 
 import datasets
+import numpy as np
 import tlc
 from tqdm import tqdm
 
@@ -52,8 +53,8 @@ def anns_to_3lc_bbs(anns: str, image_w: int, image_h: int) -> tlc.data_types.Bou
     return tlc.data_types.BoundingBoxes2D(
         image_width=image_w,
         image_height=image_h,
-        bounding_boxes=boxes,
-        labels=labels,
+        bounding_boxes=np.array(boxes, dtype=np.float32).reshape(-1, 4),
+        labels=np.array(labels, dtype=np.int32),
         bounding_box_format="cxywh",
         normalized=True,
     )
@@ -96,8 +97,8 @@ def main() -> None:
             dataset_name=DATASET_NAME,
             if_exists="overwrite",
             schema={
-                "image": tlc.schemas.ImageSchema(format="jpeg", bulk_data_location=bulk_data_location),
-                "bbs": tlc.schemas.BoundingBoxes2DSchema(["fire"]),
+                "image": tlc.schemas.ImageSchema(sample_type="pil_jpeg", bulk_data_location=bulk_data_location),
+                "bbs": tlc.data_types.BoundingBoxes2D.schema(classes=["fire"]),
                 "weight": tlc.schemas.SampleWeightSchema(),
                 "date": tlc.schemas.DatetimeStringSchema(),
                 "camera": tlc.schemas.CategoricalLabelSchema(classes=list(camera_map.keys())),

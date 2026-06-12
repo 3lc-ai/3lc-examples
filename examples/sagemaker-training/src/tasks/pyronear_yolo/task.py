@@ -39,18 +39,16 @@ def train(args: argparse.Namespace, train_table: tlc.Table, val_table: tlc.Table
 
 
 if __name__ == "__main__":
-
-    class Args:
-        def __init__(self):
-            self.project = "hf-pyronear"
-            self.epochs = 10
-            self.batch_size = 8
-            self.workers = 8
-            self.device = "cuda"
-            self.model_dir = None
-            self.train_table_url = "s3://3lc-projects/hf-pyronear/datasets/pyro-sdis/tables/train"
-            self.val_table_url = "s3://3lc-projects/hf-pyronear/datasets/pyro-sdis/tables/val"
-
-    args = Args()
-    # train_table, val_table = build_tables(args)
-    train(args, args.train_table_url, args.val_table_url)
+    args = argparse.Namespace(
+        project="hf-pyronear",
+        epochs=10,
+        batch_size=8,
+        workers=8,
+        device="cuda",
+        model_dir=None,
+        train_table_url="s3://3lc-projects/hf-pyronear/datasets/pyro-sdis/tables/train",
+        val_table_url="s3://3lc-projects/hf-pyronear/datasets/pyro-sdis/tables/val",
+    )
+    train_table = tlc.Table.from_url(args.train_table_url)
+    val_table = tlc.Table.from_url(args.val_table_url)
+    train(args, train_table, val_table)

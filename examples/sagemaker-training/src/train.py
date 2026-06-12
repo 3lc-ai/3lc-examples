@@ -119,11 +119,15 @@ def setup_project_aliases(project: str) -> None:
     Idempotent: `force=False` makes this a no-op when the alias is
     already persisted with the same target.
     """
-    tlc.register_project_url_alias("SM_TRAIN_INPUT_DATA", os.environ["TRAIN_S3_URI"], project=project, force=False)
-    tlc.register_project_url_alias("SM_VAL_INPUT_DATA", os.environ["VAL_S3_URI"], project=project, force=False)
+    tlc.helpers.ProjectHelper.register_project_url_alias(
+        "SM_TRAIN_INPUT_DATA", os.environ["TRAIN_S3_URI"], project_name=project, force=False
+    )
+    tlc.helpers.ProjectHelper.register_project_url_alias(
+        "SM_VAL_INPUT_DATA", os.environ["VAL_S3_URI"], project_name=project, force=False
+    )
 
     print("Registered URL aliases:")
-    for alias, value in tlc.get_registered_url_aliases().items():
+    for alias, value in tlc.url.get_registered_url_aliases().items():
         print(f"  {alias}: {value}")
 
 
