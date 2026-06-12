@@ -1,11 +1,14 @@
 # Single source of truth for example notebook metadata.
 #
+# NOTE: This file is maintainer-facing infrastructure used by the 3LC team's docs/CI
+# pipelines. If you are here to run the notebooks, you can ignore it entirely.
+#
 # DERIVED fields (title, blurb, tags, thumbnail, project_meta) are extracted from the
 # notebooks themselves -- do NOT edit them by hand. Regenerate with:
 #     python -m utils.notebooks_metadata sync
 # CI (`... check`) fails if they drift from notebook content.
 #
-# CURATED fields (include_in_docs/tests/public_examples, params, depends_on) are
+# CURATED fields (include_in_docs/tests/public_examples, params, depends_on, creates) are
 # hand-maintained here and preserved across sync.
 
 - path: 1-create-tables/3d/pandaset/load-pandaset.ipynb
@@ -26,6 +29,7 @@
     MAX_FRAMES: {test: 10, publish: null}
     MAX_SEQUENCES: {test: 1, publish: 5}
   depends_on: []
+  creates: []
 - path: 1-create-tables/3d/write-mammoth-table.ipynb
   title: Create a Table from 3D points
   blurb: Create a 3LC Table directly from row data containing 3D point cloud information using the Mammoth dataset for 3D object analysis.
@@ -42,6 +46,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/create-custom-table.ipynb
   title: Create Custom Table
   blurb: Create a custom 3LC Table containing multiple data types with defined schemas and dummy data for demonstration purposes.
@@ -58,6 +63,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/create-fhibe-table.ipynb
   title: Load FHIBE Dataset
   blurb: This notebook loads the Sony AI's "Fair Human-Centric Image Benchmark" dataset as a 3LC Table, including keypoints, segmentation, bounding boxes, as well as rich subject metadata.
@@ -75,6 +81,7 @@
   params:
     MAX_SAMPLES: {test: 10, publish: 2000}
   depends_on: []
+  creates: []
 - path: 1-create-tables/create-semantic-segmentation-table.ipynb
   title: Create Semantic Segmentation Table
   blurb: Create a 3LC Table for semantic segmentation tasks using paired images and grayscale mask files from the ADE20k dataset.
@@ -91,6 +98,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/create-table-from-image-folder.ipynb
   title: Create Table from Image Folder
   blurb: Create a 3LC Table from a folder structure containing images organized by class labels for image classification tasks.
@@ -107,6 +115,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/create-table-from-torch-dataset.ipynb
   title: Create Table from PyTorch Dataset
   blurb: Convert a PyTorch Dataset into a 3LC Table using the built-in conversion method.
@@ -124,6 +133,7 @@
   params:
     MAX_SAMPLES: {test: 1000, publish: null}
   depends_on: []
+  creates: []
 - path: 1-create-tables/create-table-from-videos.ipynb
   title: Create a Table from video frames
   blurb: Create a 3LC Table by extracting individual frames from video files in the UCF11 action recognition dataset.
@@ -140,6 +150,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/instance-segmentation/create-custom-instance-segmentation-table.ipynb
   title: Create Custom Instance Segmentation Table
   blurb: Create a 3LC Table from custom RLE annotations using the Sartorius cell instance segmentation dataset with hundreds of cell instances per image.
@@ -157,6 +168,7 @@
   params:
     MAX_IMAGES: {test: 10, publish: null}
   depends_on: []
+  creates: []
 - path: 1-create-tables/instance-segmentation/create-instance-segmentations-from-image-masks.ipynb
   title: Convert Semantic to Instance Segmentation
   blurb: 'Convert a semantic segmentation dataset into the instance segmentation format used by 3LC, using the simplest possible mapping: every semantic class becomes a single "instance".'
@@ -173,6 +185,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/instance-segmentation/create-instance-segmentations-from-masks.ipynb
   title: Import instance segmentation dataset from multiple image masks
   blurb: In this tutorial, we will import the LIACi (Lifecycle Inspection, Analysis and Condition information) Segmentation Dataset for Underwater Ship Inspections, introduced in [this](https://ieeexplore.i...
@@ -184,6 +197,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/instance-segmentation/create-table-from-coco-segmentation.ipynb
   title: Create Table from COCO Instance Segmentation
   blurb: Create a 3LC Table from COCO-format dataset containing images with instance segmentation annotations for object detection and segmentation tasks.
@@ -200,6 +214,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/instance-segmentation/create-table-from-yolo-segmentation.ipynb
   title: Create Table from YOLO Instance Segmentation
   blurb: Create a 3LC Table from YOLO-format dataset with polygon-based instance segmentation annotations for modern object detection pipelines.
@@ -216,6 +231,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/keypoints/create-custom-keypoints-table.ipynb
   title: Create Custom Keypoints Table
   blurb: Create a 3LC keypoints table from the Animal-Pose dataset with custom schema definitions for pose estimation tasks.
@@ -232,6 +248,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/keypoints/create-table-from-coco-keypoints.ipynb
   title: Create Table from COCO Keypoints
   blurb: Create a 3LC keypoints table from COCO-format annotations for human pose estimation and keypoint detection tasks.
@@ -248,6 +265,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/keypoints/create-table-from-yolo-keypoints.ipynb
   title: Create Table from YOLO Keypoints
   blurb: Create a 3LC keypoints table from YOLO-format dataset with normalized keypoint coordinates for efficient pose estimation workflows.
@@ -264,6 +282,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/obbs/create-custom-obb-table.ipynb
   title: Create Custom Oriented Bounding Box Table
   blurb: Create a 3LC Table with oriented bounding boxes using the HRSC2016-MS maritime ship detection dataset for rotated object detection.
@@ -280,6 +299,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/obbs/create-table-from-yolo-obb.ipynb
   title: Create Table from YOLO - Oriented Bounding Boxes (OBB)
   blurb: This notebook demonstrates how to create a 3LC Table from a YOLO-format dataset for **oriented bounding box detection** tasks.
@@ -296,6 +316,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/object detection/create-custom-bb-table.ipynb
   title: Create Custom Bounding Box Table
   blurb: Build a 3LC Table from scratch with custom bounding box annotations and schema definitions for specialized object detection scenarios.
@@ -312,6 +333,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/object detection/create-table-from-coco-detection.ipynb
   title: Create Table from COCO Object Detection
   blurb: Create a 3LC Table from COCO-format dataset containing images with bounding box annotations for standard object detection tasks.
@@ -328,6 +350,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 1-create-tables/object detection/create-table-from-yolo-detection.ipynb
   title: Create Table from YOLO Object Detection
   blurb: Create a 3LC Table from YOLO-format dataset with normalized bounding box annotations for efficient object detection workflows.
@@ -344,6 +367,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 2-modify-tables/1-weight-coreset.ipynb
   title: Weighted Table Subset Selection
   blurb: This notebook demonstrates how to apply zero weights to a subset of table rows for selective data processing.
@@ -360,7 +384,8 @@
   include_in_public_examples: true
   params:
     CORESET_SIZE: {test: 1, publish: 0.01}
-  depends_on: []
+  depends_on: [1-create-tables/create-table-from-torch-dataset.ipynb]
+  creates: []
 - path: 2-modify-tables/add-classification-metrics.ipynb
   title: Add uniqueness metrics to Table
   blurb: This notebook computes the global image metrics "uniqueness" and "diversity" for each image in a dataset containing images and labels.
@@ -376,7 +401,8 @@
   include_in_tests: true
   include_in_public_examples: true
   params: {}
-  depends_on: []
+  depends_on: [2-modify-tables/1-weight-coreset.ipynb]
+  creates: []
 - path: 2-modify-tables/add-embeddings.ipynb
   title: Add image embeddings to a Table
   blurb: In this example we will extend an existing table with embeddings computed from a pre-trained model.
@@ -392,7 +418,8 @@
   include_in_tests: true
   include_in_public_examples: true
   params: {}
-  depends_on: []
+  depends_on: [1-create-tables/object detection/create-table-from-coco-detection.ipynb]
+  creates: []
 - path: 2-modify-tables/add-image-metrics.ipynb
   title: Add image metrics to a Table
   blurb: In this example we will extend a Table containing images with new columns containing common image metrics (sharpness, contrast, etc.).
@@ -408,7 +435,8 @@
   include_in_tests: true
   include_in_public_examples: true
   params: {}
-  depends_on: []
+  depends_on: [1-create-tables/object detection/create-table-from-coco-detection.ipynb]
+  creates: []
 - path: 2-modify-tables/add-instance-embeddings/1-train-crop-model.ipynb
   title: Train a instance classifier on a 3LC Table
   blurb: In this tutorial, we will fine-tune a classifier using instances (segmentations or bounding boxes) from a 3LC `Table`.
@@ -426,7 +454,8 @@
   params:
     EPOCHS: {test: 1, publish: 5}
     EFFICIENTNET_MODEL_NAME: {test: efficientnet_b0, publish: efficientnet_b2}
-  depends_on: []
+  depends_on: [1-create-tables/instance-segmentation/create-table-from-coco-segmentation.ipynb]
+  creates: []
 - path: 2-modify-tables/add-instance-embeddings/2-add-instance-metrics.ipynb
   title: Collect and reduce classifier embeddings
   blurb: In this tutorial, we will use an existing classifier model to generate per-instance embeddings for a COCO-style object detection dataset. We will then reduce these embeddings to 3D using PaCMAP.
@@ -443,7 +472,8 @@
   include_in_public_examples: true
   params:
     EFFICIENTNET_MODEL_NAME: {test: efficientnet_b0, publish: efficientnet_b2}
-  depends_on: []
+  depends_on: [1-create-tables/instance-segmentation/create-table-from-coco-segmentation.ipynb, 2-modify-tables/add-instance-embeddings/1-train-crop-model.ipynb]
+  creates: []
 - path: 2-modify-tables/add-new-data-and-split.ipynb
   title: Add new data to dataset with splits
   blurb: Add new data and re-split a dataset.
@@ -460,6 +490,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 2-modify-tables/add-new-data.ipynb
   title: Add new data to existing Table lineage
   blurb: Adding new data to an existing dataset is a common task, as more data is collected and we want to leverage it to improve the model. This notebook demonstrates how to add new data to an existing 3LC...
@@ -475,7 +506,8 @@
   include_in_tests: true
   include_in_public_examples: false
   params: {}
-  depends_on: []
+  depends_on: [1-create-tables/create-table-from-image-folder.ipynb]
+  creates: []
 - path: 2-modify-tables/autosegment-image-column.ipynb
   title: Auto-segment images using SAM
   blurb: This notebook creates a 3LC Table with auto-generated segmentation masks from SAM using grid-based point prompting.
@@ -492,6 +524,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 2-modify-tables/compute-per-bb-metrics.ipynb
   title: Per Bounding Box Luminosity Calculation
   blurb: This notebook demonstrates how to calculate the luminosity of images and their bounding boxes and add them as columns to a Table.
@@ -508,6 +541,7 @@
   include_in_public_examples: true
   params: {}
   depends_on: []
+  creates: []
 - path: 2-modify-tables/dimensionality-reduction-toy-example.ipynb
   title: Compare dimensionality reduction methods
   blurb: This notebook demonstrates how to perform dimensionality reduction on a column in a `tlc.Table` using two different dimensionality reduction algorithms, `pacmap` and `umap`.
@@ -523,7 +557,8 @@
   include_in_tests: true
   include_in_public_examples: true
   params: {}
-  depends_on: []
+  depends_on: [1-create-tables/3d/write-mammoth-table.ipynb]
+  creates: []
 - path: 2-modify-tables/split-tables.ipynb
   title: Split tables
   blurb: Datasets are commonly divided into splits for training, validation and testing. This notebook shows how a single Table can be divided into two or more such splits, with different strategies for how...
@@ -539,7 +574,8 @@
   include_in_tests: true
   include_in_public_examples: false
   params: {}
-  depends_on: []
+  depends_on: [2-modify-tables/add-embeddings.ipynb]
+  creates: []
 - path: 2-modify-tables/transform-bbs-to-segs.ipynb
   title: Convert bounding boxes to instance segmentation masks using SAM
   blurb: This notebook creates a derived Table with an added column containing instance segmentation masks generated by the SAM model using the Table's existing bounding boxes as prompts.
@@ -555,7 +591,8 @@
   include_in_tests: true
   include_in_public_examples: true
   params: {}
-  depends_on: []
+  depends_on: [1-create-tables/object detection/create-table-from-coco-detection.ipynb]
+  creates: []
 - path: 3-training-and-metrics/detectron2-balloons-detection-finetuning.ipynb
   title: Fine-tune a object detection model using Detectron2
   blurb: This notebook shows how to collect bounding box metrics while training a model using Detectron2.
@@ -574,6 +611,7 @@
     MAX_ITERATIONS: {test: 100, publish: 400}
     DETECTRON2_MODEL_CONFIG: {test: COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml, publish: COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/detectron2-balloons-segmentation-finetuning.ipynb
   title: Fine-tune a instance segmentation model using Detectron2
   blurb: This notebook shows how to collect instance segmentation metrics while training a model using Detectron2.
@@ -592,6 +630,7 @@
     MAX_ITERATIONS: {test: 100, publish: 400}
     DETECTRON2_MODEL_CONFIG: {test: COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml, publish: COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/detectron2-coco128-detection-collection.ipynb
   title: Collect Bounding Boxes using Detectron2
   blurb: This notebook collects object detection metrics using the Detectron2 library and the COCO128 subset.
@@ -609,6 +648,7 @@
   params:
     DETECTRON2_MODEL_CONFIG: {test: COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml, publish: COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/detectron2-coco128-segmentation-collection.ipynb
   title: Collect instance segmentation metrics using Detectron2
   blurb: This notebook collects instance segmentation metrics using the Detectron2 library and the COCO128 subset.
@@ -626,6 +666,7 @@
   params:
     DETECTRON2_MODEL_CONFIG: {test: COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml, publish: COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/dimensionality-reduction-example.ipynb
   title: Apply dimensionality reduction to multiple Tables
   blurb: This example shows how to use the "producer-consumer" pattern for re-using dimensionality reduction models across different tables.
@@ -642,7 +683,8 @@
   include_in_public_examples: true
   params:
     TIMM_MODEL_NAME: {test: resnet18, publish: resnet18}
-  depends_on: []
+  depends_on: [1-create-tables/create-table-from-torch-dataset.ipynb, 2-modify-tables/1-weight-coreset.ipynb]
+  creates: []
 - path: 3-training-and-metrics/huggingface-ade20k-segformer-finetuning.ipynb
   title: Fine-tune Hugging Face SegFormer on a custom dataset
   blurb: This tutorial covers metrics collection on a custom semantic segmentation dataset using `3lc` and training using 🤗 `transformers`.
@@ -661,6 +703,7 @@
     EPOCHS: {test: 100, publish: 200}
     SEGFORMER_MODEL_ID: {test: nvidia/mit-b0, publish: nvidia/mit-b0}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/huggingface-cifar100-collect-embeddings.ipynb
   title: Hugging Face CIFAR-100 Embeddings Example
   blurb: In this notebook we will see how to use a pre-trained Vision Transformers (ViT) model to collect embeddings on the CIFAR-100 dataset.
@@ -678,6 +721,7 @@
   params:
     VIT_MODEL_ID: {test: google/vit-base-patch16-224, publish: google/vit-base-patch16-224}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/huggingface-coco128-segformer-collection.ipynb
   title: Collect Instance Segmentation Metrics from Pretrained Model
   blurb: In this example, we will collect predicted instance segmentation masks from a pretrained model from the Hugging Face Hub.
@@ -695,6 +739,7 @@
   params:
     MASK2FORMER_MODEL_ID: {test: facebook/mask2former-swin-tiny-coco-instance, publish: facebook/mask2former-swin-base-coco-instance}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/huggingface-imdb-finetuning.ipynb
   title: 🤗 and 3LC example on the IMDb dataset
   blurb: This notebook demonstrates fine-tuning a pretrained DistilBERT model from `transformers` on the `IMDb` dataset, using the 3LC integrations with `Trainer` and `datasets` from Hugging Face. 3LC metri...
@@ -713,6 +758,7 @@
     EPOCHS: {test: 1, publish: 5}
     IMDB_MODEL_ID: {test: distilbert-base-uncased, publish: bert-base-uncased}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/huggingface-mrcp-bert-finetuning.ipynb
   title: Fine-tuning a model with the 🤗 3LC Trainer
   blurb: This notebook demonstrates how to use the 3LC Hugging Face Trainer integration to fine-tune a BERT model (bert-base-uncased).
@@ -730,6 +776,7 @@
   params:
     EPOCHS: {test: 1, publish: 5}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/lightning-balloons-segformer-training.ipynb
   title: Fine-tuning a SegFormer model with Pytorch Lightning
   blurb: This notebook fine-tunes a SegFormer model for semantic segmentation using PyTorch Lightning.
@@ -748,6 +795,7 @@
     EPOCHS: {test: 1, publish: 10}
     SEGFORMER_MODEL_ID: {test: nvidia/mit-b0, publish: nvidia/mit-b2}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/lightning-cifar10-resnet-training.ipynb
   title: Training a classifier using PyTorch Lightning
   blurb: This notebook trains a classifier on CIFAR-10 using PyTorch Lightning.
@@ -765,6 +813,7 @@
   params:
     EPOCHS: {test: 1, publish: 5}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/pytorch-augmentation-explorer.ipynb
   title: Register Augmented Samples From a Training Loop
   blurb: In this notebook, we will demonstrate how to register augmented samples from a training loop as 3LC metrics.
@@ -781,6 +830,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/pytorch-cifar10-collect-metrics.ipynb
   title: Collect metrics using a pre-trained model
   blurb: This notebook demonstrates how to use a pre-trained model to collect metrics on a dataset.
@@ -796,7 +846,8 @@
   include_in_tests: true
   include_in_public_examples: false
   params: {}
-  depends_on: []
+  depends_on: [1-create-tables/create-table-from-torch-dataset.ipynb, 2-modify-tables/1-weight-coreset.ipynb]
+  creates: []
 - path: 3-training-and-metrics/pytorch-cifar10-resnet-training.ipynb
   title: PyTorch 3LC CIFAR-10 Sample Notebook
   blurb: This notebook demonstrates fine-tuning a pretrained ResNet-18 model on the CIFAR-10 dataset using PyTorch and 3LC. We run the fine-tuning process for 5 epochs. During training, both classification ...
@@ -815,6 +866,7 @@
     EPOCHS: {test: 1, publish: 5}
     TIMM_MODEL_NAME: {test: resnet18, publish: resnet18}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/pytorch-cifar10-train-autoencoder.ipynb
   title: Train autoencoder for embedding extraction
   blurb: This notebook showcases more ways of working with metrics and embeddings in 3LC. It is mostly meant as a demonstration of how to collect embeddings and image metrics from a manually trained model.
@@ -832,7 +884,8 @@
   params:
     EPOCHS: {test: 1, publish: 5}
     AUTOENCODER_BACKBONE: {test: resnet50, publish: resnet101}
-  depends_on: []
+  depends_on: [1-create-tables/create-table-from-torch-dataset.ipynb, 2-modify-tables/1-weight-coreset.ipynb]
+  creates: []
 - path: 3-training-and-metrics/pytorch-fashion-mnist-resnet-training.ipynb
   title: PyTorch 3LC Fashion-MNIST Sample Notebook
   blurb: This notebook is fundamentally similar to the MNIST notebook, but it uses the slightly more interesting FashionMNIST dataset.
@@ -850,6 +903,7 @@
   params:
     EPOCHS: {test: 1, publish: 5}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/pytorch-mnist-resnet-training.ipynb
   title: PyTorch 3LC MNIST Sample Notebook
   blurb: This notebook demonstrates the training of a Convolutional Neural Network (CNN) on the MNIST dataset using PyTorch and 3LC. The built-in MNIST dataset for training and validation is wrapped in a Ta...
@@ -867,6 +921,7 @@
   params:
     EPOCHS: {test: 1, publish: 5}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/sam-coco128-collect-embeddings.ipynb
   title: Collect SAM image embeddings
   blurb: In this example, we will show how to create a Run containing embeddings extracted from SAM for a set of images.
@@ -882,7 +937,8 @@
   include_in_tests: false
   include_in_public_examples: true
   params: {}
-  depends_on: []
+  depends_on: [1-create-tables/object detection/create-table-from-coco-detection.ipynb]
+  creates: []
 - path: 3-training-and-metrics/supergradients-animalpose-yolonas-training.ipynb
   title: Train a YOLO-NAS model for pose estimation with SuperGradients
   blurb: This tutorial trains a SuperGradients YOLO-NAS model for pose estimation the AnimalPose dataset.
@@ -901,14 +957,15 @@
     MAX_EPOCHS: {test: 1, publish: 10}
     NUM_WORKERS: {test: 8, publish: 8}
     MODEL_NAME: {test: yolo_nas_pose_n, publish: yolo_nas_pose_m}
-  depends_on: []
+  depends_on: [1-create-tables/keypoints/create-custom-keypoints-table.ipynb]
+  creates: []
 - path: 3-training-and-metrics/supergradients-detection-yolonas-training.ipynb
   title: Train Yolo-NAS model with 3LC Metrics Collection
   blurb: This notebook shows how to train a Yolo-NAS detection model with 3LC Metrics Collection on an Object Detection 3LC `Table`.
   tags: [supergradients, training, object-detection]
   thumbnail: ''
   project_meta:
-    project_name: 3LC Tutorials
+    project_name: 3LC Tutorials - COCO128
     dataset_name: COCO128
     run_name: null
     table_name: null
@@ -920,7 +977,8 @@
     MAX_EPOCHS: {test: 1, publish: 10}
     NUM_WORKERS: {test: 8, publish: 8}
     YOLONAS_MODEL: {test: YOLO_NAS_S, publish: YOLO_NAS_L}
-  depends_on: []
+  depends_on: [1-create-tables/object detection/create-table-from-coco-detection.ipynb]
+  creates: []
 - path: 3-training-and-metrics/ultralytics-animalpose-yolo11-pose-training.ipynb
   title: Train a YOLO model for pose estimation on a custom keypoints dataset
   blurb: This notebook trains a YOLO model for pose estimation on the AnimalPose dataset.
@@ -939,7 +997,8 @@
     EPOCHS: {test: 1, publish: 10}
     NUM_WORKERS: {test: 8, publish: 8}
     MODEL_NAME: {test: yolo11n-pose.pt, publish: yolo11m-pose.pt}
-  depends_on: []
+  depends_on: [1-create-tables/keypoints/create-custom-keypoints-table.ipynb]
+  creates: []
 - path: 3-training-and-metrics/ultralytics-cell-segmentation-yolo11-seg.ipynb
   title: Train a YOLO segmentation model with 3LC metrics collection
   blurb: This notebook shows how to train a YOLO segmentation model with 3LC metrics collection on a YOLO-compatible 3LC `Table`.
@@ -959,6 +1018,7 @@
     NUM_WORKERS: {test: 8, publish: 8}
     MODEL_NAME: {test: yolo11n-seg.pt, publish: yolo11m-seg.pt}
   depends_on: []
+  creates: []
 - path: 3-training-and-metrics/ultralytics-cifar10-yolo11-cls-training.ipynb
   title: Train a YOLO classifier with 3LC metrics collection
   blurb: Train a YOLO classifer using existing tables.
@@ -976,7 +1036,8 @@
   params:
     EPOCHS: {test: 1, publish: 5}
     MODEL_NAME: {test: yolov8n-cls.pt, publish: yolov8m-cls.pt}
-  depends_on: []
+  depends_on: [1-create-tables/create-table-from-torch-dataset.ipynb, 2-modify-tables/1-weight-coreset.ipynb]
+  creates: []
 - path: 3-training-and-metrics/ultralytics-hrsc-2016-yolo-obb-training.ipynb
   title: Train a YOLO model for object detection with oriented bounding boxes
   blurb: This notebook trains a YOLO model for object detection with oriented bounding boxes on the HRSC2016-MS dataset.
@@ -996,6 +1057,7 @@
     NUM_WORKERS: {test: 8, publish: 8}
     MODEL_NAME: {test: yolo11n-obb.pt, publish: yolo11m-obb.pt}
   depends_on: []
+  creates: []
 - path: 4-end-to-end-examples/deep-fish.ipynb
   title: Scaling an Instance Segmentation Dataset with Active Labeling in 3LC
   blurb: How we turned 310 labeled fish into tens of thousands - all in a day's work.
@@ -1007,6 +1069,7 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []
 - path: 4-end-to-end-examples/hard-hat.ipynb
   title: Improving models by fixing object detection labels
   blurb: Label quality is one of the major factors that affects your model's performance. 3LC provides valuable insights into your label quality and singles out problematic labels. By fixing the label error...
@@ -1018,3 +1081,4 @@
   include_in_public_examples: false
   params: {}
   depends_on: []
+  creates: []

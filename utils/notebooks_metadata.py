@@ -42,6 +42,7 @@ CURATED_DEFAULTS: dict[str, Any] = {
     "include_in_public_examples": False,
     "params": {},
     "depends_on": [],
+    "creates": [],
 }
 
 # Canonical key order within a single notebook entry (derived first, then curated).
@@ -53,6 +54,7 @@ ENTRY_KEY_ORDER = [
     "include_in_public_examples",
     "params",
     "depends_on",
+    "creates",
 ]
 
 DASHBOARD_URL = "https://dashboard.3lc.ai"
@@ -301,12 +303,15 @@ _NotebooksDumper.add_representer(_FlowMap, _represent_flow_map)
 HEADER = """\
 # Single source of truth for example notebook metadata.
 #
+# NOTE: This file is maintainer-facing infrastructure used by the 3LC team's docs/CI
+# pipelines. If you are here to run the notebooks, you can ignore it entirely.
+#
 # DERIVED fields (title, blurb, tags, thumbnail, project_meta) are extracted from the
 # notebooks themselves -- do NOT edit them by hand. Regenerate with:
 #     python -m utils.notebooks_metadata sync
 # CI (`... check`) fails if they drift from notebook content.
 #
-# CURATED fields (include_in_docs/tests/public_examples, params, depends_on) are
+# CURATED fields (include_in_docs/tests/public_examples, params, depends_on, creates) are
 # hand-maintained here and preserved across sync.
 """
 
@@ -322,6 +327,9 @@ def _ordered_entry(entry: dict[str, Any]) -> dict[str, Any]:
             out[key] = _FlowSeq(value)
         elif key == "params":
             out[key] = {pname: _FlowMap(pval) if isinstance(pval, dict) else pval for pname, pval in value.items()}
+        elif key == "creates":
+            # A list of {project, dataset, table} table contracts; render each inline.
+            out[key] = [_FlowMap(c) if isinstance(c, dict) else c for c in value]
         else:
             out[key] = value
     return out
@@ -378,6 +386,77 @@ def sync(tutorials_dir: Path, yaml_path: Path) -> list[dict[str, Any]]:
     return entries
 
 
+def dependency_problems(stored: list[dict[str, Any]]) -> list[str]:
+    """Validate curated dependency metadata in ``stored`` notebook entries.
+
+    Checks that every ``depends_on`` target is a known notebook (no self-references), that the
+    dependency graph is acyclic, and that each ``creates`` entry is a well-formed table contract.
+
+    Args:
+        stored: Notebook entries as loaded from ``notebooks.yaml``.
+
+    Returns:
+        A list of human-readable problems; empty when the dependency metadata is valid.
+
+    """
+    problems: list[str] = []
+    by_path = {e["path"]: e for e in stored if isinstance(e, dict) and "path" in e}
+    known = set(by_path)
+
+    # depends_on: targets must be known notebooks; self-references are not allowed.
+    graph: dict[str, list[str]] = {}
+    for path, entry in by_path.items():
+        deps = entry.get("depends_on") or []
+        if not isinstance(deps, list):
+            problems.append(f"{path}: 'depends_on' must be a list, got {type(deps).__name__}")
+            deps = []
+        resolved: list[str] = []
+        for dep in deps:
+            if dep == path:
+                problems.append(f"{path}: depends on itself")
+            elif dep not in known:
+                problems.append(f"{path}: depends_on unknown notebook '{dep}'")
+            else:
+                resolved.append(dep)
+        graph[path] = resolved
+
+    # Acyclicity via Kahn's algorithm: edge dep -> dependent.
+    dependents: dict[str, list[str]] = {n: [] for n in graph}
+    indegree: dict[str, int] = {n: 0 for n in graph}
+    for node, deps in graph.items():
+        for dep in deps:
+            dependents[dep].append(node)
+            indegree[node] += 1
+    queue = [n for n in graph if indegree[n] == 0]
+    processed = 0
+    while queue:
+        node = queue.pop()
+        processed += 1
+        for dependent in dependents[node]:
+            indegree[dependent] -= 1
+            if indegree[dependent] == 0:
+                queue.append(dependent)
+    if processed != len(graph):
+        in_cycle = sorted(n for n in graph if indegree[n] > 0)
+        problems.append(f"dependency cycle among notebooks: {', '.join(in_cycle)}")
+
+    # creates: a list of {project, dataset, table} table contracts.
+    for path, entry in by_path.items():
+        creates = entry.get("creates") or []
+        if not isinstance(creates, list):
+            problems.append(f"{path}: 'creates' must be a list, got {type(creates).__name__}")
+            continue
+        for i, contract in enumerate(creates):
+            if not isinstance(contract, dict):
+                problems.append(f"{path}: creates[{i}] must be a mapping, got {type(contract).__name__}")
+                continue
+            missing = [k for k in ("project", "dataset", "table") if not contract.get(k)]
+            if missing:
+                problems.append(f"{path}: creates[{i}] missing required key(s): {', '.join(missing)}")
+
+    return problems
+
+
 def check(tutorials_dir: Path, yaml_path: Path) -> list[str]:
     """Return a list of human-readable drift problems; empty list means the file is up to date."""
     problems: list[str] = []
@@ -414,6 +493,8 @@ def check(tutorials_dir: Path, yaml_path: Path) -> list[str]:
                     f"    in notebooks.yaml: {existing.get(field)!r}\n"
                     f"    from notebook:     {derived[field]!r}"
                 )
+
+    problems.extend(dependency_problems(stored))
 
     return problems
 
