@@ -73,10 +73,10 @@ Follow these steps to set up the repository and environment for running the note
     pip install -e .[all]
     ```
 
-    To install the dev dependencies for formatting code and running tests, use:
+    To install the development dependencies for formatting code and running tests (maintainers and contributors only), use [uv](https://docs.astral.sh/uv/):
 
     ```bash
-    pip install -e .[dev]
+    uv sync --all-extras --dev
     ```
 
 4. Running the Notebooks
@@ -92,6 +92,24 @@ Follow these steps to set up the repository and environment for running the note
 5. Get Started
 
     From your notebook interface, open any notebook from the repository to get started. Be sure to select the correct kernel/environment where the packages have been installed.
+
+## Running the Notebooks
+
+The notebooks are designed to run top-to-bottom on a fresh clone with no setup beyond the installation steps above. A few things are useful to know:
+
++ **Data**: Most notebooks either use small datasets bundled in the `data/` folder or download what they need at runtime (to the `transient_data/` folder, which is ignored by git). A few notebooks require extra steps, and say so in their introduction:
+  + Kaggle-hosted datasets require [Kaggle API credentials](https://www.kaggle.com/docs/api) (`~/.kaggle/kaggle.json`).
+  + Some datasets (e.g. FHIBE, LIACi) must be downloaded manually due to licensing; the notebook explains where to get them.
++ **Prerequisite notebooks**: Some notebooks build on 3LC Tables created by earlier notebooks (for example, training notebooks reuse tables from the `1-create-tables` tutorials). When a notebook has a prerequisite, it is linked in the notebook's introduction — run the linked notebook first.
++ **Hardware**: Training notebooks run fastest with a GPU (CUDA or Apple Silicon). The Detectron2 notebooks require a CUDA GPU and a Linux-like environment.
+
+### Repository Layout
+
++ `tutorials/` — the main collection, organized as `1-create-tables`, `2-modify-tables`, `3-training-and-metrics`, and `4-end-to-end-examples`.
++ `examples/` — additional standalone examples, including custom sample types and integrations.
++ `data/` — small datasets bundled for the tutorials.
++ `src/tlc_tools/` — the `tlc_tools` Python package and CLI installed by `pip install -e .`.
++ `tutorials/notebooks.yaml` and `utils/` — **maintainer-facing infrastructure** used by the 3LC team's documentation and CI pipelines. You can ignore these entirely when running the notebooks.
 
 ## CLI
 

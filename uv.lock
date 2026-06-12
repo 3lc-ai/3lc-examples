@@ -94,6 +94,22 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "accelerate" },
+    { name = "datasets" },
+    { name = "evaluate" },
+    { name = "joblib" },
+    { name = "kaggle" },
+    { name = "kagglehub" },
+    { name = "pacmap" },
+    { name = "pandaset" },
+    { name = "pytorch-lightning" },
+    { name = "segment-anything" },
+    { name = "timm" },
+    { name = "transformers" },
+    { name = "ultralytics" },
+    { name = "umap-learn" },
+]
 huggingface = [
     { name = "accelerate" },
     { name = "datasets" },
@@ -145,6 +161,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "3lc", specifier = ">=3.0.0,<4.0.0", index = "https://pypi.3lc.ai/public/repositories/releases-public" },
+    { name = "3lc-tools", extras = ["sam", "huggingface", "umap", "pacmap", "timm", "kaggle", "ultralytics", "lightning", "pandaset"], marker = "extra == 'all'" },
     { name = "accelerate", marker = "extra == 'huggingface'", specifier = ">=1.8.1" },
     { name = "datasets", marker = "extra == 'huggingface'", specifier = ">=2.17.0" },
     { name = "evaluate", marker = "extra == 'huggingface'", specifier = ">=0.4.1,<1.0.0" },
@@ -167,7 +184,7 @@ requires-dist = [
     { name = "ultralytics", marker = "extra == 'ultralytics'", git = "https://github.com/3lc-ai/ultralytics" },
     { name = "umap-learn", marker = "extra == 'umap'", specifier = ">=0.5.4,<1.0.0" },
 ]
-provides-extras = ["sam", "huggingface", "umap", "pacmap", "timm", "kaggle", "ultralytics", "lightning", "pandaset"]
+provides-extras = ["sam", "huggingface", "umap", "pacmap", "timm", "kaggle", "ultralytics", "lightning", "pandaset", "all"]
 
 [package.metadata.requires-dev]
 dev = [
