@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 import warnings
 from io import BytesIO
+from typing import Any
 
 import numpy as np
 import tlc
@@ -136,7 +137,7 @@ class InstanceCropDataset(Dataset):
                     )
 
             elif ic.instance_type == "segmentations":
-                instance_data = row[ic.instance_column]
+                instance_data: dict[str, Any] = row[ic.instance_column]  # type: ignore[assignment]
 
                 if "rles" in instance_data:
                     rles = instance_data["rles"]

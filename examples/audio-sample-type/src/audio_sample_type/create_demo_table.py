@@ -18,7 +18,7 @@ from __future__ import annotations
 import numpy as np
 import tlc
 
-from audio_sample_type import WavAudioSampleType
+from audio_sample_type import AudioWaveform, WavAudioSampleType
 
 SAMPLE_RATE = 16000
 DURATION_S = 1.0
@@ -46,7 +46,7 @@ def main() -> None:
         dataset_name="sine-waves",
         table_name="initial",
         schema={
-            "audio": WavAudioSampleType.schema(sample_rate=SAMPLE_RATE),
+            "audio": WavAudioSampleType.schema(),
             "note": tlc.schemas.StringSchema(),
             "frequency_hz": tlc.schemas.Float32Schema(writable=False),
             "duration_s": tlc.schemas.Float32Schema(writable=False),
@@ -58,7 +58,7 @@ def main() -> None:
         waveform = generate_sine(freq, DURATION_S, SAMPLE_RATE)
         writer.add_row(
             {
-                "audio": waveform,
+                "audio": AudioWaveform(waveform=waveform, sample_rate=SAMPLE_RATE),
                 "note": note_name,
                 "frequency_hz": freq,
                 "duration_s": DURATION_S,
@@ -77,7 +77,11 @@ def main() -> None:
     print()
     print("Sample view (loaded data):")
     sample = table[0]
-    print(f"  audio = numpy array, shape={sample['audio'].shape}, dtype={sample['audio'].dtype}")
+    audio = sample["audio"]
+    print(
+        f"  audio = AudioWaveform(shape={audio.waveform.shape}, dtype={audio.waveform.dtype}, "
+        f"sample_rate={audio.sample_rate})"
+    )
     print(f"  note  = {sample['note']}")
 
 

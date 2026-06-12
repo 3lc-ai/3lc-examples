@@ -197,7 +197,7 @@ def create_virtual_brats_table(
         "slice_index": tlc.schemas.Int32Schema(writable=False),
     }
     for mod in modalities:
-        schema[mod] = tlc.schemas.ImageUrlSchema()
+        schema[mod] = tlc.schemas.ImageSchema(sample_type="url")
     schema["segmentation"] = tlc.data_types.SegmentationMasks.schema(
         classes=SEG_LABEL_MAP,
     )

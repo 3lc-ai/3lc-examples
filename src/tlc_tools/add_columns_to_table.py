@@ -28,7 +28,7 @@ def _infer_schemas(
     for column_name in missing_schemas:
         column_values = columns[column_name]
         inferred_schema = tlc.Schema.from_sample(column_values[0])
-        inferred_schema.sample_type_config = "hidden"
+        inferred_schema.sample_type = "hidden"
         inferred_schema.writable = False
         inferred_schemas[column_name] = inferred_schema
 
@@ -47,7 +47,7 @@ def add_columns_to_table(
     schemas = _infer_schemas(columns, schemas)
     _check_columns_and_schemas(columns, schemas)
 
-    input_schemas = table.row_schema.values
+    input_schemas = table.rows_schema.values
     schemas.update(input_schemas)
 
     # Existing columns from table_rows are already in row form; new columns may be in sample form.

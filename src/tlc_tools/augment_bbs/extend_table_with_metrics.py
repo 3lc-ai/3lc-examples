@@ -64,8 +64,8 @@ def create_label_schema(
         # Use existing label schema as template
         label_schema = deepcopy(label_schema_template)
         if background_label is not None:
-            assert hasattr(label_schema.value, "map") and label_schema.value.map is not None
-            label_schema.value.map[background_label] = tlc.MapElement("background")
+            assert label_schema.value is not None and getattr(label_schema.value, "map", None) is not None
+            label_schema.value.map[background_label] = tlc.schemas.MapElement("background")  # type: ignore[attr-defined]
     else:
         # Label-free mode - create integer schema for predicted labels
         label_schema = tlc.schemas.Int32Schema(writable=False)
@@ -84,6 +84,7 @@ def create_confidence_schema(
     return tlc.schemas.ConfidenceSchema(
         shape=(-1,) if _needs_array_schema(instance_type, is_legacy_bb) else None,
         sample_type="hidden",
+        writable=False,
     )
 
 
@@ -267,7 +268,7 @@ def extend_table_with_metrics(
             logger.info("Using pretrained model (label-free mode)")
             # For pretrained model, we don't have custom classes
             num_classes = 1000  # Standard ImageNet classes
-            label_map = {}
+            label_map: dict[int, str] = {}
             label_2_contiguous_idx: dict[int, int] = {}
             contiguous_2_label: dict[int, int] = {}
             background_label = None
@@ -280,9 +281,10 @@ def extend_table_with_metrics(
 
             # Get label map and determine if background was used - use instance_config
             if instance_config.label_column_path:
-                label_map = input_table.get_simple_value_map(instance_config.label_column_path)
-                if not label_map:
+                maybe_label_map = input_table.get_simple_value_map(instance_config.label_column_path)
+                if not maybe_label_map:
                     raise ValueError(f"Label map not found in table at path: {instance_config.label_column_path}")
+                label_map = maybe_label_map
             else:
                 # Label-free mode - create dummy mappings
                 label_map = {}
@@ -532,7 +534,7 @@ def extend_table_with_metrics(
     # Get the hidden columns in the table (columns which are not part of the sample view of the table, e.g. "weight")
     hidden_column_names = [
         name
-        for name, col in input_table.row_schema.values.items()
+        for name, col in input_table.rows_schema.values.items()
         if not col.resolved_sample_type.is_included_in_sample
     ]
     hidden_columns = {key: [row[key] for row in input_table.table_rows] for key in hidden_column_names}

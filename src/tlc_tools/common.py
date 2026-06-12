@@ -38,7 +38,7 @@ def check_tlc_package_version() -> str:
     except ImportError:
         return "tlc package is not installed."
     else:
-        return f"tlc version: {tlc.__version__}"
+        return f"tlc version: {tlc.__version__}"  # type: ignore[attr-defined]
 
 
 def check_package_version(package_name: str, required_min_version: str) -> None:
@@ -160,8 +160,8 @@ def check_is_segmentation_column(
     if segmentation_column not in input_table.rows_schema.values:
         raise ValueError(f"Column {segmentation_column} not found in table {input_table.name}")
 
-    config = input_table.rows_schema.values[segmentation_column].sample_type_config
-    if sample_type and (config is None or config.name != sample_type):
+    actual_sample_type = input_table.rows_schema.values[segmentation_column].sample_type
+    if sample_type and actual_sample_type != sample_type:
         raise ValueError(f"Column {segmentation_column} is not a {sample_type} sample type")
 
 

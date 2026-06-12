@@ -27,7 +27,7 @@ def test_instance_config_basic_functionality():
     config = InstanceConfig.resolve(det_table)
     assert config.instance_column == "bbs"
     assert config.instance_type == "bounding_boxes"
-    assert config.instance_properties_column == "bb_list"
+    assert config.instance_properties_column == "instances_additional_data"
 
     # Test with segmentation table
     seg_table = tlc.Table.from_coco(

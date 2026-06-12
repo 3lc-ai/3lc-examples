@@ -575,7 +575,7 @@ def test_replace_tlc_table_parent_basic(sample_table_with_parent: Table) -> None
     assert reloaded_table[1]["mask_path"] == "<MASK_PATH>/002.png"
 
     # Check that the parent table was modified
-    parent_table = reloaded_table.input_table_url.object
+    parent_table = reloaded_table.input_table_url.object  # type: ignore[attr-defined]
     assert isinstance(parent_table, TableFromPydict)
     assert parent_table.get_column_as_pyarrow_array("image_path").to_pylist() == [
         "<DATA_PATH>/001.jpg",
@@ -606,7 +606,7 @@ def test_replace_tlc_table_parent_disabled(sample_table_with_parent: Table) -> N
     assert reloaded_table[0]["mask_path"] == "/data/masks/001.png"  # parent table data not replaced
 
     # Check that the parent table was not modified
-    parent_table = reloaded_table.input_table_url.object
+    parent_table = reloaded_table.input_table_url.object  # type: ignore[attr-defined]
     assert isinstance(parent_table, TableFromPydict)
     assert parent_table.get_column_as_pyarrow_array("image_path").to_pylist() == [
         "/data/images/001.jpg",
@@ -670,7 +670,7 @@ def test_get_input_object(sample_table: Table, tmp_path: Path) -> None:
     # Test getting the object from the parquet file
     pa_table = get_input_object(existing_parquet_path)
     assert isinstance(pa_table, pa.Table)
-    assert pa_table.equals(sample_table._to_pyarrow_table())
+    assert pa_table.equals(sample_table._to_pyarrow_table())  # type: ignore[attr-defined]
 
     # Test getting the object from the table URL
     tlc_table = get_input_object(existing_table_url)

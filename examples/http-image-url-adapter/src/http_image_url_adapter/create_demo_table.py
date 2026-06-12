@@ -40,7 +40,7 @@ def main() -> None:
             "picsum_id": [pid for pid, _, _, _ in IMAGES],
         },
         schema={
-            "image": tlc.schemas.ImageUrlSchema(),
+            "image": tlc.schemas.ImageSchema(sample_type="url"),
             "description": tlc.schemas.StringSchema(),
             "picsum_id": tlc.schemas.Int32Schema(writable=False),
         },

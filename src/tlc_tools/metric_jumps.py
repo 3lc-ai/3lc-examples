@@ -14,7 +14,7 @@ import tlc.schemas
 import torch
 from tlc import Run, Table
 from tlc.constants import EXAMPLE_ID
-from tlc.reduction.reduce import _unique_datasets
+from tlc.reduction.reduce import _unique_datasets  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 
@@ -95,9 +95,9 @@ def compute_metric_jumps_on_run(
                 data[temporal_column_name].append(epoch)
 
         # Create schemas for each metric's jumps
-        column_schemas = {
+        column_schemas: dict[str, tlc.Schema] = {
             f"{metric_name}_jump": tlc.schemas.Float32Schema(
-                f"{metric_name}_jump",
+                display_name=f"{metric_name}_jump",
                 description=f"Jump in {metric_name} value from previous {temporal_column_name}",
             )
             for metric_name in metric_column_names
@@ -344,4 +344,4 @@ def sort_tables_by_constant_column(tables: list[Table], column_name: str, revers
     :param column_name: The name of the column to sort by.
     :param reverse: Whether to sort in reverse order.
     """
-    return sorted(tables, key=lambda table: table.table_rows[0][column_name], reverse=reverse)
+    return sorted(tables, key=lambda table: table.table_rows[0][column_name], reverse=reverse)  # type: ignore[arg-type,return-value]

@@ -53,7 +53,7 @@ def rewrite_column_values(column_path: str, column: pa.Array, rewrites: list[tup
             was_modified = was_modified or col_modified
         return pa.StructArray.from_arrays(sub_cols, fields=column.type), was_modified
 
-    if pa.types.is_string(column.type):
+    if pa.types.is_string(column.type) or pa.types.is_large_string(column.type):
         # Skip processing if no rewrites to apply
         if not rewrites:
             return column, False
@@ -297,6 +297,7 @@ def replace_aliases_in_tlc_table(
             if has_cache:
                 pq_url = current_table.row_cache_url.to_absolute(current_table.url)
             else:
+                assert isinstance(current_table, TableFromParquet)
                 pq_url = current_table.input_url.to_absolute(current_table.url)
 
             try:
