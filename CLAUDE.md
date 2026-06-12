@@ -4,12 +4,12 @@
 
 This repository contains examples, tutorials, and CLI tools for the **3LC** data platform. It provides:
 
-- ~61 Jupyter notebooks demonstrating 3LC usage across ML workflows
+- ~63 Jupyter notebooks demonstrating 3LC usage across ML workflows
 - A Python package (`tlc_tools`) with CLI tools extending 3LC functionality
 - Sample datasets for tutorials
 - Integrations with PyTorch, HuggingFace, Detectron2, Ultralytics YOLO, PyTorch Lightning, and Super-Gradients
 
-**Package:** `3lc_tools` v2.19 | **License:** Apache 2.0 | **Python:** 3.9 - 3.12
+**Package:** `3lc_tools` v3.0 | **License:** Apache 2.0 | **Python:** 3.10 - 3.13
 
 ## Repository Structure
 
@@ -26,6 +26,7 @@ This repository contains examples, tutorials, and CLI tools for the **3LC** data
 │   ├── split.py             # Data splitting strategies
 │   └── ...
 ├── tutorials/               # Jupyter notebooks organized by category
+│   ├── notebooks.yaml       # Single source of truth for notebook metadata (see below)
 │   ├── 1-create-tables/     # 21 notebooks: table creation from various sources
 │   ├── 2-modify-tables/     # 13 notebooks: adding metrics, embeddings, splitting
 │   ├── 3-training-and-metrics/ # 25 notebooks: training with various frameworks
@@ -35,7 +36,7 @@ This repository contains examples, tutorials, and CLI tools for the **3LC** data
 │   ├── cli/                 # CLI command tests
 │   └── tools/               # Tool-specific tests (alias, instance metrics, metric jumps)
 ├── data/                    # Sample datasets (COCO, balloons, cats-and-dogs, etc.)
-└── utils/                   # Image normalization utilities for tutorial images
+└── utils/                   # Maintainer tooling: notebooks_metadata.py + image normalization
 ```
 
 ## Development Setup
@@ -90,7 +91,18 @@ pre-commit run --all-files      # Run all hooks manually
 
 Hooks configured:
 - **ruff** (v0.11.4): lint with `--fix` + format
-- **nbstripout** (v0.8.1): strip notebook outputs (excludes `example-notebooks/`)
+- **nbstripout** (v0.8.1): strip notebook outputs
+
+### Notebook Metadata
+
+`tutorials/notebooks.yaml` is the single source of truth for notebook metadata. Derived fields (title, blurb, tags, thumbnail, project_meta) are extracted from the notebooks themselves; curated fields (include_in_docs/tests/public_examples, params, depends_on) are hand-maintained and preserved across syncs.
+
+```bash
+python -m utils.notebooks_metadata sync    # Regenerate derived fields after editing notebooks
+python -m utils.notebooks_metadata check   # Fail if derived fields drift (run in CI)
+```
+
+After adding, renaming, or editing the first cell or parameters cell of any notebook, run `sync` and commit the updated `notebooks.yaml`.
 
 ### CLI Tool
 
@@ -105,7 +117,7 @@ Hooks configured:
 - **Target Python:** 3.9
 - **Linting rules:** B (bugbear), E (pycodestyle), F (pyflakes), UP (pyupgrade), SIM (simplify), I (isort)
 - **Import sorting:** `tlc` is classified as known third-party
-- **Ruff scope:** `src/tlc_tools/**/*.py`, `tests/**/*.py`, `pyproject.toml` (excludes `example-notebooks/`)
+- **Ruff scope:** `src/tlc_tools/**/*.py`, `tests/**/*.py`, `pyproject.toml`
 - **Type hints:** Used in source code; avoided in notebooks unless using 3LC-specific types
 
 ### 3LC Code Annotations
@@ -143,19 +155,21 @@ GitHub Actions workflow (`.github/workflows/lint.yml`) runs on PRs to `main`:
 2. MyPy type checking
 3. Pytest test suite
 
-Environment: Ubuntu latest, Python 3.9 (from `.python-version-ci`), uv 0.7.13.
+Environment: Ubuntu latest, Python 3.10 (from `.python-version-ci`), uv 0.7.13.
+
+Notebook execution CI lives in the 3LC monorepo, which fetches the `tutorials/` tree and consumes `tutorials/notebooks.yaml` directly (it does not import `utils/notebooks_metadata.py`).
 
 ## Key Dependencies
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| 3lc | >=2.19.0, <3.0.0 | Core 3LC platform |
+| 3lc | >=3.0.0, <4.0.0 | Core 3LC platform |
 | opencv-python | >=4.10, <5.0 | Computer vision ops |
 | scikit-learn | >=1.5.2, <2.0 | ML utilities |
 | fpsample | >=0.3.3, <1.0 | Furthest point sampling |
 | ruff | >=0.9.0, <1.0 | Linting & formatting |
 | mypy | >=1.13, <2.0 | Type checking |
-| pytest | >=8.3.3, <9.0 | Testing |
+| pytest | >=9.0.3, <10.0 | Testing |
 | papermill | >=2.6.0, <3.0 | Notebook execution |
 
 ## Testing Patterns
@@ -171,4 +185,5 @@ Environment: Ubuntu latest, Python 3.9 (from `.python-version-ci`), uv 0.7.13.
 - The `ultralytics` dependency points to a custom 3LC fork: `git+https://github.com/3lc-ai/ultralytics`
 - The `pandaset` dependency uses a specific git source: `git+https://github.com/scaleapi/pandaset-devkit.git`
 - Build system uses **Hatchling** with wheel packages from `src/tlc_tools`
-- The `example-notebooks/` directory is excluded from both ruff linting and nbstripout
+- `tutorials/notebooks.yaml` and `utils/` are maintainer-facing; external users running notebooks never need them
+- Several notebooks depend on 3LC Tables created by other notebooks (tracked via `depends_on` in `notebooks.yaml`); when editing a notebook's project/dataset/table names, check for downstream consumers
