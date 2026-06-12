@@ -20,12 +20,15 @@ Resolution caveat: the SageMaker container needs to resolve the
 an S3 URI (and ensure write credentials), or upload the data to S3
 afterwards and re-register the alias with `force=True`.
 """
+
 from __future__ import annotations
+
+import os
 
 import datasets
 import tlc
-import os
 from tqdm import tqdm
+
 os.environ["AWS_PROFILE"] = "dev"
 # CUSTOMIZE: project/dataset names and where bulk image data lives.
 # BULK_DATA_ROOT can be local (laptop iteration) or s3:// (so a
@@ -55,6 +58,7 @@ def anns_to_3lc_bbs(anns: str, image_w: int, image_h: int) -> tlc.data_types.Bou
         normalized=True,
     )
 
+
 def get_camera_and_partner_maps(ds_dict: datasets.DatasetDict) -> tuple[dict[str, int], dict[str, int]]:
     cameras = set()
     partners = set()
@@ -67,6 +71,7 @@ def get_camera_and_partner_maps(ds_dict: datasets.DatasetDict) -> tuple[dict[str
     partner_map = {v: i for i, v in enumerate(sorted(partners))}
 
     return camera_map, partner_map
+
 
 def main() -> None:
     # Persist the alias *into the project* so future readers (the 3LC UI,

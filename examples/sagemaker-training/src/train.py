@@ -34,6 +34,7 @@ how to plug in your own.
 launch.py ships config.3lc.yaml into the container and sets
 TLC_CONFIG_FILE, so `tlc` auto-discovers it on import.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,10 +44,10 @@ from pathlib import Path
 
 import tlc  # 3LC
 
-
 # ============================================================
 # 1. SageMaker plumbing
 # ============================================================
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -103,6 +104,7 @@ def parse_args() -> argparse.Namespace:
 #   setup_project_aliases() — project-level setup, idempotent, persisted on S3
 #   load_or_build_tables()  — per-job table acquisition (build fresh or load by URL)
 
+
 def setup_project_aliases(project: str) -> None:
     """Persist project-scoped URL aliases on S3.
 
@@ -117,12 +119,8 @@ def setup_project_aliases(project: str) -> None:
     Idempotent: `force=False` makes this a no-op when the alias is
     already persisted with the same target.
     """
-    tlc.register_project_url_alias(
-        "SM_TRAIN_INPUT_DATA", os.environ["TRAIN_S3_URI"], project=project, force=False
-    )
-    tlc.register_project_url_alias(
-        "SM_VAL_INPUT_DATA", os.environ["VAL_S3_URI"], project=project, force=False
-    )
+    tlc.register_project_url_alias("SM_TRAIN_INPUT_DATA", os.environ["TRAIN_S3_URI"], project=project, force=False)
+    tlc.register_project_url_alias("SM_VAL_INPUT_DATA", os.environ["VAL_S3_URI"], project=project, force=False)
 
     print("Registered URL aliases:")
     for alias, value in tlc.get_registered_url_aliases().items():
@@ -150,6 +148,7 @@ def load_or_build_tables(args: argparse.Namespace, build_tables_fn) -> tuple[tlc
 # ============================================================
 # 3. Task dispatch
 # ============================================================
+
 
 def main() -> None:
     args = parse_args()

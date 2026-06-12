@@ -21,6 +21,7 @@ The non-obvious bits (each has a comment at the relevant line):
 - channel_s3_uris() is the single source of truth for what each channel
   maps to; both TrainingInput (SageMaker) and env vars (3LC) read from it.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,9 +41,7 @@ SOURCE_DIR = ROOT / "src"
 
 def load_config() -> dict:
     if not CONFIG_PATH.exists():
-        raise SystemExit(
-            f"Missing {CONFIG_PATH}. Copy config.example.yaml to config.yaml and fill it in."
-        )
+        raise SystemExit(f"Missing {CONFIG_PATH}. Copy config.example.yaml to config.yaml and fill it in.")
     with CONFIG_PATH.open() as f:
         return yaml.safe_load(f)  # type: ignore
 
@@ -141,10 +140,7 @@ def build_inputs(cfg: dict, local: bool) -> dict[str, TrainingInput]:
     # the right default for image datasets. Local mode can't use FastFile,
     # so fall back to File (downloads into the container).
     mode = "File" if local else "FastFile"
-    return {
-        name: TrainingInput(s3_data=uri, input_mode=mode)
-        for name, uri in channel_s3_uris(cfg).items()
-    }
+    return {name: TrainingInput(s3_data=uri, input_mode=mode) for name, uri in channel_s3_uris(cfg).items()}
 
 
 def main() -> None:

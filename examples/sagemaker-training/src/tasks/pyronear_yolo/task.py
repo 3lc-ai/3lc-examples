@@ -6,6 +6,7 @@ Mode B native — tables are seeded out-of-job by
 
 Activate via the `task: pyronear_yolo` hyperparameter in config.yaml.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,7 +37,9 @@ def train(args: argparse.Namespace, train_table: tlc.Table, val_table: tlc.Table
         project=args.model_dir,
     )
 
+
 if __name__ == "__main__":
+
     class Args:
         def __init__(self):
             self.project = "hf-pyronear"
@@ -47,7 +50,7 @@ if __name__ == "__main__":
             self.model_dir = None
             self.train_table_url = "s3://3lc-projects/hf-pyronear/datasets/pyro-sdis/tables/train"
             self.val_table_url = "s3://3lc-projects/hf-pyronear/datasets/pyro-sdis/tables/val"
-    
+
     args = Args()
     # train_table, val_table = build_tables(args)
     train(args, args.train_table_url, args.val_table_url)
