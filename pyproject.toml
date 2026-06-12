@@ -62,6 +62,9 @@ lightning = [
 pandaset = [
     "pandaset",
 ]
+all = [
+    "3lc_tools[sam,huggingface,umap,pacmap,timm,kaggle,ultralytics,lightning,pandaset]",
+]
 
 [dependency-groups]
 dev = [
