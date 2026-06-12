@@ -53,7 +53,7 @@ kaggle = [
     "kagglehub>=0.3.13",
 ]
 ultralytics = [
-    "ultralytics @ git+https://github.com/3lc-ai/ultralytics",
+    "3lc-ultralytics",
 ]
 lightning = [
     "pytorch-lightning<3.0.0,>=2.4.0",
