@@ -112,3 +112,8 @@ explicit = true
 [tool.uv.sources]
 3lc = { index = "3lc" }
 pandaset = { git = "https://github.com/scaleapi/pandaset-devkit.git", subdirectory = "python", rev = "master" }
+
+[tool.uv.workspace]
+exclude = [
+    "examples/sagemaker-training",
+]

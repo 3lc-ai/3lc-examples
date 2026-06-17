@@ -1,0 +1,19 @@
+# Real (non-template) config files — never commit these
+config.yaml
+config.3lc.yaml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# SageMaker local mode scratch
+/tmp-local/
+
+# Model weights — ultralytics downloads these on demand; don't commit
+*.pt
+
+# macOS
+.DS_Store
