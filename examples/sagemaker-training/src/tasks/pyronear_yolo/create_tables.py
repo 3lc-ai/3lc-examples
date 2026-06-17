@@ -15,25 +15,35 @@ Then copy the printed URLs into config.yaml:
       train_table_url: <printed train url>
       val_table_url:   <printed val url>
 
-Resolution caveat: the SageMaker container needs to resolve the
-`<PYRONEAR>` tokens that the tables embed. Set BULK_DATA_ROOT to
-an S3 URI (and ensure write credentials), or upload the data to S3
-afterwards and re-register the alias with `force=True`.
+Two consumers resolve the `<PYRONEAR>` tokens these tables embed, and
+they have different needs:
+
+- The **dashboard / Object Service** streams images, so an S3
+  BULK_DATA_ROOT (the project-persisted default below) is fine.
+- The **tlc-ultralytics trainer** reads image bytes from a *local*
+  path only — it rejects `s3://` image URLs. So to actually train on
+  SageMaker, mount the pyronear images into the container as a channel
+  and add a static alias in `config.3lc.yaml` overriding `PYRONEAR` to
+  that local mount (e.g. `PYRONEAR: /opt/ml/input/data/train`). The S3
+  default persisted here still serves the dashboard. See the README
+  "Tables vs. image bytes" callout.
 """
 
 from __future__ import annotations
-
-import os
 
 import datasets
 import numpy as np
 import tlc
 from tqdm import tqdm
 
-os.environ["AWS_PROFILE"] = "dev"
+# AWS credentials are resolved from the default boto3/AWS chain
+# (~/.aws/credentials, AWS_PROFILE, SSO, env vars). Set AWS_PROFILE in
+# your shell if you need a specific named profile for the write to S3.
+
 # CUSTOMIZE: project/dataset names and where bulk image data lives.
-# BULK_DATA_ROOT can be local (laptop iteration) or s3:// (so a
-# SageMaker training job can read the same tables).
+# BULK_DATA_ROOT is the project-persisted default the dashboard uses to
+# stream images. S3 here is fine for viewing; training needs a local
+# alias override in the container (see module docstring).
 PROJECT_NAME = "hf-pyronear"
 DATASET_NAME = "pyro-sdis"
 PROJECT_ROOT_URL = "s3://3lc-projects"

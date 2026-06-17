@@ -86,15 +86,12 @@ def build_estimator(cfg: dict, local: bool) -> PyTorch:
     else:
         session = sagemaker.Session(boto_session=boto_session)
 
-    # Env vars forwarded into the container. OUTPUTS_* lets train.py write
-    # run metrics to a predictable S3 path using boto3. TRAIN_S3_URI /
-    # VAL_S3_URI carry the remote S3 source of each mounted channel —
-    # useful when training code needs to reference original S3 paths
-    # (e.g. for 3LC tables). The rest are user-defined vars from config.yaml.
+    # Env vars forwarded into the container. TRAIN_S3_URI / VAL_S3_URI carry
+    # the remote S3 source of each mounted channel, so train.py can register
+    # them as the resolution target for the alias tokens its 3LC tables embed
+    # (setup_project_aliases). The rest are user-defined vars from config.yaml.
     channels = channel_s3_uris(cfg)
     env = {
-        "OUTPUTS_BUCKET": s3["outputs_bucket"],
-        "OUTPUTS_PREFIX": s3.get("outputs_prefix", ""),
         "TRAIN_S3_URI": channels["train"],
         "VAL_S3_URI": channels["val"],
         **{k: str(v) for k, v in (cfg.get("env") or {}).items()},

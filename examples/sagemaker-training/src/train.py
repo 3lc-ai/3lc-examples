@@ -62,6 +62,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--project", type=str, required=True)
     # "cpu" for local mode on Apple Silicon, "0" or "cuda" for remote GPU instances.
     parser.add_argument("--device", type=str, default="cpu")
@@ -114,16 +115,26 @@ def setup_project_aliases(project: str) -> None:
 
     Static aliases in config.3lc.yaml drive what *this* job embeds
     when serializing tables. Project-persisted aliases (these) drive
-    how those tokens *resolve* later. The two are independent.
+    how those tokens *resolve* later — same token names, opposite
+    directions.
 
-    Idempotent: `force=False` makes this a no-op when the alias is
-    already persisted with the same target.
+    `force=True` is required precisely *because* the names match: the
+    static alias from config.3lc.yaml already binds these tokens (to the
+    container mount paths) in this session, so registering them at the
+    S3 targets is a deliberate change of an existing binding, not a
+    fresh claim. Still idempotent across runs — re-registering the same
+    S3 target is a no-op write.
+
+    Call this LAST, after training. Registering also flips this
+    session's alias binding to the S3 targets, and the trainer needs the
+    tokens to keep resolving to the LOCAL mounted channels while it reads
+    image files (the tlc-ultralytics loader only accepts local paths).
     """
     tlc.helpers.ProjectHelper.register_project_url_alias(
-        "SM_TRAIN_INPUT_DATA", os.environ["TRAIN_S3_URI"], project_name=project, force=False
+        "SM_TRAIN_INPUT_DATA", os.environ["TRAIN_S3_URI"], project_name=project, force=True
     )
     tlc.helpers.ProjectHelper.register_project_url_alias(
-        "SM_VAL_INPUT_DATA", os.environ["VAL_S3_URI"], project_name=project, force=False
+        "SM_VAL_INPUT_DATA", os.environ["VAL_S3_URI"], project_name=project, force=True
     )
 
     print("Registered URL aliases:")
@@ -161,17 +172,28 @@ def main() -> None:
     print(f"val channel:   {args.val}")
     print(f"model dir:     {args.model_dir}")
 
-    # 3LC ↓
-    setup_project_aliases(args.project)
-    # ↑ 3LC
-
     task = importlib.import_module(f"tasks.{args.task}")
 
+    # 3LC ↓ — build (or load) tables. The static aliases from
+    # config.3lc.yaml mask the container mount paths, so the serialized
+    # tables embed alias tokens (<SM_TRAIN_INPUT_DATA>/...) instead of
+    # ephemeral /opt/ml/... paths.
     train_table, val_table = load_or_build_tables(args, task.build_tables)
     print(f"train table: {train_table}")
     print(f"val table:   {val_table}")
+    # ↑ 3LC
 
+    # Training reads the tables, resolving those tokens back to the LOCAL
+    # mounted channels (still the active binding) so the trainer sees
+    # local image files.
     task.train(args, train_table, val_table)
+
+    # 3LC ↓ — only now persist the S3 resolution targets for future
+    # readers (the 3LC UI, downstream jobs). This is deliberately last:
+    # registering also flips this session's alias binding to S3, which
+    # must not happen until the trainer is done reading local images.
+    setup_project_aliases(args.project)
+    # ↑ 3LC
 
 
 if __name__ == "__main__":

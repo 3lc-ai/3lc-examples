@@ -20,7 +20,7 @@ s3:
 
   # Where model artifacts and 3LC artifacts go. May be the same bucket as inputs.
   # Model artifacts:   s3://<outputs_bucket>/<outputs_prefix>/models/<job>/output/model.tar.gz
-  # 3LC tables/runs:   under whatever you set as indexing.project_root_url
+  # 3LC tables/runs:   under whatever you set as project-root-url
   #                    in config.3lc.yaml (typically s3://<outputs_bucket>/<outputs_prefix>).
   outputs_bucket: my-output-bucket
   outputs_prefix: sagemaker
@@ -48,6 +48,9 @@ hyperparameters:
   task: balloons_yolo
   epochs: 1
   batch_size: 4
+  # Dataloader workers passed to the task's train(). Keep modest on small
+  # local-mode containers; bump on larger remote instances.
+  workers: 4
   project: my-project
   # "cpu" for local mode, "0" (single GPU) or "cuda" on GPU instances.
   device: cpu

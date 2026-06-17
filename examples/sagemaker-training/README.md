@@ -10,7 +10,7 @@ pipeline.
 > how 3LC behaves when *data lives in one place, training runs in another,
 > and viewing happens in a third*. SageMaker is a convenient stand-in
 > for that topology. The three concepts that matter — **aliases**,
-> **`project_root_url`**, and **shipping the 3LC config to the
+> **`project-root-url`**, and **shipping the 3LC config to the
 > trainer** — apply to any setup with the same shape (Vertex AI,
 > Kubernetes jobs, an HPC cluster, your colleague's GPU box).
 
@@ -20,8 +20,8 @@ Surprisingly little. Every 3LC-specific line in this template is one of:
 
 | Where                          | What                                                        |
 |--------------------------------|-------------------------------------------------------------|
-| `config.3lc.yaml`              | The whole file (aliases, `project_root_url`)                |
-| `launch.py`, lines 104–111     | Ship `config.3lc.yaml` into the container, set `TLC_CONFIG_FILE` |
+| `config.3lc.yaml`              | The whole file (aliases, `project-root-url`)                |
+| `launch.py` (`dependencies` + `TLC_CONFIG_FILE` block) | Ship `config.3lc.yaml` into the container, set `TLC_CONFIG_FILE` |
 | `launch.py`, `TRAIN_S3_URI` / `VAL_S3_URI` env vars | Forward S3 source URIs so `train.py` can register aliases |
 | `src/train.py`                 | One `import tlc`, one `setup_project_aliases()` call — fenced with `# 3LC` |
 | `src/tasks/<name>/task.py`     | `tlc.Table.from_*` for table creation; pick a 3LC-aware trainer (e.g. `tlc_ultralytics`) |
@@ -34,14 +34,14 @@ working SageMaker task-dispatcher template.
 
 ## The three concepts
 
-1. **`indexing.project_root_url` decides *where* tables and runs are
+1. **`project-root-url` decides *where* tables and runs are
    created.** Set it to `s3://...` and your artifacts outlive the
    container. This is in `config.3lc.yaml`.
 
 2. **Static aliases (in `config.3lc.yaml`) decide *what gets embedded*
    when serializing tables.** They're path-prefix tokens that mask
-   ephemeral container paths (`/opt/ml/input/data`, `/opt/ml/model`)
-   so those don't leak into stored artifacts.
+   the ephemeral channel mount points (`/opt/ml/input/data/train`,
+   `/opt/ml/input/data/val`) so those don't leak into stored artifacts.
 
 3. **Project-persisted aliases (`tlc.register_project_url_alias`)
    decide *how those tokens resolve later*.** They give future readers
@@ -126,7 +126,7 @@ flowchart LR
     DS -->|mount channels| TR
     CODE -. unpack .-> TR
     TR --> MOD
-    TR -->|via indexing.project_root_url| TBL
+    TR -->|via project-root-url| TBL
     TR --> RUN
     TR -. register_project_url_alias<br/>persists default .-> TBL
 ```
@@ -201,7 +201,7 @@ Fill in `config.yaml`:
 - `hyperparameters.project` — your 3LC project name
 
 Fill in `config.3lc.yaml`:
-- `indexing.project_root_url: s3://<outputs_bucket>/<outputs_prefix>`
+- `project-root-url: s3://<outputs_bucket>/<outputs_prefix>`
   so tables and runs land on S3.
 - `aliases:` — see §"The three concepts" above and the file itself.
 
@@ -251,6 +251,29 @@ In Modes B/C, `train.py` skips `task.build_tables()` and calls
 or Mode-B-native (its `build_tables()` raises and you're expected to
 seed tables out-of-job — `pyronear_yolo` is the example).
 
+> **Tables vs. image bytes — they don't have to live together.** A 3LC
+> `Table` is lightweight metadata (rows, labels, schema, alias-tokenized
+> image URLs); it can live on the S3 remote root and be reused/edited
+> across runs. The **image bytes** are separate, and the training loop
+> has a stricter requirement than the dashboard:
+>
+> - **The dashboard / Object Service can stream images from S3** — it
+>   resolves the alias token to `s3://...` and fetches on demand.
+> - **The `tlc-ultralytics` trainer needs image bytes on a *local*
+>   path.** It rejects an image URL that resolves to `s3://` (or any
+>   non-local scheme) outright.
+>
+> So inside the container, whatever alias token the table embeds must
+> resolve to a **local** directory:
+>
+> - **Mode A** gets this for free: the channel mounts the images at
+>   `/opt/ml/input/data/...` and the static alias points there.
+> - **Mode B/C** must arrange it: mount the image data as a channel and
+>   add a static alias in `config.3lc.yaml` mapping the table's
+>   bulk-data token to that mount (e.g. `PYRONEAR: /opt/ml/input/data/train`).
+>   That static alias **overrides** the project-persisted S3 default for
+>   this job only — the S3 default still serves the dashboard.
+
 For Mode B, by convention the seeding script lives inside the task
 package as `src/tasks/<task>/create_tables.py`. It runs on the laptop:
 
@@ -281,9 +304,14 @@ channels, visible inside the container as `/opt/ml/input/data/train` and
 `build_tables()` and (if mount points change) `channel_s3_uris()` in
 `launch.py`.
 
-In Mode B/C the channels are still mounted (SageMaker requires at
-least one channel) but `build_tables()` is never called — you can
-point them at any non-empty S3 prefix.
+In Mode B/C `build_tables()` is never called, but the channels still
+matter: point them at the **image data** for the pre-built tables, so
+the bytes land locally in the container (`/opt/ml/input/data/...`).
+Then add a static alias in `config.3lc.yaml` mapping the table's
+bulk-data token to that mount — see the "Tables vs. image bytes"
+callout above. (If you only need to *index* the tables, not train on
+them, the channels can point at any non-empty prefix — but then the
+trainer has no local images to read.)
 
 ---
 
@@ -318,10 +346,10 @@ After a successful run:
 |-------------------------------------|------------------------------------------------------------------------------|
 | Source code tar                     | `s3://<out>/<prefix>/code/<job>/source/sourcedir.tar.gz`                     |
 | Model artifact (`SM_MODEL_DIR`)     | `s3://<out>/<prefix>/models/<job>/output/model.tar.gz`                       |
-| 3LC tables                          | `<project_root_url>/projects/<project>/datasets/<dataset>/tables/...`        |
-| 3LC runs                            | `<project_root_url>/projects/<project>/runs/...`                             |
+| 3LC tables                          | `<project-root-url>/projects/<project>/datasets/<dataset>/tables/...`        |
+| 3LC runs                            | `<project-root-url>/projects/<project>/runs/...`                             |
 
-The 3LC paths are driven by `indexing.project_root_url` in
+The 3LC paths are driven by `project-root-url` in
 `config.3lc.yaml`, *not* by SageMaker's `output_path`.
 
 Which alias tokens end up *inside* the serialized tables is driven by
@@ -337,6 +365,27 @@ something different — see the next section.
 You point a **3LC Object Service** (local on your laptop, or deployed
 remotely and shared) at the project; the service resolves the alias
 tokens inside the tables and serves data to the 3LC UI.
+
+### Pointing a service at the project
+
+Any teammate who wants to view the project sets `scan-urls` in *their*
+`config.3lc.yaml` to the S3 project root, then starts a service. This
+`config.3lc.yaml` is unrelated to the one shipped into the training
+container — it's the viewer's own local config.
+
+```yaml
+# viewer's config.3lc.yaml (laptop or shared box)
+scan-urls:
+  - s3://<outputs_bucket>/<outputs_prefix>
+```
+
+```bash
+3lc service              # indexes the project root, serves the UI
+# then open https://dashboard.3lc.ai
+```
+
+The runs and tables the SageMaker job wrote show up; opening one
+streams the images. *How* they stream depends on alias resolution:
 
 Alias resolution order:
 
@@ -365,24 +414,28 @@ flowchart LR
     IMG -->|resolved via<br/>persisted alias default| SVC
 ```
 
-Out of the box, #2 takes effect: the tokens persisted at training time
-(`SM_TRAIN_INPUT_DATA`, `SM_VAL_INPUT_DATA`) resolve to their original
-S3 URIs, so images load straight from S3. No extra config needed.
+**Teammate A — no local copy of the data.** Out of the box, #2 takes
+effect: the tokens persisted at training time (`SM_TRAIN_INPUT_DATA`,
+`SM_VAL_INPUT_DATA`) resolve to their original S3 URIs, so images load
+straight from S3. Just `scan-urls` + `3lc service` — no alias config
+needed.
 
-**When you'd use an override:** if the object service runs on a machine
-that already has a faster local copy of the data (e.g. a shared GPU box
-with the dataset rsynced for low-latency access), override the alias in
-the service config:
+**Teammate B — has a faster local copy of the data.** If the service
+runs on a machine that already has the dataset locally (e.g. a shared
+GPU box with the data rsynced for low-latency access), add an alias
+*override* alongside `scan-urls`:
 
 ```yaml
-# object service config (laptop or remote)
+# Teammate B's config.3lc.yaml
+scan-urls:
+  - s3://<outputs_bucket>/<outputs_prefix>
 aliases:
   SM_TRAIN_INPUT_DATA: /mnt/datasets/balloons/train
   SM_VAL_INPUT_DATA:   /mnt/datasets/balloons/val
 ```
 
 Now paths resolve to the local copy instead of round-tripping to S3.
-The persisted S3 default still applies for anyone else viewing the
+The persisted S3 default still applies for Teammate A, who views the
 project through a different service.
 
 This is what `setup_project_aliases()` buys you: a sensible S3 default
@@ -460,18 +513,22 @@ selected task's dependencies are pulled in at module import time).
 `config.3lc.yaml` has two blocks worth knowing:
 
 ```yaml
-indexing:
-  project_root_url: s3://<outputs_bucket>/<outputs_prefix>
+project-root-url: s3://<outputs_bucket>/<outputs_prefix>
 
 aliases:
-  SM_INPUT: /opt/ml/input/data
-  SM_MODEL: /opt/ml/model
+  SM_TRAIN_INPUT_DATA: /opt/ml/input/data/train
+  SM_VAL_INPUT_DATA:   /opt/ml/input/data/val
 ```
 
-- **`indexing.project_root_url`** — destination for new tables and runs.
+(3.0 config syntax — keys are top-level and hyphenated. The 2.x
+`indexing.project_root_url` form still loads via a deprecation remap
+but emits a warning.)
+
+- **`project-root-url`** — destination for new tables and runs.
 - **`aliases`** — path-prefix substitutions applied when serializing
   paths in *this* job. Don't decide *where* anything is written;
-  give paths a portable name.
+  give paths a portable name. These names match the tokens
+  `setup_project_aliases()` persists at runtime — see below.
 
 Static aliases here live only in whichever process reads this file —
 they mask paths locally but don't travel with the project. To make an
@@ -493,6 +550,7 @@ CLI args. Visible in the SageMaker console's job metadata.
 | `task`              | str  | Module under `src/tasks/` to dispatch into                              |
 | `epochs`            | int  | Training epochs (consumed by the task's `train()`)                       |
 | `batch_size`        | int  | Batch size (consumed by the task's `train()`)                            |
+| `workers`           | int  | Dataloader workers (consumed by the task's `train()`)                    |
 | `project`           | str  | 3LC project name                                                        |
 | `device`            | str  | `cpu` for local, `"0"` or `"cuda"` for GPU instances                    |
 | `use_latest`        | bool | Follow each 3LC table to its latest revision before training            |
@@ -514,7 +572,6 @@ SageMaker console).
 | Var            | Set by        | Used by                                                     |
 |----------------|---------------|-------------------------------------------------------------|
 | `TLC_API_KEY`  | you           | 3LC, at runtime                                             |
-| `OUTPUTS_BUCKET` / `OUTPUTS_PREFIX` | launch.py | `train.py`, for anything writing directly to S3 |
 | `TRAIN_S3_URI` / `VAL_S3_URI`       | launch.py | `train.py`, for URL alias registration          |
 | `TLC_CONFIG_FILE` | launch.py (if `config.3lc.yaml` exists) | `tlc` library, on import       |
 

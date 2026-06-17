@@ -42,7 +42,7 @@ def train(args: argparse.Namespace, train_table: tlc.Table, val_table: tlc.Table
         batch=args.batch_size,
         imgsz=640,
         device=args.device,
-        workers=4,
+        workers=args.workers,
         verbose=True,
         project=args.model_dir,
     )

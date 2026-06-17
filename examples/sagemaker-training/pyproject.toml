@@ -1,7 +1,7 @@
 [project]
 name = "sagemaker-training"
 version = "0.1.0"
-description = "Add your description here"
+description = "Template for running 3LC-instrumented training jobs on AWS SageMaker"
 readme = "README.md"
 requires-python = ">=3.10, <3.14"
 dependencies = [

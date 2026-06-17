@@ -12,5 +12,8 @@ venv/
 # SageMaker local mode scratch
 /tmp-local/
 
+# Model weights — ultralytics downloads these on demand; don't commit
+*.pt
+
 # macOS
 .DS_Store
