@@ -13,8 +13,9 @@ dependencies = ["3lc", "numpy", "pycocotools"]
 [project.optional-dependencies]
 train = ["torch", "torchvision", "tqdm"]
 
-[project.entry-points."tlc.sample_types"]
-semantic_segmentation = "semseg_sample_type.sample_type:SemanticSegmentationSampleType"
+# The "semantic_segmentation" sample type graduated into core tlc (tlc.sample_types),
+# which self-registers it. No entry point here, to avoid a double-registration clash;
+# this package re-exports the core implementation (see src/semseg_sample_type/__init__.py).
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/semseg_sample_type"]

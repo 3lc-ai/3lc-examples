@@ -19,18 +19,24 @@ from pathlib import Path
 import numpy as np
 import tlc
 from PIL import Image
-from semseg_sample_type import SemanticSegmentation, SemanticSegmentationSampleType
+from semseg_sample_type import SemanticSegmentation, SemanticSegmentationSampleType, semseg_classes
 
 PROJECT_NAME = "oxford-pets-semseg-poc"
 DATASET_NAME = "oxford-pets"
 
 # Trimap pixel values: 1 = pet, 2 = background, 3 = border. Remap to 0-based with background = 0.
 TRIMAP_REMAP = {2: 0, 1: 1, 3: 2}
-SEGMENTATION_CLASSES = {
-    0: tlc.schemas.MapElement("background", display_color="#00000000"),
-    1: tlc.schemas.MapElement("pet"),
-    2: tlc.schemas.MapElement("border"),
-}
+# Background (transparent) and border (void/ignore) are tagged via reserved internal_names
+# by semseg_classes; everything downstream reads the roles back rather than hardcoding ids.
+SEGMENTATION_CLASSES = semseg_classes(
+    {0: "background", 1: "pet", 2: "border"},
+    background=0,
+    void=2,
+)
+# Declared class universe: every sample is stored as exactly these C layers in this
+# fixed order (empty RLE for classes absent from a given image), so layer i always
+# means the same class and the editor can fix the layer set (no add/delete, exclusive paint).
+SEGMENTATION_CLASS_IDS = sorted(SEGMENTATION_CLASSES)
 SPECIES_CLASSES = ["cat", "dog"]
 
 
@@ -74,6 +80,7 @@ def load_segmentation(trimap_path: Path) -> SemanticSegmentation:
         image_width=trimap.shape[1],
         image_height=trimap.shape[0],
         label_map=label_map,
+        class_ids=SEGMENTATION_CLASS_IDS,
     )
 
 

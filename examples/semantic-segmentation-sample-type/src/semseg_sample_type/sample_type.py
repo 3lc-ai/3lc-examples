@@ -123,6 +123,8 @@ class SemanticSegmentationSampleType(SampleType):
         cls,
         classes: Any,
         *,
+        background: int | None = None,
+        void: int | None = None,
         display_name: str = "",
         description: str = "",
         writable: bool = True,
@@ -133,6 +135,11 @@ class SemanticSegmentationSampleType(SampleType):
 
         Args:
             classes: A class map (list of names, or dict of numeric keys to names or MapElements).
+            background: Id of the background class, if any. Tags it with the reserved
+                background ``internal_name`` (transparent by default). See
+                :func:`semseg_sample_type.semseg_classes`.
+            void: Id of the void / ignore class, if any. Tags it with the reserved
+                void ``internal_name``; excluded from metrics downstream.
             display_name: Column display name in the Dashboard.
             description: Column description.
             writable: Whether the column is editable in the Dashboard.
@@ -140,6 +147,11 @@ class SemanticSegmentationSampleType(SampleType):
             display_importance: Ordering weight for column display.
 
         """
+        if background is not None or void is not None:
+            from .class_map import semseg_classes
+
+            classes = semseg_classes(classes, background=background, void=void)
+
         label_map = MapElement._construct_value_map(classes)
 
         schema = Schema(

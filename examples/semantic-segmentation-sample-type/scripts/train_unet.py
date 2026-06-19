@@ -11,7 +11,9 @@ Collects, per sample and split, every ``--collect-frequency`` epochs (the final
 epoch is always collected):
 - predicted_segmentation: model prediction at original image size, stored as
   semseg-as-RLE via the "semantic_segmentation" sample type (background/pet only)
-- iou: mean IoU over the real classes, with border pixels masked out
+- iou / pet_iou: derived from the core confusion-matrix helper, border masked out
+- confusion_matrix: the per-image C×C matrix (flattened), carried so the headline
+  mIoU can be summed cumulatively dashboard-side rather than averaged per-image
 """
 
 from __future__ import annotations
@@ -26,21 +28,31 @@ import torch.nn as nn
 import torch.nn.functional as F  # noqa: N812
 import torchvision.transforms.functional as TF  # noqa: N812
 from PIL import Image
-from semseg_sample_type import SemanticSegmentation, SemanticSegmentationSampleType
+from semseg_sample_type import (
+    SemanticSegmentation,
+    SemanticSegmentationSampleType,
+    semseg_classes,
+    void_id,
+)
 from tlc.constants import SAMPLE_WEIGHT
+from tlc.helpers.semantic_segmentation_metrics import semantic_segmentation_metrics
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 PROJECT_NAME = "oxford-pets-semseg-poc"
 DATASET_NAME = "oxford-pets"
+
+# GT tables carry three classes; "border" is the void/ignore class. Mirrors the ingest
+# class map so the ignore id is read back via void_id rather than hardcoded — eventually
+# this would be read straight off the loaded GT table's segmentation schema.
+GT_CLASSES = semseg_classes({0: "background", 1: "pet", 2: "border"}, background=0, void=2)
+# The model predicts only background/pet — border is never a target, so it has no void class.
+PREDICTED_CLASSES = semseg_classes({0: "background", 1: "pet"}, background=0)
+
 NUM_CLASSES = 2  # background, pet — border is ignore-only, never predicted
 FOREGROUND_CLASS_ID = 1  # "pet" — the class that actually matters for this dataset
-IGNORE_CLASS_ID = 2  # "border" in the GT tables
+IGNORE_CLASS_ID = void_id(GT_CLASSES)  # "border" in the GT tables
 IGNORE_INDEX = 255
-PREDICTED_CLASSES = {
-    0: tlc.schemas.MapElement("background", display_color="#00000000"),
-    1: tlc.schemas.MapElement("pet"),
-}
 
 
 # MODEL #####################################################################
@@ -162,28 +174,10 @@ class PetsSegDataset(Dataset):
 
 # METRICS ###################################################################
 
-
-def mean_iou(pred: np.ndarray, gt: np.ndarray, num_classes: int, ignore_class_id: int) -> float:
-    """Mean IoU over the real classes, evaluated only where GT is not the ignore class."""
-    valid = gt != ignore_class_id
-    ious = []
-    for class_id in range(num_classes):
-        pred_mask = (pred == class_id) & valid
-        gt_mask = (gt == class_id) & valid
-        union = (pred_mask | gt_mask).sum()
-        if union == 0:
-            continue
-        ious.append((pred_mask & gt_mask).sum() / union)
-    return float(np.mean(ious)) if ious else 1.0
-
-
-def class_iou(pred: np.ndarray, gt: np.ndarray, class_id: int, ignore_class_id: int) -> float:
-    """IoU for a single class, evaluated only where GT is not the ignore class."""
-    valid = gt != ignore_class_id
-    pred_mask = (pred == class_id) & valid
-    gt_mask = (gt == class_id) & valid
-    union = (pred_mask | gt_mask).sum()
-    return float((pred_mask & gt_mask).sum() / union) if union else 1.0
+# The per-class / mean IoU that used to live here (~40 lines, void-masked) graduated to
+# core as ``tlc.helpers.semantic_segmentation_metrics`` (SPEC §4.3): every readout now
+# derives from one per-image C×C confusion matrix, void read off the value map rather
+# than a hardcoded ignore id. ``collect_metrics`` calls that helper below.
 
 
 def collect_metrics(
@@ -206,6 +200,7 @@ def collect_metrics(
     predictions: list[dict] = []
     ious: list[float] = []
     pet_ious: list[float] = []
+    confusion_matrices: list[list[int]] = []
     losses: list[float] = []
     entropies: list[float] = []
     embeddings: list[np.ndarray] = []
@@ -238,10 +233,24 @@ def collect_metrics(
             probs = logits.softmax(dim=1)
             entropies.append(float((-(probs * probs.clamp_min(1e-12).log()).sum(dim=1)).mean()))
 
-            predicted = SemanticSegmentation(image_width=width, image_height=height, label_map=pred_map)
+            # Store as exactly C class-ordered layers (background, pet) so the predicted
+            # column has the same fixed, editor-friendly layer set on every row.
+            predicted = SemanticSegmentation(
+                image_width=width, image_height=height, label_map=pred_map,
+                class_ids=sorted(PREDICTED_CLASSES),
+            )
             predictions.append(sample_type.to_row(predicted))
-            ious.append(mean_iou(pred_map, seg.label_map, NUM_CLASSES, IGNORE_CLASS_ID))
-            pet_ious.append(class_iou(pred_map, seg.label_map, FOREGROUND_CLASS_ID, IGNORE_CLASS_ID))
+
+            # IoU readouts + the per-image C×C confusion matrix come from the core helper.
+            # include_background=True averages mIoU over {background, pet} (VOC convention);
+            # void ("border") is read off GT_CLASSES and excluded. The flattened per-image
+            # matrix is carried so the headline can be computed *cumulatively* — sum the
+            # per-image matrices dashboard-side, then derive — rather than the noisier
+            # mean-of-per-image (SPEC §4.2).
+            m = semantic_segmentation_metrics(pred_map, seg.label_map, GT_CLASSES, include_background=True)
+            ious.append(m["mean_iou"])
+            pet_ious.append(m["per_class_iou"][m["class_ids"].index(FOREGROUND_CLASS_ID)])
+            confusion_matrices.append([int(x) for row in m["confusion_matrix"] for x in row])
 
     handle.remove()
 
@@ -250,6 +259,7 @@ def collect_metrics(
             "predicted_segmentation": predictions,
             "iou": ious,
             "pet_iou": pet_ious,
+            "confusion_matrix": confusion_matrices,
             "loss": losses,
             "entropy": entropies,
             "embedding": embeddings,
