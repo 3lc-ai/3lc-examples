@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 import tlc
 from PIL import Image
-from semseg_sample_type import SemanticSegmentation, SemanticSegmentationSampleType, semseg_classes
+from tlc.sample_types import SemanticSegmentation, SemanticSegmentationSampleType, semseg_classes
 
 PROJECT_NAME = "oxford-pets-semseg-poc"
 DATASET_NAME = "oxford-pets"
@@ -133,7 +133,10 @@ def main() -> None:
     # Sanity check: sample view should hand back the dataclass.
     sample = train_table[0]
     seg = sample["segmentation"]
-    print(f"Sample view round-trip: {type(seg).__name__}, classes present: {seg.class_ids.tolist()}")
+    print(
+        f"Sample view round-trip: {type(seg).__name__}, layer universe: {seg.class_ids}, "
+        f"classes present: {seg.present_class_ids.tolist()}"
+    )
 
 
 if __name__ == "__main__":

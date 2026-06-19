@@ -8,9 +8,13 @@ inheriting instance-segmentation semantics**. The POC in this repo is both the
 worked example and the staging area: things proven here are candidates to move
 into core `tlc` (Python) and `tlc-ui` (dashboard).
 
-File references point at the current POC (`src/semseg_sample_type/sample_type.py`,
-`scripts/*`), the `tlc` monorepo (`~/projects/tlc-monorepo`), and `tlc-ui`
-(`~/projects/tlc-ui`) so reviewers can ground each claim.
+The code has since **graduated to core**: the sample type and ergonomic class-map
+API live in `tlc.sample_types._semantic_segmentation`, the metrics helper in
+`tlc.helpers.semantic_segmentation_metrics` (`~/projects/tlc-monorepo`), and the UI
+in `~/projects/tlc-ui`; this directory keeps only the runnable `scripts/*` (table
+generation + training + metrics collection). The §2 references below to
+`src/semseg_sample_type/*` describe the original POC state (preserved here as the
+design narrative) — that code now lives in core per [§10](#10-roadmap-poc--core).
 
 ---
 

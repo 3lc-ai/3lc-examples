@@ -28,13 +28,13 @@ import torch.nn as nn
 import torch.nn.functional as F  # noqa: N812
 import torchvision.transforms.functional as TF  # noqa: N812
 from PIL import Image
-from semseg_sample_type import (
+from tlc.constants import SAMPLE_WEIGHT
+from tlc.sample_types import (
     SemanticSegmentation,
     SemanticSegmentationSampleType,
     semseg_classes,
     void_id,
 )
-from tlc.constants import SAMPLE_WEIGHT
 from tlc.helpers.semantic_segmentation_metrics import semantic_segmentation_metrics
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm

@@ -3,19 +3,18 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "semseg-sample-type"
+name = "semseg-oxford-pets-example"
 version = "0.1.0"
-description = "POC: semantic segmentation as an RLE-backed 3LC sample type"
+description = "Example: ingest Oxford-IIIT Pets and train a UNet using the core 3LC semantic_segmentation sample type"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-dependencies = ["3lc", "numpy", "pycocotools"]
+dependencies = ["3lc", "numpy", "pycocotools", "torch", "torchvision", "tqdm"]
 
-[project.optional-dependencies]
-train = ["torch", "torchvision", "tqdm"]
-
-# The "semantic_segmentation" sample type graduated into core tlc (tlc.sample_types),
-# which self-registers it. No entry point here, to avoid a double-registration clash;
-# this package re-exports the core implementation (see src/semseg_sample_type/__init__.py).
-
+# Scripts only. The semantic_segmentation sample type, its ergonomic class-map API,
+# and the confusion-matrix metrics helper all live in core tlc now
+# (tlc.sample_types / tlc.helpers.semantic_segmentation_metrics); there is no package
+# to build here. This manifest only declares the dependencies needed to run
+# scripts/ingest_oxford_pets.py and scripts/train_unet.py, so `pip install -e .`
+# (or `uv pip install -e .`) provisions the environment without building a wheel.
 [tool.hatch.build.targets.wheel]
-packages = ["src/semseg_sample_type"]
+bypass-selection = true
