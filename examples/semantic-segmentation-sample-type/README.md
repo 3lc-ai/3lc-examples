@@ -12,7 +12,9 @@ RLE rendering works unchanged, while semseg-aware behavior dispatches on the
 schema's `composite_role == "SemanticSegmentation"` (the `sample_type` stays
 `"semantic_segmentation"` and names the Python (de)serializer). Each row is stored
 as exactly `C` class-ordered layers (empty RLE for absent classes) so layer ↔ class
-alignment is stable across the dataset. See [`SPEC.md`](SPEC.md) for the full design.
+alignment is stable across the dataset. The full design doc lives with the frontend
+work in the `tlc-ui` repo, branch `feature/gudbrand/semseg-sample-type`
+(`src/7_Interfaces/ListInterfaces/ShapeListInterfaces/ImageInterface/SEMANTIC_SEGMENTATION_SPEC.md`).
 
 ## What lives where
 
