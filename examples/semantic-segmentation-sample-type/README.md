@@ -34,6 +34,12 @@ work in the `tlc-ui` repo, branch `feature/gudbrand/semseg-sample-type`
     always): predicted-segmentation-as-RLE, mean IoU, pet IoU, the per-image
     confusion matrix (via the core helper), cross-entropy loss, mean prediction
     entropy, and a pooled bottleneck embedding (PaCMAP-reduced to 2D after training).
+  - `scripts/explore_diagnostics.py` — diagnostics playground: quick-trains a tiny
+    UNet, then collects three richer metric columns that reuse the semseg sample type
+    as storage (zero frontend work): a per-pixel error map (red overlay +
+    `error_fraction` scalar), per-class probability heatmaps (softmax quantized into
+    turbo-ramped bins), and per-class GT/pred masked embeddings reduced into a shared
+    2D space. This is the script behind the `concave-camembert` exploration run.
 
 ## Usage
 
@@ -45,4 +51,8 @@ pip install -e .
 # Expects the Oxford-IIIT Pets dataset (images/ + annotations/) at ~/data/Oxford-IIIT-Pets
 python scripts/ingest_oxford_pets.py                       # 3000 train / 680 val
 python scripts/train_unet.py --epochs 40 --collect-frequency 10
+
+# Optional: the diagnostics playground (error map, probability heatmaps, masked
+# embeddings). Quick-trains by default; pass --skip-train to reuse a saved checkpoint.
+python scripts/explore_diagnostics.py --epochs 8
 ```
