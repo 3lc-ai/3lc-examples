@@ -1,0 +1,8 @@
+
+aliases:
+  SM_TRAIN_INPUT_DATA: /opt/ml/input/data/train
+  SM_VAL_INPUT_DATA: /opt/ml/input/data/val
+ 
+
+project-root-url: s3://3lc-projects/
+ 
