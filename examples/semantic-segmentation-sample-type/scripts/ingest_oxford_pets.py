@@ -5,7 +5,8 @@
 Creates train/val tables with columns:
 - image: the pet image
 - segmentation: semantic segmentation (background / pet / border) from the trimap,
-  stored as one RLE per class via the "semantic_segmentation" sample type
+  stored compactly as one RLE per non-background class present via the
+  "semantic_segmentation" sample type (background id 0 is implicit on the wire)
 - species: cat / dog
 - breed: one of the 37 breeds
 """
@@ -19,24 +20,21 @@ from pathlib import Path
 import numpy as np
 import tlc
 from PIL import Image
-from tlc.sample_types import SemanticSegmentation, SemanticSegmentationSampleType, semseg_classes
+from tlc.sample_types import SemanticSegmentation
+from tlc.schemas import SemanticSegmentationRLESchema
 
 PROJECT_NAME = "oxford-pets-semseg-poc"
 DATASET_NAME = "oxford-pets"
 
 # Trimap pixel values: 1 = pet, 2 = background, 3 = border. Remap to 0-based with background = 0.
 TRIMAP_REMAP = {2: 0, 1: 1, 3: 2}
-# Background (transparent) and border (void/ignore) are tagged via reserved internal_names
-# by semseg_classes; everything downstream reads the roles back rather than hardcoding ids.
-SEGMENTATION_CLASSES = semseg_classes(
-    {0: "background", 1: "pet", 2: "border"},
-    background=0,
-    void=2,
-)
-# Declared class universe: every sample is stored as exactly these C layers in this
-# fixed order (empty RLE for classes absent from a given image), so layer i always
-# means the same class and the editor can fix the layer set (no add/delete, exclusive paint).
-SEGMENTATION_CLASS_IDS = sorted(SEGMENTATION_CLASSES)
+# The class universe. background (id 0) and border (void/ignore) are passed to the schema,
+# which tags them via reserved internal_names so everything downstream reads the roles back
+# rather than hardcoding ids. Storage is compact (one RLE per class present) and background
+# (id 0) is implicit on the wire — recovered as the zero fill on read.
+SEGMENTATION_CLASS_NAMES = {0: "background", 1: "pet", 2: "border"}
+BACKGROUND_ID = 0
+VOID_ID = 2
 SPECIES_CLASSES = ["cat", "dog"]
 
 
@@ -73,14 +71,14 @@ def breed_names(samples: list[dict]) -> list[str]:
 
 def load_segmentation(trimap_path: Path) -> SemanticSegmentation:
     trimap = np.asarray(Image.open(trimap_path))
-    label_map = np.zeros_like(trimap, dtype=np.int32)
+    mask = np.zeros_like(trimap, dtype=np.int32)
     for src, dst in TRIMAP_REMAP.items():
-        label_map[trimap == src] = dst
+        mask[trimap == src] = dst
     return SemanticSegmentation(
         image_width=trimap.shape[1],
         image_height=trimap.shape[0],
-        label_map=label_map,
-        class_ids=SEGMENTATION_CLASS_IDS,
+        mask=mask,
+        background_id=BACKGROUND_ID,
     )
 
 
@@ -91,7 +89,9 @@ def write_table(samples: list[dict], table_name: str, breeds: list[str]) -> tlc.
         table_name=table_name,
         schema={
             "image": tlc.schemas.ImageSchema(),
-            "segmentation": SemanticSegmentationSampleType.schema(SEGMENTATION_CLASSES),
+            "segmentation": SemanticSegmentationRLESchema(
+                classes=SEGMENTATION_CLASS_NAMES, background=BACKGROUND_ID, void=VOID_ID
+            ),
             "species": tlc.schemas.CategoricalLabelSchema(SPECIES_CLASSES),
             "breed": tlc.schemas.CategoricalLabelSchema(breeds),
         },
@@ -134,7 +134,7 @@ def main() -> None:
     sample = train_table[0]
     seg = sample["segmentation"]
     print(
-        f"Sample view round-trip: {type(seg).__name__}, layer universe: {seg.class_ids}, "
+        f"Sample view round-trip: {type(seg).__name__}, "
         f"classes present: {seg.present_class_ids.tolist()}"
     )
 

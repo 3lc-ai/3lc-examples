@@ -151,7 +151,7 @@ def main() -> None:
     # Sanity check: sample view should hand back the SemanticSegmentation dataclass.
     seg = train_table[0]["mask"]
     print(
-        f"Sample view round-trip: {type(seg).__name__}, layer universe: {seg.class_ids}, "
+        f"Sample view round-trip: {type(seg).__name__}, "
         f"classes present: {seg.present_class_ids.tolist()}"
     )
 
