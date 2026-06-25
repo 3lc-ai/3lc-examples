@@ -366,8 +366,8 @@
   include_in_tests: false
   include_in_public_examples: false
   params:
-    N_TRAIN: {test: 50, publish: 3000}
-    N_VAL: {test: 10, publish: 680}
+    N_TRAIN: {test: 50, publish: null}
+    N_VAL: {test: 10, publish: null}
   depends_on: []
   creates:
   - {project: 3LC Tutorials - Oxford-IIIT Pets, dataset: oxford-iiit-pets, table: train}
