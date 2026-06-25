@@ -52,20 +52,18 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+import pacmap
 import tlc
 import torch
 import torch.nn as nn
 import torch.nn.functional as F  # noqa: N812
-import pacmap
 from matplotlib import colormaps
-from tlc.schemas import MapElement
-from tlc.schemas.values import DimensionNumericValue, Float32Value
 from tlc.sample_types import (
     SemanticSegmentation,
-    SemanticSegmentationSampleType,
     semseg_classes,
-    void_id,
 )
+from tlc.schemas import MapElement, SemanticSegmentationRLESchema
+from tlc.schemas.values import DimensionNumericValue, Float32Value
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -74,7 +72,6 @@ from tqdm import tqdm
 from train_unet import (
     DATASET_NAME,
     FOREGROUND_CLASS_ID,
-    GT_CLASSES,
     IGNORE_CLASS_ID,
     IGNORE_INDEX,
     NUM_CLASSES,
@@ -85,9 +82,8 @@ from train_unet import (
     seed_everything,
 )
 
-# The predicted segmentation is stored as exactly these class-ordered layers (always-C,
-# SPEC §2.1): layer i is class PREDICTED_LAYER_IDS[i]. The per-layer embedding array is
-# built in this same order so embedding[i] lines up with layer i.
+# The per-layer embedding arrays are built in this class order, so embedding[i] lines up
+# with class PREDICTED_LAYER_IDS[i].
 PREDICTED_LAYER_IDS = sorted(PREDICTED_CLASSES)
 
 # Error-map "classes": correct is the transparent background, ignore is the void
@@ -136,37 +132,30 @@ def turbo_bin_classes(n_bins: int) -> dict[int, MapElement]:
 
 
 HEATMAP_CLASSES = turbo_bin_classes(N_BINS)
-HEATMAP_CLASS_IDS = sorted(HEATMAP_CLASSES)
 
 
-def build_error_map(pred_map: np.ndarray, gt_map: np.ndarray) -> tuple[SemanticSegmentation, float]:
-    """Binary {correct, incorrect, ignore} segmentation from a (pred, gt) pair.
+def build_error_map(pred_map: np.ndarray, gt_map: np.ndarray) -> tuple[np.ndarray, float]:
+    """Binary {correct, incorrect, ignore} label map from a (pred, gt) pair.
 
     Void (GT == border) pixels are excluded from the comparison and labelled
-    ``ignore``; the error fraction is over valid (non-void) pixels only.
+    ``ignore``; the error fraction is over valid (non-void) pixels only. Returns a
+    bare label map — the metrics writer serializes it via the error-map schema.
     """
-    height, width = gt_map.shape
-    void = IGNORE_CLASS_ID
-    valid = gt_map != void
+    valid = gt_map != IGNORE_CLASS_ID
     incorrect = valid & (pred_map != gt_map)
 
-    label_map = np.full((height, width), ERROR_CORRECT, dtype=np.int32)
+    label_map = np.full(gt_map.shape, ERROR_CORRECT, dtype=np.int32)
     label_map[incorrect] = ERROR_INCORRECT
     label_map[~valid] = ERROR_IGNORE
 
     n_valid = int(valid.sum())
     error_fraction = float(incorrect.sum()) / n_valid if n_valid else 0.0
-    seg = SemanticSegmentation(
-        image_width=width, image_height=height, label_map=label_map, class_ids=[ERROR_CORRECT, ERROR_INCORRECT, ERROR_IGNORE]
-    )
-    return seg, error_fraction
+    return label_map, error_fraction
 
 
-def build_heatmap(prob_map: np.ndarray) -> SemanticSegmentation:
+def build_heatmap(prob_map: np.ndarray) -> np.ndarray:
     """Quantize a (H, W) probability map in [0, 1] into N disjoint bands (the bin trick)."""
-    height, width = prob_map.shape
-    bins = np.clip((prob_map * N_BINS).astype(np.int32), 0, N_BINS - 1)
-    return SemanticSegmentation(image_width=width, image_height=height, label_map=bins, class_ids=HEATMAP_CLASS_IDS)
+    return np.clip((prob_map * N_BINS).astype(np.int32), 0, N_BINS - 1)
 
 
 def masked_average_pool(features: torch.Tensor, mask: torch.Tensor) -> np.ndarray:
@@ -261,12 +250,10 @@ def collect_diagnostics(
     run: tlc.Run, table: tlc.Table, model: nn.Module, device: torch.device, image_size: int
 ) -> None:
     """Write the three diagnostic column families for every sample of ``table``."""
-    sample_type = SemanticSegmentationSampleType()
-
-    predicted_rows: list[dict] = []
-    error_maps: list[dict] = []
+    predicted_rows: list[np.ndarray] = []
+    error_maps: list[np.ndarray] = []
     error_fractions: list[float] = []
-    heatmaps: dict[int, list[dict]] = {cid: [] for cid in HEATMAP_CLASS_NAMES}
+    heatmaps: dict[int, list[np.ndarray]] = {cid: [] for cid in HEATMAP_CLASS_NAMES}
     # Per row: (C, D) arrays of per-layer embeddings, class-ordered to match the predicted
     # layers. Two mask views are kept separately — GT-masked (the model's representation of
     # the *true* region of each class) and pred-masked (its representation of the region it
@@ -295,23 +282,18 @@ def collect_diagnostics(
             probs = logits.softmax(dim=1).squeeze(0).cpu().numpy()  # (NUM_CLASSES, H, W)
             pred_map = probs.argmax(axis=0).astype(np.int32)
 
-            # Predicted segmentation, stored as exactly C class-ordered layers.
-            predicted_rows.append(
-                sample_type.to_row(
-                    SemanticSegmentation(
-                        image_width=width, image_height=height, label_map=pred_map, class_ids=PREDICTED_LAYER_IDS
-                    )
-                )
-            )
+            # Predicted segmentation as a bare label map; the metrics writer serializes it
+            # via the predicted_segmentation schema (which declares the background).
+            predicted_rows.append(pred_map)
 
             # 1. Error map (vs GT, void excluded).
-            error_seg, error_fraction = build_error_map(pred_map, seg.label_map)
-            error_maps.append(sample_type.to_row(error_seg))
+            error_map, error_fraction = build_error_map(pred_map, seg.mask)
+            error_maps.append(error_map)
             error_fractions.append(error_fraction)
 
             # 2. Per-class probability heatmaps (bin trick).
             for class_id in HEATMAP_CLASS_NAMES:
-                heatmaps[class_id].append(sample_type.to_row(build_heatmap(probs[class_id])))
+                heatmaps[class_id].append(build_heatmap(probs[class_id]))
 
             # 3. Per-layer masked-average-pooled bottleneck embeddings, ordered to match the
             #    predicted layers. Pool over both the GT region and the predicted region of
@@ -319,7 +301,7 @@ def collect_diagnostics(
             #    Both masks downsampled to the feature-map resolution. (Absent classes pool to
             #    a zero vector for now — the §7.1.1 missing-data policy is not applied yet.)
             fh, fw = features.shape[1], features.shape[2]
-            gt_small = _downsample_to(seg.label_map, fh, fw, device)
+            gt_small = _downsample_to(seg.mask, fh, fw, device)
             pred_small = _downsample_to(pred_map, fh, fw, device)
             gt_masked.append(
                 np.stack([masked_average_pool(features, gt_small == class_id) for class_id in PREDICTED_LAYER_IDS])
@@ -345,17 +327,17 @@ def collect_diagnostics(
         "pred_masked_embedding": [coords.tolist() for coords in reduced["pred"]],
     }
     schema: dict[str, tlc.Schema] = {
-        "predicted_segmentation": SemanticSegmentationSampleType.schema(
-            PREDICTED_CLASSES, display_name="predicted segmentation"
+        "predicted_segmentation": SemanticSegmentationRLESchema(
+            classes=PREDICTED_CLASSES, display_name="predicted segmentation"
         ),
-        "error_map": SemanticSegmentationSampleType.schema(ERROR_CLASSES, display_name="error map"),
+        "error_map": SemanticSegmentationRLESchema(classes=ERROR_CLASSES, display_name="error map"),
         "gt_masked_embedding": layer_embedding_schema("GT-masked embedding"),
         "pred_masked_embedding": layer_embedding_schema("pred-masked embedding"),
     }
     for class_id, name in HEATMAP_CLASS_NAMES.items():
         metrics[f"prob_heatmap_{name}"] = heatmaps[class_id]
-        schema[f"prob_heatmap_{name}"] = SemanticSegmentationSampleType.schema(
-            HEATMAP_CLASSES, display_name=f"P({name}) heatmap"
+        schema[f"prob_heatmap_{name}"] = SemanticSegmentationRLESchema(
+            classes=HEATMAP_CLASSES, display_name=f"P({name}) heatmap"
         )
 
     run.add_metrics(metrics, schema=schema, foreign_table_url=table.url)

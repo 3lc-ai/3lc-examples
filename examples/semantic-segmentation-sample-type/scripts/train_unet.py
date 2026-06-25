@@ -36,6 +36,7 @@ from tlc.sample_types import (
     void_id,
 )
 from tlc.helpers.semantic_segmentation_metrics import semantic_segmentation_metrics
+from tlc.schemas import SemanticSegmentationRLESchema
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
@@ -136,7 +137,7 @@ class PetsSegDataset(Dataset):
         image = row["image"].convert("RGB").resize((self.image_size, self.image_size))
 
         seg: SemanticSegmentation = row["segmentation"]
-        label_map = seg.label_map.copy()
+        label_map = seg.mask.copy()
         label_map[label_map == IGNORE_CLASS_ID] = IGNORE_INDEX
         label = Image.fromarray(label_map.astype(np.uint8), mode="L").resize(
             (self.image_size, self.image_size), Image.NEAREST
@@ -226,18 +227,17 @@ def collect_metrics(
             logits = F.interpolate(logits, size=(height, width), mode="bilinear", align_corners=False)
             pred_map = logits.argmax(dim=1).squeeze(0).cpu().numpy().astype(np.int32)
 
-            target = seg.label_map.copy()
+            target = seg.mask.copy()
             target[target == IGNORE_CLASS_ID] = IGNORE_INDEX
             target_tensor = torch.from_numpy(target).long()[None].to(device)
             losses.append(F.cross_entropy(logits, target_tensor, ignore_index=IGNORE_INDEX).item())
             probs = logits.softmax(dim=1)
             entropies.append(float((-(probs * probs.clamp_min(1e-12).log()).sum(dim=1)).mean()))
 
-            # Store as exactly C class-ordered layers (background, pet) so the predicted
-            # column has the same fixed, editor-friendly layer set on every row.
+            # Compact storage: background (id 0) is dropped on the wire and recovered as
+            # the implicit fill, so only the "pet" layer is stored per row.
             predicted = SemanticSegmentation(
-                image_width=width, image_height=height, label_map=pred_map,
-                class_ids=sorted(PREDICTED_CLASSES),
+                image_width=width, image_height=height, mask=pred_map, background_id=0,
             )
             predictions.append(sample_type.to_row(predicted))
 
@@ -247,7 +247,7 @@ def collect_metrics(
             # matrix is carried so the headline can be computed *cumulatively* — sum the
             # per-image matrices dashboard-side, then derive — rather than the noisier
             # mean-of-per-image (SPEC §4.2).
-            m = semantic_segmentation_metrics(pred_map, seg.label_map, GT_CLASSES, include_background=True)
+            m = semantic_segmentation_metrics(pred_map, seg.mask, GT_CLASSES, include_background=True)
             ious.append(m["mean_iou"])
             pet_ious.append(m["per_class_iou"][m["class_ids"].index(FOREGROUND_CLASS_ID)])
             confusion_matrices.append([int(x) for row in m["confusion_matrix"] for x in row])
@@ -266,7 +266,7 @@ def collect_metrics(
             "epoch": [epoch] * len(ious),
         },
         schema={
-            "predicted_segmentation": SemanticSegmentationSampleType.schema(PREDICTED_CLASSES),
+            "predicted_segmentation": SemanticSegmentationRLESchema(classes=PREDICTED_CLASSES),
             "embedding": tlc.schemas.EmbeddingSchema(shape=len(embeddings[0])),
         },
         foreign_table_url=table.url,
