@@ -16,7 +16,8 @@ create-table-from-image-folder
 create-table-from-torch-dataset
 create-table-from-videos
 create-custom-table
-create-semantic-segmentation-table
+create-oxford-pets-semseg-table
+create-pascal-voc-semseg-table
 create-fhibe-table
 object detection/index
 instance-segmentation/index
