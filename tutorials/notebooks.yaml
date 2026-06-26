@@ -941,8 +941,8 @@
     table_name: null
     object_url: https://dashboard.3lc.ai?runs=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20Oxford-IIIT%20Pets/runs/Train%20TinyUNet
   include_in_docs: true
-  include_in_tests: false
-  include_in_public_examples: false
+  include_in_tests: true
+  include_in_public_examples: true
   params:
     EPOCHS: {test: 1, publish: 40}
     COLLECT_FREQUENCY: {test: 1, publish: 10}
