@@ -387,10 +387,8 @@
   include_in_tests: true
   include_in_public_examples: true
   params:
-    MAX_TRAIN: {test: 50, publish: null}
-    MAX_VAL: {test: 10, publish: null}
-    EPOCHS: {test: 1, publish: 40}
-    NUM_WORKERS: {test: 0, publish: 4}
+    N_TRAIN: {test: 50, publish: null}
+    N_VAL: {test: 10, publish: null}
   depends_on: []
   creates:
   - {project: 3LC Tutorials - Pascal VOC 2012, dataset: pascal-voc-2012, table: train}
