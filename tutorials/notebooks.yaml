@@ -376,7 +376,7 @@
   title: Create a Semantic Segmentation Table from Pascal VOC 2012
   blurb: Ingest the [Pascal VOC 2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/) segmentation set into 3LC `Table`s using the `semantic_segmentation` sample type — a 21-class problem (background + 20 ...
   tags: [semantic-segmentation, pascal-voc]
-  thumbnail: ''
+  thumbnail: images/pascal-voc-semseg.png
   project_meta:
     project_name: 3LC Tutorials - Pascal VOC 2012
     dataset_name: pascal-voc-2012
@@ -787,7 +787,7 @@
   title: Fine-tune Mask2Former on Pascal VOC and collect metrics
   blurb: Fine-tune a [Mask2Former](https://huggingface.co/docs/transformers/en/model_doc/mask2former) model for semantic segmentation on the Pascal VOC 2012 tables created in **`create-pascal-voc-semseg-tab...
   tags: [semantic-segmentation, pascal-voc, mask2former, hugging-face, training]
-  thumbnail: ''
+  thumbnail: images/pascal-voc-mask2former.png
   project_meta:
     project_name: 3LC Tutorials - Pascal VOC 2012
     dataset_name: pascal-voc-2012
