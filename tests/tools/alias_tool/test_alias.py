@@ -670,7 +670,7 @@ def test_get_input_object(sample_table: Table, tmp_path: Path) -> None:
     # Test getting the object from the parquet file
     pa_table = get_input_object(existing_parquet_path)
     assert isinstance(pa_table, pa.Table)
-    assert pa_table.equals(sample_table._to_pyarrow_table())
+    assert pa_table.equals(sample_table._to_pyarrow_table())  # type: ignore[attr-defined]
 
     # Test getting the object from the table URL
     tlc_table = get_input_object(existing_table_url)
