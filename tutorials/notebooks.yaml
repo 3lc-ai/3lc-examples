@@ -134,6 +134,23 @@
   params: {}
   depends_on: []
   creates: []
+- path: 1-create-tables/create-voc2012-table.ipynb
+  title: Load Pascal VOC 2012 as a 3LC Table
+  blurb: This notebook ingests the Pascal VOC 2012 trainval dataset as a single 3LC Table, preserving as much annotation metadata as possible.
+  tags: [object-detection, instance-segmentation, semantic-segmentation, layout, action-recognition]
+  thumbnail: ''
+  project_meta:
+    project_name: null
+    dataset_name: null
+    run_name: null
+    table_name: null
+    object_url: null
+  include_in_docs: true
+  include_in_tests: false
+  include_in_public_examples: false
+  params: {}
+  depends_on: []
+  creates: []
 - path: 1-create-tables/instance-segmentation/create-custom-instance-segmentation-table.ipynb
   title: Create Custom Instance Segmentation Table
   blurb: Create a 3LC Table from custom RLE annotations using the Sartorius cell instance segmentation dataset with hundreds of cell instances per image.
@@ -346,6 +363,18 @@
     table_name: initial-detection
     object_url: https://dashboard.3lc.ai?tables=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20YOLO%20Detection/datasets/YOLO-Detection-Dataset/tables/initial-detection
   include_in_docs: false
+  include_in_tests: false
+  include_in_public_examples: false
+  params: {}
+  depends_on: []
+  creates: []
+- path: 1-create-tables/object detection/rf100.ipynb
+  title: Rf100
+  blurb: ''
+  tags: []
+  thumbnail: ''
+  project_meta: {}
+  include_in_docs: true
   include_in_tests: false
   include_in_public_examples: false
   params: {}
@@ -801,6 +830,32 @@
     EPOCHS: {test: 1, publish: 10}
   depends_on: [1-create-tables/semantic-segmentation/create-pascal-voc-semseg-table.ipynb]
   creates: []
+- path: 3-training-and-metrics/huggingface-sugarbeets-segformer-training.ipynb
+  title: Train and Diagnose SegFormer on Sugar Beets 2016
+  blurb: In this tutorial, we fine-tune a SegFormer semantic-segmentation model on the University of Bonn Sugar Beets 2016 agricultural dataset. This is a 3-class problem with background soil, sugarbeet cro...
+  tags: [semantic-segmentation, segformer, hugging-face, training, metrics]
+  thumbnail: images/sugarbeets/overview.png
+  project_meta:
+    project_name: 3LC Tutorials - Sugar Beets 2016
+    dataset_name: sugarbeets-2016
+    run_name: Train SegFormer
+    table_name: null
+    object_url: https://dashboard.3lc.ai?runs=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20Sugar%20Beets%202016/runs/Train%20SegFormer
+  include_in_docs: true
+  include_in_tests: true
+  include_in_public_examples: true
+  params:
+    BACKBONE: {test: nvidia/mit-b0, publish: nvidia/mit-b2}
+    EPOCHS: {test: 1, publish: 40}
+    BATCH_SIZE: {test: 2, publish: 8}
+    CROP_SIZE: {test: 256, publish: 512}
+    EVAL_SIZE: {test: 256, publish: 1024}
+    EVAL_BATCH_SIZE: {test: 2, publish: 16}
+    COLLECT_FREQUENCY: {test: 1, publish: 10}
+    N_TRAIN: {test: 24, publish: null}
+    N_VAL: {test: 20, publish: null}
+  depends_on: []
+  creates: []
 - path: 3-training-and-metrics/lightning-cifar10-resnet-training.ipynb
   title: Training a classifier using PyTorch Lightning
   blurb: This notebook trains a classifier on CIFAR-10 using PyTorch Lightning.
@@ -946,6 +1001,18 @@
     COLLECT_FREQUENCY: {test: 1, publish: 10}
   depends_on: [1-create-tables/semantic-segmentation/create-oxford-pets-semseg-table.ipynb]
   creates: []
+- path: 3-training-and-metrics/sam-bbs.ipynb
+  title: Sam Bbs
+  blurb: ''
+  tags: []
+  thumbnail: ''
+  project_meta: {}
+  include_in_docs: true
+  include_in_tests: false
+  include_in_public_examples: false
+  params: {}
+  depends_on: []
+  creates: []
 - path: 3-training-and-metrics/sam-coco128-collect-embeddings.ipynb
   title: Collect SAM image embeddings
   blurb: In this example, we will show how to create a Run containing embeddings extracted from SAM for a set of images.
@@ -1080,6 +1147,18 @@
     EPOCHS: {test: 1, publish: 10}
     NUM_WORKERS: {test: 8, publish: 8}
     MODEL_NAME: {test: yolo11n-obb.pt, publish: yolo11m-obb.pt}
+  depends_on: []
+  creates: []
+- path: 4-complete-examples/ade-2-instance.ipynb
+  title: Ade 2 Instance
+  blurb: ''
+  tags: []
+  thumbnail: ''
+  project_meta: {}
+  include_in_docs: true
+  include_in_tests: false
+  include_in_public_examples: false
+  params: {}
   depends_on: []
   creates: []
 - path: 4-end-to-end-examples/deep-fish.ipynb
