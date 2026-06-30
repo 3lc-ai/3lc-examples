@@ -82,23 +82,6 @@
     MAX_SAMPLES: {test: 10, publish: 2000}
   depends_on: []
   creates: []
-- path: 1-create-tables/create-semantic-segmentation-table.ipynb
-  title: Create Semantic Segmentation Table
-  blurb: Create a 3LC Table for semantic segmentation tasks using paired images and grayscale mask files from the ADE20k dataset.
-  tags: [semantic-segmentation, ade20k]
-  thumbnail: images/ade-20-semseg.jpg
-  project_meta:
-    project_name: 3LC Tutorials - Semantic Segmentation ADE20k
-    dataset_name: ADE20k_toy_dataset
-    run_name: null
-    table_name: ADE20K-semantic-segmentation
-    object_url: https://dashboard.3lc.ai?tables=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20Semantic%20Segmentation%20ADE20k/datasets/ADE20k_toy_dataset/tables/ADE20K-semantic-segmentation
-  include_in_docs: true
-  include_in_tests: true
-  include_in_public_examples: true
-  params: {}
-  depends_on: []
-  creates: []
 - path: 1-create-tables/create-table-from-image-folder.ipynb
   title: Create Table from Image Folder
   blurb: Create a 3LC Table from a folder structure containing images organized by class labels for image classification tasks.
@@ -368,6 +351,48 @@
   params: {}
   depends_on: []
   creates: []
+- path: 1-create-tables/semantic-segmentation/create-oxford-pets-semseg-table.ipynb
+  title: Create a Semantic Segmentation Table from Oxford-IIIT Pets
+  blurb: Ingest the [Oxford-IIIT Pets](https://www.robots.ox.ac.uk/~vgg/data/pets/) dataset into 3LC `Table`s for semantic segmentation, using the documented front door `Table.from_semantic_segmentation`. E...
+  tags: [semantic-segmentation, oxford-pets]
+  thumbnail: images/oxford-pets-semseg.png
+  project_meta:
+    project_name: 3LC Tutorials - Oxford-IIIT Pets
+    dataset_name: oxford-iiit-pets
+    run_name: null
+    table_name: train
+    object_url: https://dashboard.3lc.ai?tables=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20Oxford-IIIT%20Pets/datasets/oxford-iiit-pets/tables/train
+  include_in_docs: true
+  include_in_tests: true
+  include_in_public_examples: true
+  params:
+    N_TRAIN: {test: 50, publish: null}
+    N_VAL: {test: 10, publish: null}
+  depends_on: []
+  creates:
+  - {project: 3LC Tutorials - Oxford-IIIT Pets, dataset: oxford-iiit-pets, table: train}
+  - {project: 3LC Tutorials - Oxford-IIIT Pets, dataset: oxford-iiit-pets, table: val}
+- path: 1-create-tables/semantic-segmentation/create-pascal-voc-semseg-table.ipynb
+  title: Create a Semantic Segmentation Table from Pascal VOC 2012
+  blurb: Ingest the [Pascal VOC 2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/) segmentation set into 3LC `Table`s using the `semantic_segmentation` sample type — a 21-class problem (background + 20 ...
+  tags: [semantic-segmentation, pascal-voc]
+  thumbnail: images/pascal-voc-semseg.png
+  project_meta:
+    project_name: 3LC Tutorials - Pascal VOC 2012
+    dataset_name: pascal-voc-2012
+    run_name: null
+    table_name: train
+    object_url: https://dashboard.3lc.ai?tables=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20Pascal%20VOC%202012/datasets/pascal-voc-2012/tables/train
+  include_in_docs: true
+  include_in_tests: true
+  include_in_public_examples: true
+  params:
+    N_TRAIN: {test: 50, publish: null}
+    N_VAL: {test: 10, publish: null}
+  depends_on: []
+  creates:
+  - {project: 3LC Tutorials - Pascal VOC 2012, dataset: pascal-voc-2012, table: train}
+  - {project: 3LC Tutorials - Pascal VOC 2012, dataset: pascal-voc-2012, table: val}
 - path: 2-modify-tables/1-weight-coreset.ipynb
   title: Weighted Table Subset Selection
   blurb: This notebook demonstrates how to apply zero weights to a subset of table rows for selective data processing.
@@ -685,25 +710,6 @@
     TIMM_MODEL_NAME: {test: resnet18, publish: resnet18}
   depends_on: [1-create-tables/create-table-from-torch-dataset.ipynb, 2-modify-tables/1-weight-coreset.ipynb]
   creates: []
-- path: 3-training-and-metrics/huggingface-ade20k-segformer-finetuning.ipynb
-  title: Fine-tune Hugging Face SegFormer on a custom dataset
-  blurb: This tutorial covers metrics collection on a custom semantic segmentation dataset using `3lc` and training using 🤗 `transformers`.
-  tags: [semantic-segmentation, segformer, ade20k, hugging-face, training]
-  thumbnail: images/semseg-ade20k-finetune.png
-  project_meta:
-    project_name: 3LC Tutorials - Semantic Segmentation ADE20k
-    dataset_name: ADE20k_toy_dataset
-    run_name: null
-    table_name: null
-    object_url: null
-  include_in_docs: true
-  include_in_tests: false
-  include_in_public_examples: false
-  params:
-    EPOCHS: {test: 100, publish: 200}
-    SEGFORMER_MODEL_ID: {test: nvidia/mit-b0, publish: nvidia/mit-b0}
-  depends_on: []
-  creates: []
 - path: 3-training-and-metrics/huggingface-cifar100-collect-embeddings.ipynb
   title: Hugging Face CIFAR-100 Embeddings Example
   blurb: In this notebook we will see how to use a pre-trained Vision Transformers (ViT) model to collect embeddings on the CIFAR-100 dataset.
@@ -777,24 +783,23 @@
     EPOCHS: {test: 1, publish: 5}
   depends_on: []
   creates: []
-- path: 3-training-and-metrics/lightning-balloons-segformer-training.ipynb
-  title: Fine-tuning a SegFormer model with Pytorch Lightning
-  blurb: This notebook fine-tunes a SegFormer model for semantic segmentation using PyTorch Lightning.
-  tags: [pytorch-lightning, balloons, semantic-segmentation, training, hugging-face]
-  thumbnail: images/lightning-balloons-semseg.png
+- path: 3-training-and-metrics/huggingface-pascal-voc-mask2former-finetuning.ipynb
+  title: Fine-tune Mask2Former on Pascal VOC and collect metrics
+  blurb: Fine-tune a [Mask2Former](https://huggingface.co/docs/transformers/en/model_doc/mask2former) model for semantic segmentation on the Pascal VOC 2012 tables created in **`create-pascal-voc-semseg-tab...
+  tags: [semantic-segmentation, pascal-voc, mask2former, hugging-face, training]
+  thumbnail: images/pascal-voc-mask2former.png
   project_meta:
-    project_name: 3LC Tutorials - Image Segmentation
-    dataset_name: null
-    run_name: Train Balloon SegFormer
+    project_name: 3LC Tutorials - Pascal VOC 2012
+    dataset_name: pascal-voc-2012
+    run_name: Fine-tune Mask2Former
     table_name: null
-    object_url: https://dashboard.3lc.ai?runs=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20Image%20Segmentation/runs/Train%20Balloon%20SegFormer
+    object_url: https://dashboard.3lc.ai?runs=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20Pascal%20VOC%202012/runs/Fine-tune%20Mask2Former
   include_in_docs: true
-  include_in_tests: true
-  include_in_public_examples: true
+  include_in_tests: false
+  include_in_public_examples: false
   params:
     EPOCHS: {test: 1, publish: 10}
-    SEGFORMER_MODEL_ID: {test: nvidia/mit-b0, publish: nvidia/mit-b2}
-  depends_on: []
+  depends_on: [1-create-tables/semantic-segmentation/create-pascal-voc-semseg-table.ipynb]
   creates: []
 - path: 3-training-and-metrics/lightning-cifar10-resnet-training.ipynb
   title: Training a classifier using PyTorch Lightning
@@ -921,6 +926,25 @@
   params:
     EPOCHS: {test: 1, publish: 5}
   depends_on: []
+  creates: []
+- path: 3-training-and-metrics/pytorch-oxford-pets-unet-training.ipynb
+  title: Train a UNet on Oxford-IIIT Pets and collect metrics
+  blurb: Train a small UNet for semantic segmentation on the Oxford-IIIT Pets tables created in **`create-oxford-pets-semseg-table`**, and collect rich per-sample metrics back into a 3LC `Run`.
+  tags: [semantic-segmentation, oxford-pets, pytorch, training]
+  thumbnail: images/oxford-pets-unet.png
+  project_meta:
+    project_name: 3LC Tutorials - Oxford-IIIT Pets
+    dataset_name: oxford-iiit-pets
+    run_name: Train TinyUNet
+    table_name: null
+    object_url: https://dashboard.3lc.ai?runs=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20Oxford-IIIT%20Pets/runs/Train%20TinyUNet
+  include_in_docs: true
+  include_in_tests: true
+  include_in_public_examples: true
+  params:
+    EPOCHS: {test: 1, publish: 40}
+    COLLECT_FREQUENCY: {test: 1, publish: 10}
+  depends_on: [1-create-tables/semantic-segmentation/create-oxford-pets-semseg-table.ipynb]
   creates: []
 - path: 3-training-and-metrics/sam-coco128-collect-embeddings.ipynb
   title: Collect SAM image embeddings

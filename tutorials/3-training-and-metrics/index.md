@@ -18,12 +18,12 @@ pytorch-cifar10-resnet-training
 pytorch-cifar10-collect-metrics
 pytorch-cifar10-train-autoencoder
 pytorch-augmentation-explorer
+pytorch-oxford-pets-unet-training
 lightning-cifar10-resnet-training
-lightning-balloons-segformer-training
 huggingface-cifar100-collect-embeddings
 huggingface-imdb-finetuning
 huggingface-mrcp-bert-finetuning
-huggingface-ade20k-segformer-finetuning
+huggingface-pascal-voc-mask2former-finetuning
 huggingface-coco128-segformer-collection
 detectron2-coco128-detection-collection
 detectron2-balloons-detection-finetuning
