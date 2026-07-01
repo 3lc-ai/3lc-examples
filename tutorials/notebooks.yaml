@@ -801,6 +801,23 @@
     EPOCHS: {test: 1, publish: 10}
   depends_on: [1-create-tables/semantic-segmentation/create-pascal-voc-semseg-table.ipynb]
   creates: []
+- path: 3-training-and-metrics/huggingface-sugarbeets-segformer-training.ipynb
+  title: Train and Diagnose SegFormer on Sugar Beets 2016
+  blurb: In this tutorial, we fine-tune a SegFormer semantic-segmentation model on the University of Bonn Sugar Beets 2016 agricultural dataset. This is a 3-class problem with background soil, sugarbeet cro...
+  tags: [semantic-segmentation, segformer, hugging-face, training, metrics]
+  thumbnail: images/sugarbeets/overview.png
+  project_meta:
+    project_name: 3LC Tutorials - Sugar Beets 2016
+    dataset_name: sugarbeets-2016
+    run_name: Train SegFormer
+    table_name: null
+    object_url: https://dashboard.3lc.ai?runs=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20Sugar%20Beets%202016/runs/Train%20SegFormer
+  include_in_docs: true
+  include_in_tests: false
+  include_in_public_examples: false
+  params: {}
+  depends_on: []
+  creates: []
 - path: 3-training-and-metrics/lightning-cifar10-resnet-training.ipynb
   title: Training a classifier using PyTorch Lightning
   blurb: This notebook trains a classifier on CIFAR-10 using PyTorch Lightning.
