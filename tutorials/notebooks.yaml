@@ -820,7 +820,7 @@
     EPOCHS: {test: 1, publish: 30}
     BATCH_SIZE: {test: 2, publish: 8}
     CROP_SIZE: {test: 256, publish: 512}
-    EVAL_SIZE: {test: 256, publish: 1024}
+    EVAL_SIZE: {test: 256, publish: 768}
     EVAL_BATCH_SIZE: {test: 2, publish: 8}
     NUM_WORKERS: {test: 4, publish: 8}
     COLLECT_FREQUENCY: {test: 1, publish: 10}
