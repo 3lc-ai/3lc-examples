@@ -20,6 +20,7 @@ pytorch-cifar10-train-autoencoder
 pytorch-augmentation-explorer
 pytorch-oxford-pets-unet-training
 lightning-cifar10-resnet-training
+lightning-balloons-segformer-training
 huggingface-cifar100-collect-embeddings
 huggingface-imdb-finetuning
 huggingface-mrcp-bert-finetuning
