@@ -816,8 +816,8 @@
   include_in_tests: true
   include_in_public_examples: true
   params:
-    BACKBONE: {test: nvidia/mit-b0, publish: nvidia/mit-b2}
-    EPOCHS: {test: 1, publish: 12}
+    BACKBONE: {test: nvidia/mit-b0, publish: nvidia/mit-b0}
+    EPOCHS: {test: 1, publish: 15}
     BATCH_SIZE: {test: 2, publish: 8}
     CROP_SIZE: {test: 256, publish: 512}
     EVAL_SIZE: {test: 256, publish: 768}
