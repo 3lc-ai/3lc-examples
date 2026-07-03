@@ -20,8 +20,8 @@ from pathlib import Path
 import numpy as np
 import tlc
 from PIL import Image
-from tlc.sample_types import SemanticSegmentation
-from tlc.schemas import SemanticSegmentationRLESchema
+from tlc.data_types import SemanticSegmentation
+from tlc.schemas import SemanticSegmentationRleSchema
 
 PROJECT_NAME = "oxford-pets-semseg-poc"
 DATASET_NAME = "oxford-pets"
@@ -89,7 +89,7 @@ def write_table(samples: list[dict], table_name: str, breeds: list[str]) -> tlc.
         table_name=table_name,
         schema={
             "image": tlc.schemas.ImageSchema(),
-            "segmentation": SemanticSegmentationRLESchema(
+            "segmentation": SemanticSegmentationRleSchema(
                 classes=SEGMENTATION_CLASS_NAMES, background=BACKGROUND_ID, void=VOID_ID
             ),
             "species": tlc.schemas.CategoricalLabelSchema(SPECIES_CLASSES),

@@ -36,7 +36,7 @@ import numpy as np
 import tlc
 from PIL import Image
 
-PROJECT_NAME = "cityscapes-semseg-poc"
+PROJECT_NAME = "Cityscapes"
 DATASET_NAME = "cityscapes"
 
 # The 19 standard Cityscapes evaluation classes, in trainId order (0..18). Everything
@@ -126,6 +126,12 @@ class LazyMasks(Sequence):
 
 
 def build_table(data_root: Path, split: str, table_name: str, max_rows: int | None, seed: int) -> tlc.Table:
+    tlc.helpers.ProjectHelper.register_project_url_alias(
+        "CITYSCAPES_ROOT",
+        data_root.resolve().as_posix(),
+        project_name=PROJECT_NAME,
+    )
+
     pairs = collect_samples(data_root, split)
     if max_rows is not None:
         random.Random(seed).shuffle(pairs)
@@ -156,6 +162,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
+    
     train_table = build_table(args.data_root, "train", "train", args.max_train, args.seed)
     build_table(args.data_root, "val", "val", args.max_val, args.seed)
 
