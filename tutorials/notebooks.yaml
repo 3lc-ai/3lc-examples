@@ -355,7 +355,7 @@
   title: Create a Semantic Segmentation Table from ADE20K
   blurb: 'Ingest a small ADE20K subset into a 3LC table for semantic segmentation — the simplest case: paired images and grayscale label-map PNGs plus an id-to-name mapping.'
   tags: [semantic-segmentation, ade20k]
-  thumbnail: images/ade-20-semseg.jpg
+  thumbnail: images/ade20k-semseg.png
   project_meta:
     project_name: 3LC Tutorials - Semantic Segmentation ADE20k
     dataset_name: ADE20k_toy_dataset
