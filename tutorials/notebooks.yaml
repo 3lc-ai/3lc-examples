@@ -824,8 +824,8 @@
     EVAL_BATCH_SIZE: {test: 2, publish: 8}
     NUM_WORKERS: {test: 4, publish: 8}
     COLLECT_FREQUENCY: {test: 1, publish: 10}
-    N_TRAIN: {test: 24, publish: null}
-    N_VAL: {test: 20, publish: null}
+    N_TRAIN: {test: 24, publish: 3000}
+    N_VAL: {test: 20, publish: 1000}
   depends_on: []
   creates: []
 - path: 3-training-and-metrics/lightning-cifar10-resnet-training.ipynb
