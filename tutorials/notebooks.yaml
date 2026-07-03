@@ -351,6 +351,24 @@
   params: {}
   depends_on: []
   creates: []
+- path: 1-create-tables/semantic-segmentation/create-ade20k-semseg-table.ipynb
+  title: Create a Semantic Segmentation Table from ADE20K
+  blurb: 'Ingest a small ADE20K subset into a 3LC table for semantic segmentation — the simplest case: paired images and grayscale label-map PNGs plus an id-to-name mapping.'
+  tags: [semantic-segmentation, ade20k]
+  thumbnail: images/ade-20-semseg.jpg
+  project_meta:
+    project_name: 3LC Tutorials - Semantic Segmentation ADE20k
+    dataset_name: ADE20k_toy_dataset
+    run_name: null
+    table_name: train
+    object_url: https://dashboard.3lc.ai?tables=s3%3A//3lc-public-examples-2-2-dev/projects/3LC%20Tutorials%20-%20Semantic%20Segmentation%20ADE20k/datasets/ADE20k_toy_dataset/tables/train
+  include_in_docs: true
+  include_in_tests: true
+  include_in_public_examples: true
+  params: {}
+  depends_on: []
+  creates:
+  - {project: 3LC Tutorials - Semantic Segmentation ADE20k, dataset: ADE20k_toy_dataset, table: train}
 - path: 1-create-tables/semantic-segmentation/create-oxford-pets-semseg-table.ipynb
   title: Create a Semantic Segmentation Table from Oxford-IIIT Pets
   blurb: Ingest the Oxford-IIIT Pets dataset into 3LC tables for semantic segmentation. Each image has a trimap giving three classes — pet, background, and border — stored as run-length-encoded layers.
