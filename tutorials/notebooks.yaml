@@ -821,7 +821,7 @@
   creates: []
 - path: 3-training-and-metrics/huggingface-sugarbeets-segformer-training.ipynb
   title: Train and Diagnose SegFormer on Sugar Beets 2016
-  blurb: In this tutorial, we fine-tune a SegFormer semantic-segmentation model on the University of Bonn Sugar Beets 2016 agricultural dataset. This is a 3-class problem — soil, sugarbeet (crop), and weed....
+  blurb: In this tutorial, we fine-tune a SegFormer semantic-segmentation model on the University of Bonn Sugar Beets 2016 agricultural dataset. This is a 3-class problem — soil, sugarbeet (crop), and weed.
   tags: [semantic-segmentation, segformer, hugging-face, training, metrics]
   thumbnail: images/sugarbeets/overview.png
   project_meta:
