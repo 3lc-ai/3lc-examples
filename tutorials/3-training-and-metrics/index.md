@@ -26,6 +26,7 @@ huggingface-imdb-finetuning
 huggingface-mrcp-bert-finetuning
 huggingface-pascal-voc-mask2former-finetuning
 huggingface-coco128-segformer-collection
+huggingface-sugarbeets-segformer-training
 detectron2-coco128-detection-collection
 detectron2-balloons-detection-finetuning
 detectron2-coco128-segmentation-collection
