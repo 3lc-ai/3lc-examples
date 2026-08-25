@@ -1,0 +1,27 @@
+# Copy to config.3lc.yaml and edit. Gitignored. launch.py ships this
+# file into the container and sets TLC_CONFIG_FILE so `tlc` picks it up
+# on import. See README §"3LC config" for what each block does.
+#
+# This is 3LC 3.0 config syntax: keys are top-level and hyphenated
+# (project-root-url, not the 2.x indexing.project_root_url).
+
+# Where new tables and runs land. Point at S3 so artifacts outlive
+# the container.
+project-root-url: s3://my-outputs-bucket/sagemaker
+
+# Static aliases — path-prefix tokens substituted when serializing
+# tables in *this* job. They mask the SageMaker channel mount points
+# so the ephemeral container paths don't leak into serialized tables
+# (where they'd be unresolvable after the container exits).
+#
+# These names are deliberately the SAME tokens that train.py persists
+# into the project at runtime (setup_project_aliases →
+# register_project_url_alias). Static aliases here decide what gets
+# *embedded*; the project-persisted aliases decide how those tokens
+# *resolve* later. Same names, opposite directions — see README
+# §"The three concepts".
+aliases:
+  SM_TRAIN_INPUT_DATA: /opt/ml/input/data/train
+  SM_VAL_INPUT_DATA: /opt/ml/input/data/val
+
+# Full reference: https://docs.3lc.ai/latest/configuration/
