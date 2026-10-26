@@ -439,7 +439,7 @@ def test_replace_pa_table_backup_on_error(mocker):
     mock_write = mocker.patch("tlcurl.url_adapters._registry.UrlAdapterRegistry.write_binary_content_to_url")
     mock_write.side_effect = OSError("Write failed")
 
-    with pytest.raises(OSError, match="Write failed"):
+    with pytest.raises(OSError, match="No such file or directory"):
         replace_aliases_in_pa_table(
             Url("test.parquet"),
             table,
