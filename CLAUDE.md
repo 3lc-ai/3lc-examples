@@ -9,7 +9,7 @@ This repository contains examples, tutorials, and CLI tools for the **3LC** data
 - Sample datasets for tutorials
 - Integrations with PyTorch, HuggingFace, Detectron2, Ultralytics YOLO, PyTorch Lightning, and Super-Gradients
 
-**Package:** `3lc_tools` v3.0 | **License:** Apache 2.0 | **Python:** 3.10 - 3.13
+**Package:** `3lc_tools` v3.0 | **License:** Apache 2.0 | **Python:** 3.11 - 3.13
 
 ## Repository Structure
 
@@ -155,7 +155,7 @@ GitHub Actions workflow (`.github/workflows/lint.yml`) runs on PRs to `main`:
 2. MyPy type checking
 3. Pytest test suite
 
-Environment: Ubuntu latest, Python 3.10 (from `.python-version-ci`), uv 0.7.13.
+Environment: Ubuntu latest, Python 3.11 (from `.python-version-ci`), uv 0.7.13.
 
 Notebook execution CI lives in the 3LC monorepo, which fetches the `tutorials/` tree and consumes `tutorials/notebooks.yaml` directly (it does not import `utils/notebooks_metadata.py`).
 
