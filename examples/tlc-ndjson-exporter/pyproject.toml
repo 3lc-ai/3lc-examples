@@ -7,7 +7,7 @@ name = "tlc-ndjson-exporter"
 version = "0.1.0"
 description = "Toy example: 3LC exporter plugin that writes tables as newline-delimited JSON"
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["3lc"]
 
 [project.entry-points."tlc.exporters"]
