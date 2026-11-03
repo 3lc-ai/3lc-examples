@@ -1,12 +1,12 @@
 # Working here with an agent
 
-Before writing or changing `tlc` code, read the 3LC primer for coding agents:
-<https://docs.3lc.ai/3lc/latest/llms.txt>. It holds the concepts that survive releases (Tables, Runs, metrics,
-the anti-patterns) and says where to look for exact names. For anything about the 3LC Hub (deployments, plugins,
-GPU nodes, Connections) read <https://docs.3lc.ai/3lc/latest/llms-hub.txt>.
+Before writing or changing `tlc` code, read 3LC's documents for coding agents: <https://docs.3lc.ai/llms-full.txt>
+holds the primer for the Python package (Tables, Runs, metrics, the anti-patterns) and the primer for the 3LC Hub
+(deployments, plugins, GPU nodes, Connections), with the pages they rest on; <https://docs.3lc.ai/llms.txt> is the
+index.
 
-Both are primers, not references: confirm symbols against the installed package (`help(tlc.X)`), and read the
-documentation page a primer points at, served as markdown under `https://docs.3lc.ai/3lc/latest/_sources/<page>.md.txt`.
+The primers name concepts, not signatures: confirm symbols against the installed package (`help(tlc.X)`), and read
+any documentation page as markdown by replacing `.html` with `.md` in its address.
 
 Repository specifics (layout, notebook metadata, the `tlc_tools` CLI, how to run the tests) are in
 [CLAUDE.md](CLAUDE.md).
