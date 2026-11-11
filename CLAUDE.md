@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+Read [AGENTS.md](AGENTS.md) first: it points at the 3LC primers for agents.
+
 ## Project Overview
 
 This repository contains examples, tutorials, and CLI tools for the **3LC** data platform. It provides:
